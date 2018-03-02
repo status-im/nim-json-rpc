@@ -168,18 +168,6 @@ proc eth_submitWork {.rpc.} =
 proc eth_submitHashrate {.rpc.} =
   discard
 
-proc db_putString {.rpc.} =
-  discard
-
-proc db_getString {.rpc.} =
-  discard
-
-proc db_putHex {.rpc.} =
-  discard
-
-proc db_getHex {.rpc.} =
-  discard
-
 proc shh_post {.rpc.} =
   discard
 
@@ -261,10 +249,6 @@ proc registerEthereumRpcs*(server: RpcServer) =
   server.register "eth_getWork", eth_getWork
   server.register "eth_submitWork", eth_submitWork
   server.register "eth_submitHashrate", eth_submitHashrate
-  server.register "db_putString", db_putString
-  server.register "db_getString", db_getString
-  server.register "db_putHex", db_putHex
-  server.register "db_getHex", db_getHex
   server.register "shh_post", shh_post
   server.register "shh_version", shh_version
   server.register "shh_newIdentity", shh_newIdentity
