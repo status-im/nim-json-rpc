@@ -20,8 +20,7 @@ proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.asyn
     if not server.procs.hasKey(methodName):
       await client.sendError(METHOD_NOT_FOUND, "Method not found", id, %(methodName & " is not a registered method."))
     else:
-      # TODO: Performance or other effects from NOT calling rpc with await?
-      let callRes = server.procs[methodName](node["params"])
+      let callRes = server.procs[methodName](node["params"])  # TODO: Performance or other effects from NOT calling rpc with await?
       await client.send($wrapReply(id, callRes, newJNull()) & "\c\l")
 
 proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
@@ -39,8 +38,7 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
     await fut
     if fut.failed:
       if fut.readError of RpcProcError:
-        # This error signifies that the proc wants us to respond with a custom
-        # error object.
+        # TODO: Currently exceptions in rpc calls are not properly handled
         let err = fut.readError.RpcProcError
         await client.sendError(err.code, err.msg, err.data)
       else:
