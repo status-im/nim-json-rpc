@@ -23,3 +23,5 @@ proc newRpcServer*(address: string, port: Port = Port(8545)): RpcServer =
 
 proc register*(server: RpcServer, name: string, rpc: RpcProc) =
   server.procs[name] = rpc
+
+proc unRegisterAll*(server: RpcServer) = server.procs.clear

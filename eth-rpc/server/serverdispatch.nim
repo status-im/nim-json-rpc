@@ -1,5 +1,5 @@
 import asyncdispatch, asyncnet, json, tables, strutils,
-  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils, rpcprocs,
+  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils, ethprocs,
   options
 
 proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.async.} =
@@ -20,7 +20,7 @@ proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.asyn
     if not server.procs.hasKey(methodName):
       await client.sendError(METHOD_NOT_FOUND, "Method not found", id, %(methodName & " is not a registered method."))
     else:
-      let callRes = server.procs[methodName](node["params"])  # TODO: Performance or other effects from NOT calling rpc with await?
+      let callRes = server.procs[methodName](node["params"])
       await client.send($wrapReply(id, callRes, newJNull()) & "\c\l")
 
 proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
@@ -29,7 +29,6 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
     if line == "":
       # Disconnected.
       client.close()
-      echo server.port, " request with no data"
       break
 
     ifDebug: echo "Process client: ", server.port, ":" & line

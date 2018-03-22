@@ -1,4 +1,4 @@
-import ../src/rpcserver, asyncdispatch
+import ../eth-rpc/rpcserver, asyncdispatch
 
 when isMainModule:
   echo "Initialising server..."
