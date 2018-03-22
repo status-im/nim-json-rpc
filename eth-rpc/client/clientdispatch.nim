@@ -17,14 +17,14 @@ proc newRpcClient*(): RpcClient =
 
 proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
-  let id = $genOid()  # TODO: finalise approach
+  let id = $genOid()
   let msg = %{"jsonrpc": %"2.0", "method": %name, "params": params, "id": %id}
   await self.socket.send($msg & "\c\l")
 
-  # This Future is completed by processMessage.
-  var idFut = newFuture[Response]()
-  self.awaiting[id] = idFut     # add to awaiting responses
-  result = await idFut
+  # Completed by processMessage.
+  var newFut = newFuture[Response]()
+  self.awaiting[id] = newFut  # add to awaiting responses
+  result = await newFut
 
 proc isNull(node: JsonNode): bool = node.kind == JNull
 
@@ -40,8 +40,8 @@ proc processMessage(self: RpcClient, line: string) =
     self.awaiting[node["id"].str].complete((false, node["result"]))
     self.awaiting.del(node["id"].str)
   else:
+    # If the node id is null, we cannot complete the future.
     if not node["id"].isNull: 
-      # If the node id is null, we cannot complete the future.
       self.awaiting[node["id"].str].complete((true, node["error"]))
       # TODO: Safe to delete here?
       self.awaiting.del(node["id"].str)
@@ -69,15 +69,11 @@ proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
   self.port = port
   asyncCheck processData(self)
 
-proc makeTemplate(name: string, params: NimNode, body: NimNode, starred: bool = false): NimNode =
+proc makeTemplate(name: string, params: NimNode, body: NimNode, starred: bool): NimNode =
   # set up template AST
   result = newNimNode(nnkTemplateDef)
-  if starred:
-    var nPostFix = newNimNode(nnkPostFix)    
-    nPostFix.add ident("*"), ident(name)
-    result.add nPostFix
-  else:
-    result.add ident(name)
+  if starred: result.add postFix(ident(name), "*")
+  else: result.add ident(name)
   result.add newEmptyNode(), newEmptyNode(), params, newEmptyNode(), newEmptyNode(), body
 
 proc appendFormalParam(formalParams: NimNode, identName, typeName: string) =
@@ -95,12 +91,10 @@ macro generateCalls: untyped =
   result = newStmtList()
   for callName in ETHEREUM_RPC_CALLS:
     var
-      # TODO: Use macros.newProc
       params = newNimNode(nnkFormalParams)
-      call = newNimNode(nnkCall)
+      call = newCall(newDotExpr(ident("client"), ident("call")), newStrLitNode(callName), ident("params"))
       body = newStmtList().add call
       templ = makeTemplate(callName, params, body, true)
-    call.add newDotExpr(ident("client"), ident("call")), newStrLitNode(callName), ident("params")
     params.add newNimNode(nnkBracketExpr).add(ident("Future"), ident("Response"))
     params.appendFormalParam("client", "RpcClient")
     params.appendFormalParam("params", "JsonNode")
