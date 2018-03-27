@@ -1,24 +1,27 @@
 import servertypes, json, asyncdispatch, rpcregistration
-import keccak_tiny
+import cryptoutils
 
 proc web3_clientVersion {.rpc.} =
   return %("Nimbus-RPC-Test")
 
 proc web3_sha3 {.rpc.} =
-  let
-    data = params.getStr
-    res = $sha3_256(data)
-  return %res
+  var data = params.getStr
+  let kres = k256(data)
+  return %kres
 
 proc net_version {.rpc.} =
-  discard
-
-proc net_peerCount {.rpc.} =
-  # TODO: Discovery integration
+  #[ See:
+    https://github.com/ethereum/interfaces/issues/6
+    https://github.com/ethereum/EIPs/issues/611
+  ]#
   discard
 
 proc net_listening {.rpc.} =
   return %"true"
+
+proc net_peerCount {.rpc.} =
+  # TODO: Discovery integration
+  discard
 
 proc eth_protocolVersion {.rpc.} =
   discard
