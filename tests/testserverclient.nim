@@ -1,6 +1,10 @@
-import ../eth-rpc/rpcclient, asyncdispatch, json, unittest
+import ../eth-rpc / rpcclient, ../eth-rpc / rpcserver, asyncdispatch, json, unittest
 
 when isMainModule:
+  # create on localhost, default port
+  var srv = newRpcServer("")
+  asyncCheck srv.serve()
+
   suite "RPC":
     proc main {.async.} =
       var client = newRpcClient()
@@ -15,4 +19,3 @@ when isMainModule:
         check response.result.getStr == "3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532"
 
     waitFor main()
-  echo "Finished."
