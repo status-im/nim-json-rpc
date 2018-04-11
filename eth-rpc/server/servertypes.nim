@@ -1,7 +1,7 @@
 import asyncdispatch, asyncnet, json, tables
 
 type
-  RpcProc* = proc (params: JsonNode): JsonNode
+  RpcProc* = proc (params: JsonNode): Future[JsonNode]
 
   RpcServer* = ref object
     socket*: AsyncSocket
