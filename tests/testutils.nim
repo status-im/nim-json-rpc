@@ -1,4 +1,4 @@
-import strutils, ../src/server/private/transportutils, unittest
+import strutils, eth-rpc/server/private/transportutils, unittest
 
 suite "Encoding":
   test "Encode quantity":
@@ -13,4 +13,3 @@ suite "Encoding":
     for i, b in bytePairs(0x07_06_05_04_03_02_01_00'u64):
       check b == i.byte
 
-  

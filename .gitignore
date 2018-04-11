@@ -1,1 +1,16 @@
+# Ignore all files without extensions (unix executable files)
+*
+!*.*
+!*/
+
+# Ignore all binary outputs
+*.so
+*.dylib
+*.a
+*.la
+*.exe
+*.dll
+
+# Ignore the nimcache folders
 nimcache/
+

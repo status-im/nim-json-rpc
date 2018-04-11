@@ -6,4 +6,15 @@ license       = "Apache License 2.0"
 srcDir        = "src"
 
 ### Dependencies
-requires "nim >= 0.17.3"
+requires "nim >= 0.17.3",
+         "nimcrypto"
+
+proc configForTests() =
+  --hints: off
+  --debuginfo
+  --path: "."
+  --run
+
+task test, "run tests":
+  configForTests()
+  setCommand "c", "tests/all.nim"
