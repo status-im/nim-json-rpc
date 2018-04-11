@@ -2,6 +2,8 @@ from asyncdispatch import Port
 
 proc `$`*(port: Port): string = $int(port)
 
+# REVIEW: you can base one of the iterators on the other to avoid the code duplication
+# e.g. implement `bytes` in terms of `bytePairs`.
 iterator bytes*[T: SomeUnsignedInt](value: T): byte {.inline.} =
   ## Traverse the bytes of a value in little endian
   let argSize = sizeOf(T)
@@ -30,6 +32,7 @@ proc encodeQuantity*(value: SomeUnsignedInt): string =
   var hValue = value.toHex.stripLeadingZeros
   result = "0x" & hValue
 
+# REVIEW: I think Mamy has now introduced a similar proc in the `byteutils` package
 proc encodeData*[T: SomeUnsignedInt](values: seq[T]): string =
   ## Translates seq of values to hex string
   let argSize = sizeOf(T)

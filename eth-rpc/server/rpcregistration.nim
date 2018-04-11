@@ -3,6 +3,8 @@ import macros, servertypes
 var rpcCallRefs {.compiletime.} = newSeq[(string)]()
 
 macro rpc*(prc: untyped): untyped =
+  # REVIEW: (IMPORTANT) I think the rpc procs should be async.
+  # they may need to call into other async procs of the VM
   result = prc
   let
     params = prc.findChild(it.kind == nnkFormalParams)

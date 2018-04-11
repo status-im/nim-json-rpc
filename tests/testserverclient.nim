@@ -1,5 +1,7 @@
 import ../eth-rpc / rpcclient, ../eth-rpc / rpcserver, asyncdispatch, json, unittest
 
+# REVIEW: I'd like to see some dummy implementations of RPC calls handled in async fashion.
+
 when isMainModule:
   # create on localhost, default port
   var srv = newRpcServer("")

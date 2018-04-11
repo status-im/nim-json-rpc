@@ -17,8 +17,13 @@ proc newRpcClient*(): RpcClient =
 
 proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
+  # REVIEW: is there a reason why a simple counter is not used here?
+  # genOid takes CPU cycles and the output is larger
   let id = $genOid()
   let msg = %{"jsonrpc": %"2.0", "method": %name, "params": params, "id": %id}
+  # REVIEW: it would be more efficient if you append the terminating new line to
+  # the `msg` variable in-place. This way, a copy won't be performed most of the
+  # time because the string is likely to have 2 bytes of unused capacity.
   await self.socket.send($msg & "\c\l")
 
   # Completed by processMessage.
@@ -31,6 +36,9 @@ proc isNull(node: JsonNode): bool = node.kind == JNull
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
   
+  # REVIEW: These shouldn't be just asserts. You cannot count
+  # that the other side implements the protocol correctly, so
+  # you must perform validation even in release builds.
   assert node.hasKey("jsonrpc")
   assert node["jsonrpc"].str == "2.0"
   assert node.hasKey("id")
@@ -90,6 +98,7 @@ macro generateCalls: untyped =
   ##   client.web3_clientVersion(params)
   result = newStmtList()
   for callName in ETHEREUM_RPC_CALLS:
+    # REVIEW: `macros.quote` would have worked well here to make the code easier to understand/maintain
     var
       params = newNimNode(nnkFormalParams)
       call = newCall(newDotExpr(ident("client"), ident("call")), newStrLitNode(callName), ident("params"))
