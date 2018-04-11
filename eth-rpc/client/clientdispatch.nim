@@ -6,29 +6,29 @@ type
     awaiting: Table[string, Future[Response]]
     address: string
     port: Port
+    nextId: int64
   Response* = tuple[error: bool, result: JsonNode]
+
 
 proc newRpcClient*(): RpcClient =
   ## Creates a new ``RpcClient`` instance. 
   RpcClient(
     socket: newAsyncSocket(),
-    awaiting: initTable[string, Future[Response]]()
+    awaiting: initTable[string, Future[Response]](),
+    nextId: 1
   )
 
 proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
-  # REVIEW: is there a reason why a simple counter is not used here?
-  # genOid takes CPU cycles and the output is larger
-  let id = $genOid()
-  let msg = %{"jsonrpc": %"2.0", "method": %name, "params": params, "id": %id}
-  # REVIEW: it would be more efficient if you append the terminating new line to
-  # the `msg` variable in-place. This way, a copy won't be performed most of the
-  # time because the string is likely to have 2 bytes of unused capacity.
-  await self.socket.send($msg & "\c\l")
+  let id = $self.nextId
+  self.nextId.inc
+  let msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params, "id": %id} & "\c\l"
+  await self.socket.send(msg)
 
-  # Completed by processMessage.
+  # completed by processMessage.
   var newFut = newFuture[Response]()
-  self.awaiting[id] = newFut  # add to awaiting responses
+  # add to awaiting responses
+  self.awaiting[id] = newFut
   result = await newFut
 
 proc isNull(node: JsonNode): bool = node.kind == JNull
@@ -36,23 +36,18 @@ proc isNull(node: JsonNode): bool = node.kind == JNull
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
   
-  # REVIEW: These shouldn't be just asserts. You cannot count
-  # that the other side implements the protocol correctly, so
-  # you must perform validation even in release builds.
-  assert node.hasKey("jsonrpc")
-  assert node["jsonrpc"].str == "2.0"
-  assert node.hasKey("id")
-  assert self.awaiting.hasKey(node["id"].str)
+  # TODO: Use more appropriate exception objects
+  if not node.hasKey("jsonrpc"): raise newException(ValueError, "Message is missing rpc version field")
+  elif node["jsonrpc"].str != "2.0": raise newException(ValueError, "Unsupported version of JSON, expected 2.0, received \"" & node["jsonrpc"].str & "\"")
+  elif not node.hasKey("id"): raise newException(ValueError, "Message is missing id field")
+  elif not self.awaiting.hasKey(node["id"].str): raise newException(ValueError, "Cannot find message id \"" & node["id"].str & "\"")
 
   if node["error"].kind == JNull:
     self.awaiting[node["id"].str].complete((false, node["result"]))
     self.awaiting.del(node["id"].str)
   else:
-    # If the node id is null, we cannot complete the future.
-    if not node["id"].isNull: 
-      self.awaiting[node["id"].str].complete((true, node["error"]))
-      # TODO: Safe to delete here?
-      self.awaiting.del(node["id"].str)
+    self.awaiting[node["id"].str].complete((true, node["error"]))
+    self.awaiting.del(node["id"].str)
 
 proc connect*(self: RpcClient, address: string, port: Port): Future[void]
 
@@ -77,20 +72,6 @@ proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
   self.port = port
   asyncCheck processData(self)
 
-proc makeTemplate(name: string, params: NimNode, body: NimNode, starred: bool): NimNode =
-  # set up template AST
-  result = newNimNode(nnkTemplateDef)
-  if starred: result.add postFix(ident(name), "*")
-  else: result.add ident(name)
-  result.add newEmptyNode(), newEmptyNode(), params, newEmptyNode(), newEmptyNode(), body
-
-proc appendFormalParam(formalParams: NimNode, identName, typeName: string) =
-  # set up formal params AST
-  formalParams.expectKind(nnkFormalParams)
-  if formalParams.len == 0: formalParams.add newEmptyNode()
-  var identDef = newIdentDefs(ident(identName), ident(typeName))
-  formalParams.add identDef
-
 macro generateCalls: untyped =
   ## Generate templates for client calls so that:
   ##   client.call("web3_clientVersion", params)
@@ -98,16 +79,11 @@ macro generateCalls: untyped =
   ##   client.web3_clientVersion(params)
   result = newStmtList()
   for callName in ETHEREUM_RPC_CALLS:
-    # REVIEW: `macros.quote` would have worked well here to make the code easier to understand/maintain
-    var
-      params = newNimNode(nnkFormalParams)
-      call = newCall(newDotExpr(ident("client"), ident("call")), newStrLitNode(callName), ident("params"))
-      body = newStmtList().add call
-      templ = makeTemplate(callName, params, body, true)
-    params.add newNimNode(nnkBracketExpr).add(ident("Future"), ident("Response"))
-    params.appendFormalParam("client", "RpcClient")
-    params.appendFormalParam("params", "JsonNode")
-    result.add templ
+    let nameLit = ident(callName)
+    result.add(quote do:
+      template `nameLit`*(client: RpcClient, params: JsonNode): Future[Response] = client.call(`callName`, params)
+    )
+  echo result.repr
 
 # generate all client ethereum rpc calls
 generateCalls()
