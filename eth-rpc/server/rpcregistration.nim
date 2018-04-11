@@ -1,10 +1,14 @@
-import macros, servertypes
+import macros, servertypes, strutils
 
 var rpcCallRefs {.compiletime.} = newSeq[(string)]()
 
 macro rpc*(prc: untyped): untyped =
-  # REVIEW: (IMPORTANT) I think the rpc procs should be async.
-  # they may need to call into other async procs of the VM
+  ## Converts a procedure into the following format:
+  ##  <proc name>*(params: JsonNode): Future[JsonNode] {.async.}
+  ## This procedure is then added into a compile-time list
+  ## so that it is automatically registered for every server that
+  ## calls registerRpcs(server)
+  prc.expectKind nnkProcDef
   result = prc
   let
     params = prc.findChild(it.kind == nnkFormalParams)
@@ -20,8 +24,13 @@ macro rpc*(prc: untyped): untyped =
   identDefs.add ident("params"), ident("JsonNode"), newEmptyNode()
   # check there isn't already a result type
   assert params.len == 1 and params[0].kind == nnkEmpty
-  params[0] = ident("JsonNode")
+  params[0] = newNimNode(nnkBracketExpr)
+  params[0].add ident("Future"), ident("JsonNode")
   params.add identDefs
+  # add async pragma, we can assume there isn't an existing .async.
+  # as this would fail the result check above.
+  prc.addPragma(newIdentNode("async"))
+
   # Adds to compiletime list of rpc calls so we can register them in bulk
   # for multiple servers using `registerRpcs`.
   rpcCallRefs.add $procName
@@ -33,3 +42,4 @@ macro registerRpcs*(server: RpcServer): untyped =
   for procName in rpcCallRefs:
     let de = newDotExpr(ident($server), ident("register"))
     result.add(newCall(de, newStrLitNode(procName), ident(procName)))
+  echo result.repr
