@@ -31,8 +31,6 @@ proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.
   self.awaiting[id] = newFut
   result = await newFut
 
-proc isNull(node: JsonNode): bool = node.kind == JNull
-
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
   
@@ -81,9 +79,8 @@ macro generateCalls: untyped =
   for callName in ETHEREUM_RPC_CALLS:
     let nameLit = ident(callName)
     result.add(quote do:
-      template `nameLit`*(client: RpcClient, params: JsonNode): Future[Response] = client.call(`callName`, params)
+      proc `nameLit`*(client: RpcClient, params: JsonNode): Future[Response] {.inline.} = client.call(`callName`, params)  # TODO: Back to template
     )
-  echo result.repr
 
 # generate all client ethereum rpc calls
 generateCalls()
