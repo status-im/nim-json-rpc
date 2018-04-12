@@ -1,5 +1,5 @@
 import asyncdispatch, asyncnet, json, tables, strutils,
-  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils, ethprocs,
+  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils,
   options
 
 proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.async.} =
@@ -43,7 +43,6 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
         await client.sendError(-32000, "Error", %getCurrentExceptionMsg())
 
 proc serve*(server: RpcServer) {.async.} =
-  server.registerEthereumRpcs
   server.socket.bindAddr(server.port, server.address)
   server.socket.listen()
 
