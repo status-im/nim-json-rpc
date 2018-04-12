@@ -1,15 +1,19 @@
-import ../eth-rpc / rpcclient, ../eth-rpc / rpcserver, asyncdispatch, json, unittest, ../eth-rpc/server/ethprocs
+import ../eth-rpc / rpcclient, ../eth-rpc / rpcserver, 
+  asyncdispatch, json, unittest, tables
 
 # REVIEW: I'd like to see some dummy implementations of RPC calls handled in async fashion.
-proc myProc {.rpc.} =
-  return %"hello"
+proc myProc* {.rpc.} =
+  # Custom async RPC call
+  return %"Hello"
+
+var srv = newRpcServer("")
+# This is required to automatically register `myProc` to new servers
+registerRpcs(srv)
+# TODO: Avoid having to add procs twice, once for the ethprocs in newRpcServer,
+# and again with the extra `myProc` rpc
 
 when isMainModule:
   # create on localhost, default port
-  var srv = newRpcServer("")
-  registerEthereumRpcs(srv)
-  asyncCheck srv.serve()
-
   suite "RPC":
     proc main {.async.} =
       var client = newRpcClient()
