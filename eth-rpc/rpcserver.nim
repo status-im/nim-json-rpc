@@ -1,2 +1,2 @@
-import server / [servertypes, rpcconsts, serverdispatch, rpcregistration]
-export servertypes, rpcconsts, serverdispatch, rpcregistration
+import server / [servertypes, rpcconsts, serverdispatch]
+export servertypes, rpcconsts, serverdispatch
