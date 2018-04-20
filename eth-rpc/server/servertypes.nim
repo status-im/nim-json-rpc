@@ -13,8 +13,6 @@ type
     code*: int
     data*: JsonNode
 
-var rpcCallRefs {.compiletime.} = newSeq[(string)]()
-
 proc register*(server: RpcServer, name: string, rpc: RpcProc) =
   server.procs[name] = rpc
 
@@ -52,30 +50,79 @@ macro rpc*(prc: untyped): untyped =
   # as this would mean there's a return type and fail the result check above.
   prc.addPragma(newIdentNode("async"))
 
-  # Adds to compiletime list of rpc calls so we can register them in bulk
-  # for multiple servers using `registerRpcs`.
-  rpcCallRefs.add $procName
-
-macro registerRpcs*(server: RpcServer): untyped =
-  ## Step through procs currently registered with {.rpc.} and add a register call for this server
-  result = newStmtList()
-  result.add(quote do:
-    `server`.unRegisterAll
-  )
-  for procName in rpcCallRefs:
-    let i = ident(procName)
-    result.add(quote do:
-      `server`.register(`procName`, `i`)
-    )
-
-include ethprocs # TODO: This isn't ideal as it means editing code in ethprocs shows errors
-
-proc newRpcServer*(address: string, port: Port = Port(8545)): RpcServer =
+proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
   result = RpcServer(
     socket: newAsyncSocket(),
     port: port,
     address: address,
     procs: newTable[string, RpcProc]()
   )
-  result.registerRpcs
-  
+
+var sharedServer: RpcServer
+
+proc sharedRpcServer*(): RpcServer =
+  if sharedServer.isNil: sharedServer = newRpcServer("")
+  result = sharedServer
+
+macro multiRemove(s: string, values: varargs[string]): untyped =
+  ## wrapper for multiReplace
+  result = newStmtList()
+  var call = newNimNode(nnkCall)
+  call.add(ident"multiReplace")
+  call.add(s)
+  for item in values:
+    let sItem = $item
+    # generate tuples with empty strings
+    call.add(newPar(newStrLitNode(sItem), newStrLitNode("")))
+  result.add call
+
+macro on*(server: var RpcServer, path: string, body: untyped): untyped =
+  var paramTemplates = newStmtList()
+  # process parameters of body into templates
+  let parameters = body.findChild(it.kind == nnkFormalParams)
+  if not parameters.isNil:
+    # marshall result to json
+    var resType = parameters[0]
+    if resType.kind != nnkEmpty:
+      # TODO: transform result type and/or return to json
+      discard
+    # convert input parameters to json fetch templates
+    for i in 1..<parameters.len:
+      parameters[i].expectKind nnkIdentDefs
+      let
+        name = parameters[i][0]
+        nameStr = $name
+        paramType = parameters[i][1]
+      paramTemplates.add(quote do:
+        template `name`: `paramType` = params[`nameStr`]
+      )
+
+  # create RPC proc
+  let
+    pathStr = $path
+    procName = ident(pathStr.multiRemove(".", "/"))
+    paramsIdent = ident("params")
+  var
+    procBody: NimNode
+  if body.kind == nnkStmtList: procBody = body
+  else: procBody = body.body
+  result = quote do:
+    proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+      `paramTemplates`
+      `procBody`
+    `server`.register(`path`, `procName`)
+  echo result.repr
+
+when isMainModule:
+  import asyncdispatch, asyncnet
+  var s = newRpcServer("localhost")
+  s.on("the/path") do(a: int, b: string):
+    var node = %"test"
+    await node
+  s.on("the/path2") do() -> int:
+    echo "hello2"
+  s.on("the/path3"):
+    echo "hello3"
+  assert s.procs.hasKey("the/path")
+  assert s.procs.hasKey("the/path2")
+  assert s.procs.hasKey("the/path3")
