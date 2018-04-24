@@ -91,7 +91,9 @@ proc jsonGetFunc(paramType: string): NimNode =
   else: result = nil
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
-  var paramTemplates = newStmtList()
+  var
+    paramTemplates = newStmtList()
+    expectedParams = 0
   let parameters = body.findChild(it.kind == nnkFormalParams)
   if not parameters.isNil:
     # process parameters of body into json fetch templates
@@ -101,6 +103,7 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
       discard
 
     var paramsIdent = ident"params"
+    expectedParams = parameters.len - 1
 
     for i in 1..<parameters.len:
       let pos = i - 1 # first index is return type
@@ -109,30 +112,51 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
       # take user's parameter name for template
       let name = parameters[i][0] 
       var paramType = parameters[i][1]
+      paramTemplates.add(quote do:
+        if `paramsIdent`.len != `expectedParams`:
+          raise newException(ValueError, "Expected " & $`expectedParams` & " Json parameters but got " & $`paramsIdent`.len)
+      )
       
-      # TODO: Object marshalling
+      # TODO: marshalling for object types
+      # TODO: Replace exception with async error return values
+      # Requires passing the server in local parameters to access the socket
 
       if paramType.kind == nnkBracketExpr:
-        # process array parameters
-        assert $paramType[0] == "array"
-        paramType.expectLen 3
-        let
-          arrayType = paramType[2]
-          arrayLen = paramType[1]
-          getFunc = jsonGetFunc($arrayType)
-          idx = ident"i"
-        # marshall json array to requested types
-        # TODO: Replace length exception with async error return value
-        # We would need to pass the server in parameters to access the socket
-        paramTemplates.add(quote do:
-          var `name`: `paramType`
-          block:
+        # process array and seq parameters
+        # and marshall json arrays to requested types
+        let paramTypeStr = $paramType[0]
+        assert paramTypeStr == "array" or paramTypeStr == "seq"
+        
+        let idx = ident"i"
+        
+        if paramTypeStr == "array":
+          paramType.expectLen 3
+          let arrayLen = paramType[1]
+          let arrayType = paramType[2]
+          let getFunc = jsonGetFunc($arrayType)
+
+          paramTemplates.add(quote do:
+            if `paramsIdent`.elems[`pos`].kind != JArray:
+              raise newException(ValueError, "Expected array but got " & $`paramsIdent`.elems[`pos`].kind)
+            var `name`: `paramType`
             if `paramsIdent`.len > `name`.len:
-              raise newException(ValueError, "Array longer than parameter allows. Expected " & $`arrayLen` & ", data length is " & $`paramsIdent`.len)
+              raise newException(ValueError, "Array longer than parameter allows. Expected " & $`arrayLen` & ", data length is " & $`paramsIdent`.elems[`pos`].len)
             else:
-              for `idx` in 0 ..< `paramsIdent`.len:
-                `name`[`idx`] = `arrayType`(`paramsIdent`.elems[`idx`].`getFunc`)
-        )        
+              for `idx` in 0 ..< `paramsIdent`.elems[`pos`].len:
+                `name`[`idx`] = `arrayType`(`paramsIdent`.elems[`pos`].elems[`idx`].`getFunc`)
+          )        
+        else:
+          paramType.expectLen 2
+          let
+            seqType = paramType[1]
+            getFunc = jsonGetFunc($seqType)
+          paramTemplates.add(quote do:
+            if `paramsIdent`.elems[`pos`].kind != JArray:
+              raise newException(ValueError, "Expected array but got " & $`paramsIdent`.elems[`pos`].kind)
+            var `name` = newSeq[`seqType`](`paramsIdent`.elems[`pos`].len)
+            for `idx` in 0 ..< `paramsIdent`.elems[`pos`].len:
+              `name`[`idx`] = `seqType`(`paramsIdent`.elems[`pos`].elems[`idx`].`getFunc`)
+          )
       else:
         # other types
         var getFuncName = jsonGetFunc($paramType)
@@ -142,7 +166,6 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
         paramTemplates.add(quote do:
           var `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
         )
-
   # create RPC proc
   let
     pathStr = $path
@@ -152,11 +175,20 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
   #
+  var checkTypeError: NimNode
+  if expectedParams > 0:
+    checkTypeError = quote do:
+      if `paramsIdent`.kind != JArray:
+        raise newException(ValueError, "Expected array but got " & $`paramsIdent`.kind)
+  else: checkTypeError = newStmtList()
+
   result = quote do:
     proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+      `checkTypeError`
       `paramTemplates`
       `procBody`
     `server`.register(`path`, `procName`)
+  echo result.repr
 
 when isMainModule:
   import unittest
@@ -173,12 +205,27 @@ when isMainModule:
     var res = newJArray()
     for item in arr:
       res.add %int(item)
+    res.add %b
+    result = %res
+  s.on("the/path5") do(b: string, arr: seq[int]):
+    var res = newJArray()
+    res.add %b
+    for item in arr:
+      res.add %int(item)
     result = res
   suite "Server types":
     test "On macro registration":
       check s.procs.hasKey("the/path1")
       check s.procs.hasKey("the/path2")
       check s.procs.hasKey("the/path3")
-    test "Processing arrays":
-      let r = waitfor thepath4(%[1, 2, 3])
-      check r == %[1, 2, 3, 0, 0, 0]
+    test "Array/seq parameters":
+      let r1 = waitfor thepath4(%[%[1, 2, 3], %"hello"])
+      var ckR1 = %[1, 2, 3, 0, 0, 0]
+      ckR1.elems.add %"hello"
+      check r1 == ckR1
+
+      let r2 = waitfor thepath5(%[%"abc", %[1, 2, 3, 4, 5]])
+      var ckR2 = %["abc"]
+      for i in 0..4: ckR2.add %(i + 1)
+      check r2 == ckR2
+    
