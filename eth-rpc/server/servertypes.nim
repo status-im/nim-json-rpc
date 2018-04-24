@@ -81,6 +81,15 @@ macro multiRemove(s: string, values: varargs[string]): untyped =
   body.add multiReplaceCall
   result = newBlockStmt(body)
 
+proc jsonGetFunc(paramType: string): NimNode =
+  case paramType
+  of "string": result = ident"getStr"
+  of "int": result = ident"getInt"
+  of "float": result = ident"getFloat"
+  of "bool": result = ident"getBool"
+  of "byte": result = ident"getInt"
+  else: result = nil
+
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   var paramTemplates = newStmtList()
   let parameters = body.findChild(it.kind == nnkFormalParams)
@@ -90,29 +99,49 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
     if resType.kind != nnkEmpty:
       # TODO: transform result type and/or return to json
       discard
-    #
+
+    var paramsIdent = ident"params"
+
     for i in 1..<parameters.len:
+      let pos = i - 1 # first index is return type
       parameters[i].expectKind nnkIdentDefs
-      #
-      let
-        name = parameters[i][0]       # take user's parameter name for template
-        paramType = parameters[i][1]
-      var getFuncName: string
-      case $paramType
-      of "string": getFuncName = "getStr"
-      of "int": getFuncName = "getInt"
-      of "float": getFuncName = "getFloat"
-      of "bool": getFuncName = "getBool"
-      # TODO: array, object
-      else: discard
-      # fetch parameter 
-      let
-        getFunc = ident(getFuncName)
-        pos = i - 1 # first index is return type
-        paramsIdent = ident"params"
-      paramTemplates.add(quote do:
-        template `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
-      )
+
+      # take user's parameter name for template
+      let name = parameters[i][0] 
+      var paramType = parameters[i][1]
+      
+      # TODO: Object marshalling
+
+      if paramType.kind == nnkBracketExpr:
+        # process array parameters
+        assert $paramType[0] == "array"
+        paramType.expectLen 3
+        let
+          arrayType = paramType[2]
+          arrayLen = paramType[1]
+          getFunc = jsonGetFunc($arrayType)
+          idx = ident"i"
+        # marshall json array to requested types
+        # TODO: Replace length exception with async error return value
+        # We would need to pass the server in parameters to access the socket
+        paramTemplates.add(quote do:
+          var `name`: `paramType`
+          block:
+            if `paramsIdent`.len > `name`.len:
+              raise newException(ValueError, "Array longer than parameter allows. Expected " & $`arrayLen` & ", data length is " & $`paramsIdent`.len)
+            else:
+              for `idx` in 0 ..< `paramsIdent`.len:
+                `name`[`idx`] = `arrayType`(`paramsIdent`.elems[`idx`].`getFunc`)
+        )        
+      else:
+        # other types
+        var getFuncName = jsonGetFunc($paramType)
+        assert getFuncName != nil
+        # fetch parameter 
+        let getFunc = newIdentNode($getFuncName)
+        paramTemplates.add(quote do:
+          var `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
+        )
 
   # create RPC proc
   let
@@ -132,16 +161,24 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
 when isMainModule:
   import unittest
   var s = newRpcServer("localhost")
-  s.on("the/path") do(a: int, b: string):
-    var node = %"test"
-    result = node
-  s.on("the/path2") do() -> int:
-    echo "hello2"
-  s.on("the/path3"):
+  s.on("the/path1"):
     echo "hello3"
     result = %1
+  s.on("the/path2") do() -> int:
+    echo "hello2"
+  s.on("the/path3") do(a: int, b: string):
+    var node = %"test"
+    result = node
+  s.on("the/path4") do(arr: array[6, byte], b: string):
+    var res = newJArray()
+    for item in arr:
+      res.add %int(item)
+    result = res
   suite "Server types":
     test "On macro registration":
-      check s.procs.hasKey("the/path")
+      check s.procs.hasKey("the/path1")
       check s.procs.hasKey("the/path2")
       check s.procs.hasKey("the/path3")
+    test "Processing arrays":
+      let r = waitfor thepath4(%[1, 2, 3])
+      check r == %[1, 2, 3, 0, 0, 0]
