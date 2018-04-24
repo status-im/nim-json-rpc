@@ -1,5 +1,5 @@
 import ../eth-rpc / rpcclient, ../eth-rpc / rpcserver, 
-  asyncdispatch, json, unittest, tables, ../eth-rpc / server / ethprocs
+  asyncdispatch, json, unittest, tables
 
 # TODO: dummy implementations of RPC calls handled in async fashion.
 var srv = sharedRpcServer()
