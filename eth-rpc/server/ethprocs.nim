@@ -1,12 +1,12 @@
 import servertypes, cryptoutils, json, macros
 
-var s = sharedRpcServer()
+var server = sharedRpcServer()
 
-s.on("web3_clientVersion"):
+server.on("web3_clientVersion"):
   result = %"Nimbus-RPC-Test"
 
-s.on("web3_sha3") do(input: string):
-  let kres = k256(input)
+server.on("web3_sha3") do(data: string):
+  let kres = k256(data)
   result = %kres
 
 proc net_version* {.rpc.} =
@@ -47,7 +47,7 @@ proc eth_accounts* {.rpc.} =
 proc eth_blockNumber* {.rpc.} =
   discard
 
-proc eth_getBalance* {.rpc.} =
+server.on("eth_getBalance") do(data: array[20, byte], quantity: int):
   discard
 
 proc eth_getStorageAt* {.rpc.} =
