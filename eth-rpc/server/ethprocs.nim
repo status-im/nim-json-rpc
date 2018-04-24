@@ -1,12 +1,13 @@
-import cryptoutils
+import servertypes, cryptoutils, json, macros
 
-proc web3_clientVersion* {.rpc.} =
-  return %("Nimbus-RPC-Test")
+var s = sharedRpcServer()
 
-proc web3_sha3* {.rpc.} =
-  var data = params.getStr
-  let kres = k256(data)
-  return %kres
+s.on("web3_clientVersion"):
+  result = %"Nimbus-RPC-Test"
+
+s.on("web3_sha3") do(input: string):
+  let kres = k256(input)
+  result = %kres
 
 proc net_version* {.rpc.} =
   #[ See:
@@ -181,7 +182,3 @@ proc shh_getFilterChanges* {.rpc.} =
 proc shh_getMessages* {.rpc.} =
   discard
 
-proc registerEthereumRpcs*(server: RpcServer) =
-  ## Register all ethereum rpc calls to the server
-  # TODO: Automate this
-  registerRpcs(server)
