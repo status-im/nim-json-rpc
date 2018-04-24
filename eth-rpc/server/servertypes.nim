@@ -66,16 +66,20 @@ proc sharedRpcServer*(): RpcServer =
   result = sharedServer
 
 macro multiRemove(s: string, values: varargs[string]): untyped =
-  ## wrapper for multiReplace
-  result = newStmtList()
-  var call = newNimNode(nnkCall)
-  call.add(ident"multiReplace")
-  call.add(s)
+  ## Wrapper for multiReplace
+  var
+    body = newStmtList()
+    multiReplaceCall = newCall(ident"multiReplace", s)
+
+  body.add(newVarStmt(ident"eStr", newStrLitNode("")))
+  let emptyStr = ident"eStr"
   for item in values:
+    # generate tuples of values with the empty string `eStr`
     let sItem = $item
-    # generate tuples with empty strings
-    call.add(newPar(newStrLitNode(sItem), newStrLitNode("")))
-  result.add call
+    multiReplaceCall.add(newPar(newStrLitNode(sItem), emptyStr))
+
+  body.add multiReplaceCall
+  result = newBlockStmt(body)
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   var paramTemplates = newStmtList()
