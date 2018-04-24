@@ -1,4 +1,5 @@
 import asyncdispatch, asyncnet, json, tables, macros, strutils
+export asyncdispatch, asyncnet, json
 
 type
   RpcProc* = proc (params: JsonNode): Future[JsonNode]
@@ -78,51 +79,65 @@ macro multiRemove(s: string, values: varargs[string]): untyped =
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   var paramTemplates = newStmtList()
-  # process parameters of body into templates
   let parameters = body.findChild(it.kind == nnkFormalParams)
   if not parameters.isNil:
-    # marshall result to json
+    # process parameters of body into json fetch templates
     var resType = parameters[0]
     if resType.kind != nnkEmpty:
       # TODO: transform result type and/or return to json
       discard
-    # convert input parameters to json fetch templates
+    #
     for i in 1..<parameters.len:
       parameters[i].expectKind nnkIdentDefs
+      #
       let
-        name = parameters[i][0]
-        nameStr = $name
+        name = parameters[i][0]       # take user's parameter name for template
         paramType = parameters[i][1]
+      var getFuncName: string
+      case $paramType
+      of "string": getFuncName = "getStr"
+      of "int": getFuncName = "getInt"
+      of "float": getFuncName = "getFloat"
+      of "bool": getFuncName = "getBool"
+      # TODO: array, object
+      else: discard
+      # fetch parameter 
+      let
+        getFunc = ident(getFuncName)
+        pos = i - 1 # first index is return type
+        paramsIdent = ident"params"
       paramTemplates.add(quote do:
-        template `name`: `paramType` = params[`nameStr`]
+        template `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
       )
 
   # create RPC proc
   let
     pathStr = $path
-    procName = ident(pathStr.multiRemove(".", "/"))
+    procName = ident(pathStr.multiRemove(".", "/")) # TODO: Make this unique to avoid potential clashes, or allow people to know the name for calling?
     paramsIdent = ident("params")
-  var
-    procBody: NimNode
+  var procBody: NimNode
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
+  #
   result = quote do:
     proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
       `paramTemplates`
       `procBody`
     `server`.register(`path`, `procName`)
-  echo result.repr
 
 when isMainModule:
-  import asyncdispatch, asyncnet
+  import unittest
   var s = newRpcServer("localhost")
   s.on("the/path") do(a: int, b: string):
     var node = %"test"
-    await node
+    result = node
   s.on("the/path2") do() -> int:
     echo "hello2"
   s.on("the/path3"):
     echo "hello3"
-  assert s.procs.hasKey("the/path")
-  assert s.procs.hasKey("the/path2")
-  assert s.procs.hasKey("the/path3")
+    result = %1
+  suite "Server types":
+    test "On macro registration":
+      check s.procs.hasKey("the/path")
+      check s.procs.hasKey("the/path2")
+      check s.procs.hasKey("the/path3")
