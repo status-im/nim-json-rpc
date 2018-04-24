@@ -6,9 +6,9 @@ var srv = sharedRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
 
-srv.on("myProc") do(input: string):
+srv.on("myProc") do(input: string, data: array[0..3, int]):
   # Custom async RPC call
-  result = %("Hello " & input)
+  result = %("Hello " & input & " data: " & $data)
 
 asyncCheck srv.serve
 
@@ -25,8 +25,8 @@ suite "RPC":
       response = waitFor client.web3_sha3(%["abc"])
       check response.result.getStr == "3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532"
     test "Custom RPC":
-      response = waitFor client.call("myProc", %["abc"])
-      check response.result.getStr == "Hello abc"
+      response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
+      check response.result.getStr == "Hello abc data: [1, 2, 3, 4]"
     
 
   waitFor main()
