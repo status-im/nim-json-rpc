@@ -9,176 +9,176 @@ server.on("web3_sha3") do(data: string):
   let kres = k256(data)
   result = %kres
 
-proc net_version* {.rpc.} =
+server.on("net_version"):
   #[ See:
     https://github.com/ethereum/interfaces/issues/6
     https://github.com/ethereum/EIPs/issues/611
   ]#
   discard
 
-proc net_listening* {.rpc.} =
+server.on("net_listening"):
   return %"true"
 
-proc net_peerCount* {.rpc.} =
+server.on("net_peerCount"):
   # TODO: Discovery integration
   discard
 
-proc eth_protocolVersion* {.rpc.} =
+server.on("eth_protocolVersion"):
   discard
 
-proc eth_syncing* {.rpc.} =
+server.on("eth_syncing"):
   discard
 
-proc eth_coinbase* {.rpc.} =
+server.on("eth_coinbase"):
   discard
 
-proc eth_mining* {.rpc.} =
+server.on("eth_mining"):
   discard
 
-proc eth_hashrate* {.rpc.} =
+server.on("eth_hashrate"):
   discard
 
-proc eth_gasPrice* {.rpc.} =
+server.on("eth_gasPrice"):
   discard
 
-proc eth_accounts* {.rpc.} =
+server.on("eth_accounts"):
   discard
 
-proc eth_blockNumber* {.rpc.} =
+server.on("eth_blockNumber"):
   discard
 
-server.on("eth_getBalance") do(data: array[20, byte], quantity: int):
+server.on("eth_getBalance") do(data: array[20, byte], quantityTag: string):
   discard
 
-proc eth_getStorageAt* {.rpc.} =
+server.on("eth_getStorageAt") do(data: array[20, byte], quantity: int, quantityTag: string):
   discard
 
-proc eth_getTransactionCount* {.rpc.} =
+server.on("eth_getTransactionCount") do(data: array[20, byte], quantityTag: string):
   discard
 
-proc eth_getBlockTransactionCountByHash* {.rpc.} =
+server.on("eth_getBlockTransactionCountByHash") do(data: array[32, byte]):
   discard
 
-proc eth_getBlockTransactionCountByNumber* {.rpc.} =
+server.on("eth_getBlockTransactionCountByNumber") do(quantityTag: string):
   discard
 
-proc eth_getUncleCountByBlockHash* {.rpc.} =
+server.on("eth_getUncleCountByBlockHash") do(data: array[32, byte]):
   discard
 
-proc eth_getUncleCountByBlockNumber* {.rpc.} =
+server.on("eth_getUncleCountByBlockNumber") do(quantityTag: string):
   discard
 
-proc eth_getCode* {.rpc.} =
+server.on("eth_getCode") do(data: array[20, byte], quantityTag: string):
   discard
 
-proc eth_sign* {.rpc.} =
+server.on("eth_sign") do(data: array[20, byte], message: seq[byte]):
   discard
 
-proc eth_sendTransaction* {.rpc.} =
+server.on("eth_sendTransaction"): # TODO: Object
   discard
 
-proc eth_sendRawTransaction* {.rpc.} =
+server.on("eth_sendRawTransaction") do(data: string): # TODO: string or array of byte?
   discard
 
-proc eth_call* {.rpc.} =
+server.on("eth_call"): # TODO: Object
   discard
 
-proc eth_estimateGas* {.rpc.} =
+server.on("eth_estimateGas"): # TODO: Object
   discard
 
-proc eth_getBlockByHash* {.rpc.} =
+server.on("eth_getBlockByHash"):
   discard
 
-proc eth_getBlockByNumber* {.rpc.} =
+server.on("eth_getBlockByNumber"):
   discard
 
-proc eth_getTransactionByHash* {.rpc.} =
+server.on("eth_getTransactionByHash"):
   discard
 
-proc eth_getTransactionByBlockHashAndIndex* {.rpc.} =
+server.on("eth_getTransactionByBlockHashAndIndex"):
   discard
 
-proc eth_getTransactionByBlockNumberAndIndex* {.rpc.} =
+server.on("eth_getTransactionByBlockNumberAndIndex"):
   discard
 
-proc eth_getTransactionReceipt* {.rpc.} =
+server.on("eth_getTransactionReceipt"):
   discard
 
-proc eth_getUncleByBlockHashAndIndex* {.rpc.} =
+server.on("eth_getUncleByBlockHashAndIndex"):
   discard
 
-proc eth_getUncleByBlockNumberAndIndex* {.rpc.} =
+server.on("eth_getUncleByBlockNumberAndIndex"):
   discard
 
-proc eth_getCompilers* {.rpc.} =
+server.on("eth_getCompilers"):
   discard
 
-proc eth_compileLLL* {.rpc.} =
+server.on("eth_compileLLL"):
   discard
 
-proc eth_compileSolidity* {.rpc.} =
+server.on("eth_compileSolidity"):
   discard
 
-proc eth_compileSerpent* {.rpc.} =
+server.on("eth_compileSerpent"):
   discard
 
-proc eth_newFilter* {.rpc.} =
+server.on("eth_newFilter"):
   discard
 
-proc eth_newBlockFilter* {.rpc.} =
+server.on("eth_newBlockFilter"):
   discard
 
-proc eth_newPendingTransactionFilter* {.rpc.} =
+server.on("eth_newPendingTransactionFilter"):
   discard
 
-proc eth_uninstallFilter* {.rpc.} =
+server.on("eth_uninstallFilter"):
   discard
 
-proc eth_getFilterChanges* {.rpc.} =
+server.on("eth_getFilterChanges"):
   discard
 
-proc eth_getFilterLogs* {.rpc.} =
+server.on("eth_getFilterLogs"):
   discard
 
-proc eth_getLogs* {.rpc.} =
+server.on("eth_getLogs"):
   discard
 
-proc eth_getWork* {.rpc.} =
+server.on("eth_getWork"):
   discard
 
-proc eth_submitWork* {.rpc.} =
+server.on("eth_submitWork"):
   discard
 
-proc eth_submitHashrate* {.rpc.} =
+server.on("eth_submitHashrate"):
   discard
 
-proc shh_post* {.rpc.} =
+server.on("shh_post"):
   discard
 
-proc shh_version* {.rpc.} =
+server.on("shh_version"):
   discard
 
-proc shh_newIdentity* {.rpc.} =
+server.on("shh_newIdentity"):
   discard
 
-proc shh_hasIdentity* {.rpc.} =
+server.on("shh_hasIdentity"):
   discard
 
-proc shh_newGroup* {.rpc.} =
+server.on("shh_newGroup"):
   discard
 
-proc shh_addToGroup* {.rpc.} =
+server.on("shh_addToGroup"):
   discard
 
-proc shh_newFilter* {.rpc.} =
+server.on("shh_newFilter"):
   discard
 
-proc shh_uninstallFilter* {.rpc.} =
+server.on("shh_uninstallFilter"):
   discard
 
-proc shh_getFilterChanges* {.rpc.} =
+server.on("shh_getFilterChanges"):
   discard
 
-proc shh_getMessages* {.rpc.} =
+server.on("shh_getMessages"):
   discard
 
