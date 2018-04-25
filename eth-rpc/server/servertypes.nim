@@ -92,18 +92,24 @@ proc jsonGetFunc(paramType: string): NimNode =
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   var
-    paramTemplates = newStmtList()
+    paramFetch = newStmtList()
     expectedParams = 0
   let parameters = body.findChild(it.kind == nnkFormalParams)
   if not parameters.isNil:
     # process parameters of body into json fetch templates
     var resType = parameters[0]
+
     if resType.kind != nnkEmpty:
       # TODO: transform result type and/or return to json
       discard
 
     var paramsIdent = ident"params"
     expectedParams = parameters.len - 1
+    let expectedStr = "Expected " & $`expectedParams` & " Json parameter(s) but got "
+    paramFetch.add(quote do:
+      if `paramsIdent`.len != `expectedParams`:
+        raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
+    )
 
     for i in 1..<parameters.len:
       let pos = i - 1 # first index is return type
@@ -112,10 +118,6 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
       # take user's parameter name for template
       let name = parameters[i][0] 
       var paramType = parameters[i][1]
-      paramTemplates.add(quote do:
-        if `paramsIdent`.len != `expectedParams`:
-          raise newException(ValueError, "Expected " & $`expectedParams` & " Json parameters but got " & $`paramsIdent`.len)
-      )
       
       # TODO: marshalling for object types
       # TODO: Replace exception with async error return values
@@ -123,47 +125,60 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
 
       if paramType.kind == nnkBracketExpr:
         # process array and seq parameters
-        # and marshall json arrays to requested types
+        # and marshal json arrays to native types
         let paramTypeStr = $paramType[0]
         assert paramTypeStr == "array" or paramTypeStr == "seq"
-        
-        let idx = ident"i"
-        
-        if paramTypeStr == "array":
-          paramType.expectLen 3
-          let arrayLen = paramType[1]
-          let arrayType = paramType[2]
-          let getFunc = jsonGetFunc($arrayType)
 
-          paramTemplates.add(quote do:
-            if `paramsIdent`.elems[`pos`].kind != JArray:
-              raise newException(ValueError, "Expected array but got " & $`paramsIdent`.elems[`pos`].kind)
+        type ListFormat = enum ltArray, ltSeq
+        let listFormat = if paramTypeStr == "array": ltArray else: ltSeq
+        
+        if listFormat == ltArray: paramType.expectLen 3 else: paramType.expectLen 2
+
+        var
+          listType: NimNode
+          checks = newStmtList()
+          varDecl: NimNode
+        # always include check for array type
+        checks.add quote do:
+          if `paramsIdent`.elems[`pos`].kind != JArray:
+            raise newException(ValueError, "Expected " & `paramTypeStr` & " but got " & $`paramsIdent`.elems[`pos`].kind)
+
+        case listFormat
+        of ltArray:
+          let arrayLenStr = paramType[1].repr
+          listType = paramType[2]
+          varDecl = quote do:
             var `name`: `paramType`
-            if `paramsIdent`.len > `name`.len:
-              raise newException(ValueError, "Array longer than parameter allows. Expected " & $`arrayLen` & ", data length is " & $`paramsIdent`.elems[`pos`].len)
-            else:
-              for `idx` in 0 ..< `paramsIdent`.elems[`pos`].len:
-                `name`[`idx`] = `arrayType`(`paramsIdent`.elems[`pos`].elems[`idx`].`getFunc`)
-          )        
-        else:
-          paramType.expectLen 2
-          let
-            seqType = paramType[1]
-            getFunc = jsonGetFunc($seqType)
-          paramTemplates.add(quote do:
-            if `paramsIdent`.elems[`pos`].kind != JArray:
-              raise newException(ValueError, "Expected array but got " & $`paramsIdent`.elems[`pos`].kind)
-            var `name` = newSeq[`seqType`](`paramsIdent`.elems[`pos`].len)
-            for `idx` in 0 ..< `paramsIdent`.elems[`pos`].len:
-              `name`[`idx`] = `seqType`(`paramsIdent`.elems[`pos`].elems[`idx`].`getFunc`)
+          # arrays can only be up to the defined length
+          # note that passing smaller arrays is still valid and are padded with zeros
+          checks.add(quote do:
+            if `paramsIdent`.elems[`pos`].len > `name`.len:
+              raise newException(ValueError, "Provided array is longer than parameter allows. Expected " & `arrayLenStr` & ", data length is " & $`paramsIdent`.elems[`pos`].len)
           )
+        of ltSeq:
+          listType = paramType[1]
+          varDecl = quote do:
+            var `name` = newSeq[`listType`](`paramsIdent`.elems[`pos`].len)
+        
+        let
+          getFunc = jsonGetFunc($listType)
+          idx = ident"i"
+          listParse = quote do:
+            for `idx` in 0 ..< `paramsIdent`.elems[`pos`].len:
+              `name`[`idx`] = `listType`(`paramsIdent`.elems[`pos`].elems[`idx`].`getFunc`)
+        # assemble fetch parameters code
+        paramFetch.add(quote do:
+          `varDecl`
+          `checks`
+          `listParse`
+        )
       else:
         # other types
         var getFuncName = jsonGetFunc($paramType)
         assert getFuncName != nil
         # fetch parameter 
         let getFunc = newIdentNode($getFuncName)
-        paramTemplates.add(quote do:
+        paramFetch.add(quote do:
           var `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
         )
   # create RPC proc
@@ -185,7 +200,7 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = quote do:
     proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
       `checkTypeError`
-      `paramTemplates`
+      `paramFetch`
       `procBody`
     `server`.register(`path`, `procName`)
   echo result.repr
@@ -201,7 +216,7 @@ when isMainModule:
   s.on("the/path3") do(a: int, b: string):
     var node = %"test"
     result = node
-  s.on("the/path4") do(arr: array[6, byte], b: string):
+  s.on("the/path4") do(arr: array[0..5, byte], b: string):
     var res = newJArray()
     for item in arr:
       res.add %int(item)
@@ -228,4 +243,7 @@ when isMainModule:
       var ckR2 = %["abc"]
       for i in 0..4: ckR2.add %(i + 1)
       check r2 == ckR2
+    test "Runtime errors":
+      expect ValueError:
+        let r1 = waitfor thepath4(%[%[1, 2, 3, 4, 5, 6, 7, 8, 9, 0], %"hello"])
     
