@@ -1,4 +1,4 @@
-import ../eth-rpc / rpcclient, ../eth-rpc / rpcserver, 
+import ../ rpcclient, ../ rpcserver, 
   asyncdispatch, json, unittest, tables
 
 # TODO: dummy implementations of RPC calls handled in async fashion.
@@ -27,7 +27,8 @@ suite "RPC":
     test "Custom RPC":
       response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
       check response.result.getStr == "Hello abc data: [1, 2, 3, 4]"
-    
+
+  
 
   waitFor main()
   
