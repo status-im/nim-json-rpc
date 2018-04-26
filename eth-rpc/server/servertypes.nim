@@ -90,6 +90,37 @@ proc jsonGetFunc(paramType: string): NimNode =
   of "byte": result = ident"getInt"
   else: result = nil
 
+proc jsonCheckType(paramType: string): NimNode =
+  case paramType
+  of "string": result = ident"JString"
+  of "int": result = ident"JInt"
+  of "float": result = ident"JFloat"
+  of "bool": result = ident"JBool"
+  of "byte": result = ident"JInt"
+  else: result = nil
+
+# TODO: Nested complex fields in objects
+# Probably going to need to make it recursive
+
+macro bindObj*(objInst: untyped, objType: typedesc, paramsArg: typed, elemIdx: int): untyped  =
+  result = newNimNode(nnkStmtList)
+  let typeDesc = getType(getType(objType)[1])
+  for field in typeDesc[2].children:
+    let
+      fieldStr = $field
+      fieldTypeStr = $field.getType()
+      getFunc = jsonGetFunc(fieldTypeStr)
+      expectedKind = fieldTypeStr.jsonCheckType
+      expectedStr = "Expected " & $expectedKind & " but got "
+    result.add(quote do:
+      let jParam = `paramsArg`.elems[`elemIdx`][`fieldStr`]
+      if jParam.kind != `expectedKind`:
+        raise newException(ValueError, `expectedStr` & $jParam.kind)
+      `objInst`.`field` = jParam.`getFunc`
+    )
+  when defined(nimDumpRpcs):
+    echo "BindObj expansion: ", result.repr
+
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   var
     paramFetch = newStmtList()
@@ -119,7 +150,6 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
       let name = parameters[i][0] 
       var paramType = parameters[i][1]
       
-      # TODO: marshalling for object types
       # TODO: Replace exception with async error return values
       # Requires passing the server in local parameters to access the socket
 
@@ -138,7 +168,8 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
           listType: NimNode
           checks = newStmtList()
           varDecl: NimNode
-        # always include check for array type
+        # always include check for array type for parameters
+        # TODO: If defined as single params, relax array check
         checks.add quote do:
           if `paramsIdent`.elems[`pos`].kind != JArray:
             raise newException(ValueError, "Expected " & `paramTypeStr` & " but got " & $`paramsIdent`.elems[`pos`].kind)
@@ -175,12 +206,23 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
       else:
         # other types
         var getFuncName = jsonGetFunc($paramType)
-        assert getFuncName != nil
-        # fetch parameter 
-        let getFunc = newIdentNode($getFuncName)
-        paramFetch.add(quote do:
-          var `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
-        )
+        if not getFuncName.isNil:
+          # fetch parameter
+          let getFunc = newIdentNode($getFuncName)
+          paramFetch.add(quote do:
+            var `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
+          )
+        else:
+          # this type is probably a custom type, eg object
+          # bindObj creates assignments to the object fields
+          let paramTypeStr = $paramType
+          paramFetch.add(quote do:
+            var `name`: `paramType`
+            if `paramsIdent`.elems[`pos`].kind != JObject:
+              raise newException(ValueError, "Expected " & `paramTypeStr` & " but got " & $`paramsIdent`.elems[`pos`].kind)
+            
+            bindObj(`name`, `paramType`, `paramsIdent`, `pos`)
+          )
   # create RPC proc
   let
     pathStr = $path
@@ -203,47 +245,59 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
       `paramFetch`
       `procBody`
     `server`.register(`path`, `procName`)
-  echo result.repr
-
+  when defined(nimDumpRpcs):
+    echo result.repr
+#[
 when isMainModule:
   import unittest
   var s = newRpcServer("localhost")
-  s.on("the/path1"):
+  s.on("rpc.simplepath"):
     echo "hello3"
     result = %1
-  s.on("the/path2") do() -> int:
+  s.on("rpc.returnint") do() -> int:
     echo "hello2"
-  s.on("the/path3") do(a: int, b: string):
+  s.on("rpc.differentparams") do(a: int, b: string):
     var node = %"test"
     result = node
-  s.on("the/path4") do(arr: array[0..5, byte], b: string):
+  s.on("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
     var res = newJArray()
     for item in arr:
       res.add %int(item)
     res.add %b
     result = %res
-  s.on("the/path5") do(b: string, arr: seq[int]):
+  s.on("rpc.seqparam") do(b: string, s: seq[int]):
     var res = newJArray()
     res.add %b
-    for item in arr:
+    for item in s:
       res.add %int(item)
     result = res
+  type MyObject* = object
+    a: int
+    b: string
+    c: float
+  s.on("rpc.objparam") do(b: string, obj: MyObject):
+    result = %obj
   suite "Server types":
     test "On macro registration":
-      check s.procs.hasKey("the/path1")
-      check s.procs.hasKey("the/path2")
-      check s.procs.hasKey("the/path3")
+      check s.procs.hasKey("rpc.simplepath")
+      check s.procs.hasKey("rpc.returnint")
+      check s.procs.hasKey("rpc.returnint")
     test "Array/seq parameters":
-      let r1 = waitfor thepath4(%[%[1, 2, 3], %"hello"])
+      let r1 = waitfor rpcArrayParam(%[%[1, 2, 3], %"hello"])
       var ckR1 = %[1, 2, 3, 0, 0, 0]
       ckR1.elems.add %"hello"
       check r1 == ckR1
 
-      let r2 = waitfor thepath5(%[%"abc", %[1, 2, 3, 4, 5]])
+      let r2 = waitfor rpcSeqParam(%[%"abc", %[1, 2, 3, 4, 5]])
       var ckR2 = %["abc"]
       for i in 0..4: ckR2.add %(i + 1)
       check r2 == ckR2
+    test "Object parameters":
+      let
+        obj = %*{"a": %1, "b": %"hello", "c": %1.23}
+        r = waitfor rpcObjParam(%[%"abc", obj])
+      check r == obj
     test "Runtime errors":
       expect ValueError:
-        let r1 = waitfor thepath4(%[%[1, 2, 3, 4, 5, 6, 7, 8, 9, 0], %"hello"])
-    
+        discard waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
+]#
