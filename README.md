@@ -1,5 +1,8 @@
 # Nim-eth-rpc
 
+[![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-eth-rpc/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-eth-rpc)
+[![Windows build status (Appveyor)](https://img.shields.io/appveyor/ci/jarradh/nim-eth-rpc/master.svg?label=Windows "Windows build status (Appveyor)")](https://ci.appveyor.com/project/jarradh/nim-eth-rpc)
+
 Nim-eth-rpc is designed to provide remote procedure calls to the Nimbus Ethereum research project.
 
 ## Installation
