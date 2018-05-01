@@ -159,13 +159,17 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
     else:
       # array
       let
-        expectedParams = typeInfo[1][1][2]
-        expectedParamsStr = expectedParams.toStrLit
-        expectedLenStr = "Expected parameter `" & fieldName.repr & "` to have a length of " & $expectedParamsStr & " but got "
+        startLen = typeInfo[1][1][1]
+        endLen = typeInfo[1][1][2] 
+        expectedLen = genSym(nskConst)
+        expectedParams = quote do:
+          const `expectedLen` = `endLen` - `startLen` + 1
+        expectedLenStr = "Expected parameter `" & fieldName.repr & "` to have a length of "
       # TODO: Note, currently only raising if greater than value, not different size
       result.add(quote do:
-        if `jsonIdent`.len > `expectedParams`:
-          raise newException(ValueError, `expectedLenStr` & $`jsonIdent`.len)
+        `expectedParams`
+        if `jsonIdent`.len > `expectedLen`:
+          raise newException(ValueError, `expectedLenStr` & $`expectedLen` & " but got " & $`jsonIdent`.len)
       )
         
     result.add(quote do:
@@ -257,7 +261,7 @@ when isMainModule:
       res.add %int(item)
     result = res
   type Test = object
-    a: int #array[0..10, int]
+    a: seq[int] #array[0..10, int]
 
   type MyObject* = object
     a: int
@@ -282,7 +286,7 @@ when isMainModule:
       check r2 == ckR2
     test "Object parameters":
       let
-        obj = %*{"a": %1, "b": %*{"a": %5}, "c": %1.23}
+        obj = %*{"a": %1, "b": %*{"a": %[5]}, "c": %1.23}
         r = waitfor rpcObjParam(%[%"abc", obj])
       check r == obj
     test "Runtime errors":
