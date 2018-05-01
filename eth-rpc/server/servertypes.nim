@@ -99,155 +99,139 @@ proc jsonCheckType(paramType: string): NimNode =
   of "byte": result = ident"JInt"
   else: result = nil
 
-# TODO: Nested complex fields in objects
-# Probably going to need to make it recursive
+proc preParseTypes(typeNode: var NimNode, typeName: NimNode, errorCheck: var NimNode): bool {.compileTime.} =
+  # handle byte
+  for i, item in typeNode:
+    if item.kind == nnkIdent and item.basename == ident"byte":
+      typeNode[i] = ident"int"
+      # add some extra checks
+      result = true
+    else:
+      var t = typeNode[i]
+      if preParseTypes(t, typeName, errorCheck):
+        typeNode[i] = t
 
-macro bindObj*(objInst: untyped, objType: typedesc, paramsArg: typed, elemIdx: int): untyped  =
-  result = newNimNode(nnkStmtList)
-  let typeDesc = getType(getType(objType)[1])
-  for field in typeDesc[2].children:
+proc expect(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
+  let
+    expectedStr = "Expected parameter `" & fieldName.repr & "` to be " & $tn & " but got "
+    tnIdent = ident($tn)
+  node.add(quote do:
+    if `jsonIdent`.kind != `tnIdent`:
+      raise newException(ValueError, `expectedStr` & $`jsonIdent`.kind)
+  )
+  
+macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
+  result = newStmtList()
+  let typeInfo = getType(getType(fieldType))
+  typeInfo.expectKind nnkBracketExpr
+  let typeDesc = getType(typeInfo[1])
+  case typeDesc.kind
+  of nnkObjectTy:
     let
-      fieldStr = $field
-      fieldTypeStr = $field.getType()
-      getFunc = jsonGetFunc(fieldTypeStr)
-      expectedKind = fieldTypeStr.jsonCheckType
-      expectedStr = "Expected " & $expectedKind & " but got "
+      recs = typeDesc.findChild it.kind == nnkRecList
+    assert recs != nil, "Detected object type but no RecList found to traverse fields"
+    result.expect(jsonIdent, fieldName, JObject)
+    for i in 0 ..< recs.len:
+      var
+        objFieldName = recs[i]
+        fns = objFieldName.toStrLit
+        objFieldType = getType(recs[i])
+      var fieldRealType = nnkBracketExpr.newTree(typeInfo[0], objFieldType)
+      result.add(quote do:
+        processFields(`jsonIdent`[`fns`], `fieldName`.`objfieldName`, `fieldRealType`)
+        )
+  of nnkBracketExpr:
+    let
+      brType = typeInfo[1][1]
+      brFormat = $typeInfo[1][0] # seq/array
+    var typeName: NimNode
+    
+    if brType.kind == nnkBracketExpr: typeName = typeInfo[1][2]
+    else: typeName = brType
+    result.expect(jsonIdent, fieldName, JArray)
+
+    let jFunc = jsonGetFunc($typeName)
+    if brFormat == "seq":
+      result.add(quote do:
+        `fieldName` = @[]
+        `fieldName`.setLen(`jsonIdent`.len)
+      )
+    else:
+      # array
+      let
+        expectedParams = typeInfo[1][1][2]
+        expectedParamsStr = expectedParams.toStrLit
+        expectedLenStr = "Expected parameter `" & fieldName.repr & "` to have a length of " & $expectedParamsStr & " but got "
+      # TODO: Note, currently only raising if greater than value, not different size
+      result.add(quote do:
+        if `jsonIdent`.len > `expectedParams`:
+          raise newException(ValueError, `expectedLenStr` & $`jsonIdent`.len)
+      )
+        
     result.add(quote do:
-      let jParam = `paramsArg`.elems[`elemIdx`][`fieldStr`]
-      if jParam.kind != `expectedKind`:
-        raise newException(ValueError, `expectedStr` & $jParam.kind)
-      `objInst`.`field` = jParam.`getFunc`
+      for i in 0 ..< `jsonIdent`.len: 
+        `fieldName`[i] = `jsonIdent`.elems[i].`jFunc`
     )
-  when defined(nimDumpRpcs):
-    echo "BindObj expansion: ", result.repr
+  of nnkSym:
+    let
+      typeName = $typeDesc
+      jFetch = jsonGetFunc(typeName)
+    result.add(quote do:
+      `fieldName` = `jsonIdent`.`jFetch`
+    )
+  else: echo "Unhandled type: ", typeDesc.kind
+  echo result.repr
 
-macro on*(server: var RpcServer, path: string, body: untyped): untyped =
-  var
-    paramFetch = newStmtList()
-    expectedParams = 0
-  let parameters = body.findChild(it.kind == nnkFormalParams)
+proc setupParams(node, parameters, paramsIdent: NimNode) =
+  # recurse parameter's fields until we only have symbols
   if not parameters.isNil:
-    # process parameters of body into json fetch templates
-    var resType = parameters[0]
-
-    if resType.kind != nnkEmpty:
-      # TODO: transform result type and/or return to json
-      discard
-
-    var paramsIdent = ident"params"
-    expectedParams = parameters.len - 1
+    var
+      errorCheck = newStmtList()
+      expectedParams = parameters.len - 1
     let expectedStr = "Expected " & $`expectedParams` & " Json parameter(s) but got "
-    paramFetch.add(quote do:
+    node.add(quote do:
       if `paramsIdent`.len != `expectedParams`:
         raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
     )
 
-    for i in 1..<parameters.len:
-      let pos = i - 1 # first index is return type
-      parameters[i].expectKind nnkIdentDefs
+    for i in 1..< parameters.len:
+      let
+        paramName = parameters[i][0]
+        pos = i - 1
+      var
+        paramType = parameters[i][1]
+      discard paramType.preParseTypes(paramName, errorCheck)
+      node.add(quote do:
+        var `paramName`: `paramType`
+        processFields(`paramsIdent`[`pos`], `paramName`, `paramType`)
+        `errorCheck`
+      )
+      # TODO: Check for byte ranges
 
-      # take user's parameter name for template
-      let name = parameters[i][0] 
-      var paramType = parameters[i][1]
-      
-      # TODO: Replace exception with async error return values
-      # Requires passing the server in local parameters to access the socket
+macro on*(server: var RpcServer, path: string, body: untyped): untyped =
+  result = newStmtList()
+  var setup = newStmtList()
+  let
+    parameters = body.findChild(it.kind == nnkFormalParams)
+    paramsIdent = ident"params"  
+  setup.setupParams(parameters, paramsIdent)
 
-      if paramType.kind == nnkBracketExpr:
-        # process array and seq parameters
-        # and marshal json arrays to native types
-        let paramTypeStr = $paramType[0]
-        assert paramTypeStr == "array" or paramTypeStr == "seq"
-
-        type ListFormat = enum ltArray, ltSeq
-        let listFormat = if paramTypeStr == "array": ltArray else: ltSeq
-        
-        if listFormat == ltArray: paramType.expectLen 3 else: paramType.expectLen 2
-
-        var
-          listType: NimNode
-          checks = newStmtList()
-          varDecl: NimNode
-        # always include check for array type for parameters
-        # TODO: If defined as single params, relax array check
-        checks.add quote do:
-          if `paramsIdent`.elems[`pos`].kind != JArray:
-            raise newException(ValueError, "Expected " & `paramTypeStr` & " but got " & $`paramsIdent`.elems[`pos`].kind)
-
-        case listFormat
-        of ltArray:
-          let arrayLenStr = paramType[1].repr
-          listType = paramType[2]
-          varDecl = quote do:
-            var `name`: `paramType`
-          # arrays can only be up to the defined length
-          # note that passing smaller arrays is still valid and are padded with zeros
-          checks.add(quote do:
-            if `paramsIdent`.elems[`pos`].len > `name`.len:
-              raise newException(ValueError, "Provided array is longer than parameter allows. Expected " & `arrayLenStr` & ", data length is " & $`paramsIdent`.elems[`pos`].len)
-          )
-        of ltSeq:
-          listType = paramType[1]
-          varDecl = quote do:
-            var `name` = newSeq[`listType`](`paramsIdent`.elems[`pos`].len)
-        
-        let
-          getFunc = jsonGetFunc($listType)
-          idx = ident"i"
-          listParse = quote do:
-            for `idx` in 0 ..< `paramsIdent`.elems[`pos`].len:
-              `name`[`idx`] = `listType`(`paramsIdent`.elems[`pos`].elems[`idx`].`getFunc`)
-        # assemble fetch parameters code
-        paramFetch.add(quote do:
-          `varDecl`
-          `checks`
-          `listParse`
-        )
-      else:
-        # other types
-        var getFuncName = jsonGetFunc($paramType)
-        if not getFuncName.isNil:
-          # fetch parameter
-          let getFunc = newIdentNode($getFuncName)
-          paramFetch.add(quote do:
-            var `name`: `paramType` = `paramsIdent`.elems[`pos`].`getFunc`
-          )
-        else:
-          # this type is probably a custom type, eg object
-          # bindObj creates assignments to the object fields
-          let paramTypeStr = $paramType
-          paramFetch.add(quote do:
-            var `name`: `paramType`
-            if `paramsIdent`.elems[`pos`].kind != JObject:
-              raise newException(ValueError, "Expected " & `paramTypeStr` & " but got " & $`paramsIdent`.elems[`pos`].kind)
-            
-            bindObj(`name`, `paramType`, `paramsIdent`, `pos`)
-          )
-  # create RPC proc
+  # wrapping proc
   let
     pathStr = $path
     procName = ident(pathStr.multiRemove(".", "/")) # TODO: Make this unique to avoid potential clashes, or allow people to know the name for calling?
-    paramsIdent = ident("params")
   var procBody: NimNode
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
-  #
-  var checkTypeError: NimNode
-  if expectedParams > 0:
-    checkTypeError = quote do:
-      if `paramsIdent`.kind != JArray:
-        raise newException(ValueError, "Expected array but got " & $`paramsIdent`.kind)
-  else: checkTypeError = newStmtList()
-
   result = quote do:
     proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-      `checkTypeError`
-      `paramFetch`
+      #`checkTypeError`
+      `setup`
       `procBody`
     `server`.register(`path`, `procName`)
   when defined(nimDumpRpcs):
-    echo result.repr
-#[
+    echo pathStr, ": ", result.repr
+
 when isMainModule:
   import unittest
   var s = newRpcServer("localhost")
@@ -265,17 +249,21 @@ when isMainModule:
       res.add %int(item)
     res.add %b
     result = %res
-  s.on("rpc.seqparam") do(b: string, s: seq[int]):
+    echo result
+  s.on("rpc.seqparam") do(a: string, s: seq[int]):
     var res = newJArray()
-    res.add %b
+    res.add %a
     for item in s:
       res.add %int(item)
     result = res
+  type Test = object
+    a: int #array[0..10, int]
+
   type MyObject* = object
     a: int
-    b: string
+    b: Test
     c: float
-  s.on("rpc.objparam") do(b: string, obj: MyObject):
+  s.on("rpc.objparam") do(a: string, obj: MyObject):
     result = %obj
   suite "Server types":
     test "On macro registration":
@@ -294,10 +282,11 @@ when isMainModule:
       check r2 == ckR2
     test "Object parameters":
       let
-        obj = %*{"a": %1, "b": %"hello", "c": %1.23}
+        obj = %*{"a": %1, "b": %*{"a": %5}, "c": %1.23}
         r = waitfor rpcObjParam(%[%"abc", obj])
       check r == obj
     test "Runtime errors":
       expect ValueError:
-        discard waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
-]#
+        echo waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
+
+
