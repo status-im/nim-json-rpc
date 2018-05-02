@@ -87,17 +87,16 @@ proc jsonGetFunc(paramType: string): NimNode =
   of "int": result = ident"getInt"
   of "float": result = ident"getFloat"
   of "bool": result = ident"getBool"
-  of "byte": result = ident"getInt"
+  of "uint8": result = ident"getInt()"
   else: result = nil
 
-proc jsonCheckType(paramType: string): NimNode =
+proc jsonCheckType(paramType: string): JsonNodeKind =
   case paramType
-  of "string": result = ident"JString"
-  of "int": result = ident"JInt"
-  of "float": result = ident"JFloat"
-  of "bool": result = ident"JBool"
-  of "byte": result = ident"JInt"
-  else: result = nil
+  of "string": result = JString
+  of "int": result = JInt
+  of "float": result = JFloat
+  of "bool": result = JBool
+  of "uint8": result = JInt
 
 proc preParseTypes(typeNode: var NimNode, typeName: NimNode, errorCheck: var NimNode): bool {.compileTime.} =
   # handle byte
@@ -119,73 +118,78 @@ proc expect(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
     if `jsonIdent`.kind != `tnIdent`:
       raise newException(ValueError, `expectedStr` & $`jsonIdent`.kind)
   )
-  
+
 macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
   result = newStmtList()
-  let typeInfo = getType(getType(fieldType))
-  typeInfo.expectKind nnkBracketExpr
-  let typeDesc = getType(typeInfo[1])
-  case typeDesc.kind
-  of nnkObjectTy:
-    let
-      recs = typeDesc.findChild it.kind == nnkRecList
-    assert recs != nil, "Detected object type but no RecList found to traverse fields"
-    result.expect(jsonIdent, fieldName, JObject)
-    for i in 0 ..< recs.len:
-      var
-        objFieldName = recs[i]
-        fns = objFieldName.toStrLit
-        objFieldType = getType(recs[i])
-      var fieldRealType = nnkBracketExpr.newTree(typeInfo[0], objFieldType)
-      result.add(quote do:
-        processFields(`jsonIdent`[`fns`], `fieldName`.`objfieldName`, `fieldRealType`)
-        )
-  of nnkBracketExpr:
-    let
-      brType = typeInfo[1][1]
-      brFormat = $typeInfo[1][0] # seq/array
-    var typeName: NimNode
-    
-    if brType.kind == nnkBracketExpr: typeName = typeInfo[1][2]
-    else: typeName = brType
-    result.expect(jsonIdent, fieldName, JArray)
-
-    let jFunc = jsonGetFunc($typeName)
-    if brFormat == "seq":
-      result.add(quote do:
-        `fieldName` = @[]
-        `fieldName`.setLen(`jsonIdent`.len)
-      )
-    else:
-      # array
-      let
-        startLen = typeInfo[1][1][1]
-        endLen = typeInfo[1][1][2] 
-        expectedLen = genSym(nskConst)
-        expectedParams = quote do:
-          const `expectedLen` = `endLen` - `startLen` + 1
-        expectedLenStr = "Expected parameter `" & fieldName.repr & "` to have a length of "
-      # TODO: Note, currently only raising if greater than value, not different size
-      result.add(quote do:
-        `expectedParams`
-        if `jsonIdent`.len > `expectedLen`:
-          raise newException(ValueError, `expectedLenStr` & $`expectedLen` & " but got " & $`jsonIdent`.len)
-      )
-        
-    result.add(quote do:
-      for i in 0 ..< `jsonIdent`.len: 
-        `fieldName`[i] = `jsonIdent`.elems[i].`jFunc`
-    )
-  of nnkSym:
-    let
-      typeName = $typeDesc
-      jFetch = jsonGetFunc(typeName)
+  let
+    fieldTypeStr = fieldType.repr
+    jFetch = jsonGetFunc(fieldTypeStr)
+  if not jFetch.isNil:
+    result.expect(jsonIdent, fieldName, jsonCheckType(fieldTypeStr))
     result.add(quote do:
       `fieldName` = `jsonIdent`.`jFetch`
     )
-  else: echo "Unhandled type: ", typeDesc.kind
-  echo result.repr
+  else:
+    var fetchedType = getType(fieldType)
+    var derivedType: NimNode
+    if fetchedType[0].repr == "typeDesc":
+      derivedType = getType(fetchedType[1])
+    else:
+      derivedType = fetchedType
+    if derivedType.kind == nnkObjectTy:
+      result.expect(jsonIdent, fieldName, JObject)
+      let recs = derivedType.findChild it.kind == nnkRecList
+      for i in 0..<recs.len:
+        let
+          objFieldName = recs[i]
+          objFieldNameStr = objFieldName.toStrLit
+          objFieldType = getType(recs[i])
+          realType = getType(objFieldType)
+          jsonIdentStr = jsonIdent.repr
+        result.add(quote do:
+          if not `jsonIdent`.hasKey(`objFieldNameStr`):
+            raise newException(ValueError, "Cannot find field " & `objFieldNameStr` & " in " & `jsonIdentStr`)
+          processFields(`jsonIdent`[`objFieldNameStr`], `fieldName`.`objfieldName`, `realType`)
+          )
+    elif derivedType.kind == nnkBracketExpr:
+      # this should be a seq or array
+      result.expect(jsonIdent, fieldName, JArray)
+      let
+        formatType = derivedType[0].repr
+        expectedLen = genSym(nskConst)
+      var jFunc: NimNode
+      case formatType
+      of "array":
+        let
+          startLen = derivedType[1][1]
+          endLen = derivedType[1][2] 
+          expectedParamLen = quote do:
+            const `expectedLen` = `endLen` - `startLen` + 1
+          expectedLenStr = "Expected parameter `" & fieldName.repr & "` to have a length of "
+        # TODO: Note, currently only raising if greater than value, not different size
+        result.add(quote do:
+          `expectedParamLen`
+          if `jsonIdent`.len > `expectedLen`:
+            raise newException(ValueError, `expectedLenStr` & $`expectedLen` & " but got " & $`jsonIdent`.len)
+        )
+        jFunc = jsonGetFunc($derivedType[2])
+      of "seq":
+        result.add(quote do:
+          `fieldName` = @[]
+          `fieldName`.setLen(`jsonIdent`.len)
+        )
+        jFunc = jsonGetFunc($derivedType[1])
+      else:
+        raise newException(ValueError, "Cannot determine bracket expression type of \"" & derivedType.treerepr & "\"")
+      # add fetch code for array/seq
+      result.add(quote do:
+        for i in 0 ..< `jsonIdent`.len: 
+          `fieldName`[i] = `jsonIdent`.elems[i].`jFunc`
+      )
+    else:
+      raise newException(ValueError, "Unknown type \"" & derivedType.treerepr & "\"")
 
+  
 proc setupParams(node, parameters, paramsIdent: NimNode) =
   # recurse parameter's fields until we only have symbols
   if not parameters.isNil:
@@ -239,29 +243,25 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
 when isMainModule:
   import unittest
   var s = newRpcServer("localhost")
-  s.on("rpc.simplepath"):
-    echo "hello3"
-    result = %1
-  s.on("rpc.returnint") do() -> int:
-    echo "hello2"
-  s.on("rpc.differentparams") do(a: int, b: string):
-    var node = %"test"
-    result = node
   s.on("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
     var res = newJArray()
     for item in arr:
       res.add %int(item)
     res.add %b
     result = %res
-    echo result
   s.on("rpc.seqparam") do(a: string, s: seq[int]):
     var res = newJArray()
     res.add %a
     for item in s:
       res.add %int(item)
     result = res
-  type Test = object
-    a: seq[int] #array[0..10, int]
+
+  type
+    Test2 = object
+      x: array[2, int]
+    Test = object
+      d: array[0..1, int]
+      e: Test2
 
   type MyObject* = object
     a: int
@@ -270,10 +270,6 @@ when isMainModule:
   s.on("rpc.objparam") do(a: string, obj: MyObject):
     result = %obj
   suite "Server types":
-    test "On macro registration":
-      check s.procs.hasKey("rpc.simplepath")
-      check s.procs.hasKey("rpc.returnint")
-      check s.procs.hasKey("rpc.returnint")
     test "Array/seq parameters":
       let r1 = waitfor rpcArrayParam(%[%[1, 2, 3], %"hello"])
       var ckR1 = %[1, 2, 3, 0, 0, 0]
@@ -286,9 +282,16 @@ when isMainModule:
       check r2 == ckR2
     test "Object parameters":
       let
-        obj = %*{"a": %1, "b": %*{"a": %[5]}, "c": %1.23}
+        obj = %*{"a": %1, "b": %*{"d": %[5, 0], "e": %*{"x": %[1, 1]}}, "c": %1.23}
         r = waitfor rpcObjParam(%[%"abc", obj])
       check r == obj
+      expect ValueError:
+        # here we fail to provide one of the nested fields in json to the rpc
+        # TODO: Should this work? We either allow partial non-ambiguous parsing or not
+        # Currently, as long as the Nim fields are satisfied, other fields are ignored
+        let
+          obj = %*{"a": %1, "b": %*{"a": %[5, 0]}, "c": %1.23}
+        discard waitFor rpcObjParam(%[%"abc", obj]) # Why doesn't asyncCheck raise?
     test "Runtime errors":
       expect ValueError:
         echo waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
