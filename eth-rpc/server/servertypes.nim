@@ -87,8 +87,23 @@ proc jsonGetFunc(paramType: string): NimNode =
   of "int": result = ident"getInt"
   of "float": result = ident"getFloat"
   of "bool": result = ident"getBool"
-  of "uint8": result = ident"getInt()"
+  of "uint8": result = ident"getInt"
   else: result = nil
+
+proc jsonTranslate(translation: var NimNode, paramType: string): NimNode =
+  case paramType
+  of "uint8":
+    result = genSym(nskTemplate)
+    translation = quote do:
+      template `result`(value: int): uint8 =
+        if value > 255 or value < 0:
+          raise newException(ValueError, "Value out of range of byte, expected 0-255, got " & $value)
+        uint8(value and 0xff)
+  else: 
+    result = genSym(nskTemplate)
+    translation = quote do:
+      template `result`(value: untyped): untyped = value
+
 
 proc jsonCheckType(paramType: string): JsonNodeKind =
   case paramType
@@ -124,10 +139,13 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
   let
     fieldTypeStr = fieldType.repr
     jFetch = jsonGetFunc(fieldTypeStr)
+  var translation: NimNode
   if not jFetch.isNil:
     result.expect(jsonIdent, fieldName, jsonCheckType(fieldTypeStr))
+    let transIdent = translation.jsonTranslate(fieldTypeStr)
     result.add(quote do:
-      `fieldName` = `jsonIdent`.`jFetch`
+      `translation`
+      `fieldName` = `transIdent`(`jsonIdent`.`jFetch`)
     )
   else:
     var fetchedType = getType(fieldType)
@@ -157,7 +175,8 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
       let
         formatType = derivedType[0].repr
         expectedLen = genSym(nskConst)
-      var jFunc: NimNode
+      var
+        jFunc, rootType: NimNode
       case formatType
       of "array":
         let
@@ -166,30 +185,32 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
           expectedParamLen = quote do:
             const `expectedLen` = `endLen` - `startLen` + 1
           expectedLenStr = "Expected parameter `" & fieldName.repr & "` to have a length of "
-        # TODO: Note, currently only raising if greater than value, not different size
+        # TODO: Note, currently only raising if greater than length, not different size
         result.add(quote do:
           `expectedParamLen`
           if `jsonIdent`.len > `expectedLen`:
             raise newException(ValueError, `expectedLenStr` & $`expectedLen` & " but got " & $`jsonIdent`.len)
         )
-        jFunc = jsonGetFunc($derivedType[2])
+        rootType = derivedType[2]
       of "seq":
         result.add(quote do:
           `fieldName` = @[]
           `fieldName`.setLen(`jsonIdent`.len)
         )
-        jFunc = jsonGetFunc($derivedType[1])
+        rootType = derivedType[1]
       else:
         raise newException(ValueError, "Cannot determine bracket expression type of \"" & derivedType.treerepr & "\"")
       # add fetch code for array/seq
+      jFunc = jsonGetFunc($rootType)
+      let transIdent = translation.jsonTranslate($rootType)
       result.add(quote do:
+        `translation`
         for i in 0 ..< `jsonIdent`.len: 
-          `fieldName`[i] = `jsonIdent`.elems[i].`jFunc`
+          `fieldName`[i] = `transIdent`(`jsonIdent`.elems[i].`jFunc`)
       )
     else:
       raise newException(ValueError, "Unknown type \"" & derivedType.treerepr & "\"")
 
-  
 proc setupParams(node, parameters, paramsIdent: NimNode) =
   # recurse parameter's fields until we only have symbols
   if not parameters.isNil:
@@ -208,7 +229,7 @@ proc setupParams(node, parameters, paramsIdent: NimNode) =
         pos = i - 1
       var
         paramType = parameters[i][1]
-      discard paramType.preParseTypes(paramName, errorCheck)
+      #discard paramType.preParseTypes(paramName, errorCheck)
       node.add(quote do:
         var `paramName`: `paramType`
         processFields(`paramsIdent`[`pos`], `paramName`, `paramType`)
