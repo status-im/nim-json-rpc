@@ -81,7 +81,16 @@ macro multiRemove(s: string, values: varargs[string]): untyped =
   body.add multiReplaceCall
   result = newBlockStmt(body)
 
-proc jsonGetFunc(paramType: string): NimNode =
+proc jsonGetFunc(paramType: string): (NimNode, JsonNodeKind) =
+  case paramType
+  of "string": result = (ident"getStr", JString)
+  of "int": result = (ident"getInt", JInt)
+  of "float": result = (ident"getFloat", JFloat)
+  of "bool": result = (ident"getBool", JBool)
+  of "uint8", "byte": result = (ident"getInt", JInt)
+  else: result = (nil, JInt)
+
+#[proc jsonGetFunc(paramType: string): NimNode =
   case paramType
   of "string": result = ident"getStr"
   of "int": result = ident"getInt"
@@ -89,7 +98,7 @@ proc jsonGetFunc(paramType: string): NimNode =
   of "bool": result = ident"getBool"
   of "uint8": result = ident"getInt"
   else: result = nil
-
+]#
 proc jsonTranslate(translation: var NimNode, paramType: string): NimNode =
   case paramType
   of "uint8":
@@ -104,14 +113,15 @@ proc jsonTranslate(translation: var NimNode, paramType: string): NimNode =
     translation = quote do:
       template `result`(value: untyped): untyped = value
 
-
+#[
 proc jsonCheckType(paramType: string): JsonNodeKind =
   case paramType
   of "string": result = JString
   of "int": result = JInt
   of "float": result = JFloat
   of "bool": result = JBool
-  of "uint8": result = JInt
+  of "byte": result = JInt
+]#
 
 proc preParseTypes(typeNode: var NimNode, typeName: NimNode, errorCheck: var NimNode): bool {.compileTime.} =
   # handle byte
@@ -125,7 +135,7 @@ proc preParseTypes(typeNode: var NimNode, typeName: NimNode, errorCheck: var Nim
       if preParseTypes(t, typeName, errorCheck):
         typeNode[i] = t
 
-proc expect(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
+proc expectKind(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
   let
     expectedStr = "Expected parameter `" & fieldName.repr & "` to be " & $tn & " but got "
     tnIdent = ident($tn)
@@ -134,19 +144,38 @@ proc expect(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
       raise newException(ValueError, `expectedStr` & $`jsonIdent`.kind)
   )
 
+proc translate(paramType: string, getField: NimNode): NimNode =
+  # Note that specific types add extra run time bounds checking code
+  case paramType
+  of "byte":
+    result = quote do:
+      let x = `getField`
+      if x > 255 or x < 0:
+        raise newException(ValueError, "Value out of range of byte, expected 0-255, got " & $x)
+      uint8(x and 0xff)
+  else: 
+    result = quote do: `getField`
+
 macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
   result = newStmtList()
   let
     fieldTypeStr = fieldType.repr
-    jFetch = jsonGetFunc(fieldTypeStr)
+    (jFetch, jKind) = jsonGetFunc(fieldTypeStr)
   var translation: NimNode
   if not jFetch.isNil:
-    result.expect(jsonIdent, fieldName, jsonCheckType(fieldTypeStr))
-    let transIdent = translation.jsonTranslate(fieldTypeStr)
+    result.expectKind(jsonIdent, fieldName, jKind)
+    #let transIdent = translation.jsonTranslate(fieldTypeStr)
+    let
+      getField = quote do: `jsonIdent`.`jFetch`
+      res = translate(`fieldTypeStr`, `getField`)
     result.add(quote do:
-      `translation`
-      `fieldName` = `transIdent`(`jsonIdent`.`jFetch`)
+      `fieldName` = `res`
     )
+    echo ">>", result.repr, "<<"
+    #result.add(quote do:
+    #  `translation`
+    #  `fieldName` = `transIdent`(`jsonIdent`.`jFetch`)
+    #)
   else:
     var fetchedType = getType(fieldType)
     var derivedType: NimNode
@@ -155,7 +184,7 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
     else:
       derivedType = fetchedType
     if derivedType.kind == nnkObjectTy:
-      result.expect(jsonIdent, fieldName, JObject)
+      result.expectKind(jsonIdent, fieldName, JObject)
       let recs = derivedType.findChild it.kind == nnkRecList
       for i in 0..<recs.len:
         let
@@ -171,12 +200,11 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
           )
     elif derivedType.kind == nnkBracketExpr:
       # this should be a seq or array
-      result.expect(jsonIdent, fieldName, JArray)
+      result.expectKind(jsonIdent, fieldName, JArray)
       let
         formatType = derivedType[0].repr
         expectedLen = genSym(nskConst)
-      var
-        jFunc, rootType: NimNode
+      var rootType: NimNode
       case formatType
       of "array":
         let
@@ -201,7 +229,7 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
       else:
         raise newException(ValueError, "Cannot determine bracket expression type of \"" & derivedType.treerepr & "\"")
       # add fetch code for array/seq
-      jFunc = jsonGetFunc($rootType)
+      let (jFunc, jKind) = jsonGetFunc($rootType)
       let transIdent = translation.jsonTranslate($rootType)
       result.add(quote do:
         `translation`
@@ -209,6 +237,11 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
           `fieldName`[i] = `transIdent`(`jsonIdent`.elems[i].`jFunc`)
       )
     else:
+      echo "DT ", fieldType.treerepr
+      echo "DT ", fetchedType.treerepr
+      echo "DT ", derivedType.treerepr
+      echo "fts ", fieldTypeStr
+      echo "JN ", jFetch.treerepr
       raise newException(ValueError, "Unknown type \"" & derivedType.treerepr & "\"")
 
 proc setupParams(node, parameters, paramsIdent: NimNode) =
@@ -288,8 +321,13 @@ when isMainModule:
     a: int
     b: Test
     c: float
+
   s.on("rpc.objparam") do(a: string, obj: MyObject):
     result = %obj
+  s.on("rpc.specialtypes") do(a: byte):
+    result = %int(a)
+  # TODO: Add path as constant for each rpc
+
   suite "Server types":
     test "Array/seq parameters":
       let r1 = waitfor rpcArrayParam(%[%[1, 2, 3], %"hello"])
@@ -304,15 +342,18 @@ when isMainModule:
     test "Object parameters":
       let
         obj = %*{"a": %1, "b": %*{"d": %[5, 0], "e": %*{"x": %[1, 1]}}, "c": %1.23}
-        r = waitfor rpcObjParam(%[%"abc", obj])
+        r = waitfor rpcObjParam(%[%"Test", obj])
       check r == obj
       expect ValueError:
         # here we fail to provide one of the nested fields in json to the rpc
-        # TODO: Should this work? We either allow partial non-ambiguous parsing or not
+        # TODO: Should this be allowed? We either allow partial non-ambiguous parsing or not
         # Currently, as long as the Nim fields are satisfied, other fields are ignored
         let
           obj = %*{"a": %1, "b": %*{"a": %[5, 0]}, "c": %1.23}
         discard waitFor rpcObjParam(%[%"abc", obj]) # Why doesn't asyncCheck raise?
+    test "Special types":
+      let r = waitfor rpcSpecialTypes(%[%5])
+      check r == %5
     test "Runtime errors":
       expect ValueError:
         echo waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
