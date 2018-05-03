@@ -82,26 +82,29 @@ macro multiRemove(s: string, values: varargs[string]): untyped =
   result = newBlockStmt(body)
 
 proc jsonGetFunc(paramType: string): (NimNode, JsonNodeKind) =
+  # Unknown types get attempted as int
   case paramType
   of "string": result = (ident"getStr", JString)
   of "int": result = (ident"getInt", JInt)
   of "float": result = (ident"getFloat", JFloat)
   of "bool": result = (ident"getBool", JBool)
-  of "uint8", "byte": result = (ident"getInt", JInt)
-  else: result = (nil, JInt)
+  else:
+    if paramType == "byte" or paramType[0..3] == "uint" or paramType[0..2] == "int":
+      result = (ident"getInt", JInt)
+    else:
+      result = (nil, JInt)
 
-#[proc jsonGetFunc(paramType: string): NimNode =
-  case paramType
-  of "string": result = ident"getStr"
-  of "int": result = ident"getInt"
-  of "float": result = ident"getFloat"
-  of "bool": result = ident"getBool"
-  of "uint8": result = ident"getInt"
-  else: result = nil
-]#
 proc jsonTranslate(translation: var NimNode, paramType: string): NimNode =
+  # TODO: Remove or rework this into `translate`
   case paramType
   of "uint8":
+    result = genSym(nskTemplate)
+    translation = quote do:
+      template `result`(value: int): uint8 =
+        if value > 255 or value < 0:
+          raise newException(ValueError, "Value out of range of byte, expected 0-255, got " & $value)
+        uint8(value and 0xff)
+  of "int8":
     result = genSym(nskTemplate)
     translation = quote do:
       template `result`(value: int): uint8 =
@@ -113,28 +116,6 @@ proc jsonTranslate(translation: var NimNode, paramType: string): NimNode =
     translation = quote do:
       template `result`(value: untyped): untyped = value
 
-#[
-proc jsonCheckType(paramType: string): JsonNodeKind =
-  case paramType
-  of "string": result = JString
-  of "int": result = JInt
-  of "float": result = JFloat
-  of "bool": result = JBool
-  of "byte": result = JInt
-]#
-
-proc preParseTypes(typeNode: var NimNode, typeName: NimNode, errorCheck: var NimNode): bool {.compileTime.} =
-  # handle byte
-  for i, item in typeNode:
-    if item.kind == nnkIdent and item.basename == ident"byte":
-      typeNode[i] = ident"int"
-      # add some extra checks
-      result = true
-    else:
-      var t = typeNode[i]
-      if preParseTypes(t, typeName, errorCheck):
-        typeNode[i] = t
-
 proc expectKind(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
   let
     expectedStr = "Expected parameter `" & fieldName.repr & "` to be " & $tn & " but got "
@@ -144,38 +125,79 @@ proc expectKind(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
       raise newException(ValueError, `expectedStr` & $`jsonIdent`.kind)
   )
 
-proc translate(paramType: string, getField: NimNode): NimNode =
-  # Note that specific types add extra run time bounds checking code
+proc getDigit(s: string): (bool, int) =
+  if s.len == 0: return (false, 0)
+  for c in s:
+    if not c.isDigit: return (false, 0)
+  return (true, s.parseInt)
+
+
+from math import pow
+
+proc translate(paramTypeStr: string, getField: NimNode): NimNode =
+  # Add checking and type conversion for more constrained types
+  # Note:
+  # * specific types add extra run time bounds checking code
+  # * types that map one-one get passed as is
+  # * any other types get a simple cast, ie; MyType(value) and
+  #   get are assumed to be integer.
+  #   NOTE: However this will never occur because currently jsonFunc
+  #   is required to return nil to process other types.
+  # TODO: Allow distinct types
+  var paramType = paramTypeStr
+  if paramType == "byte": paramType = "uint8"
+
   case paramType
-  of "byte":
-    result = quote do:
-      let x = `getField`
-      if x > 255 or x < 0:
-        raise newException(ValueError, "Value out of range of byte, expected 0-255, got " & $x)
-      uint8(x and 0xff)
-  else: 
+  of "string", "int", "bool":
     result = quote do: `getField`
+  else:
+    if paramType[0 .. 3].toLowerAscii == "uint":
+      let (numeric, bitSize) = paramType[4 .. high(paramType)].getDigit
+      if numeric:
+        assert bitSize mod 8 == 0
+        let
+          maxSize = 1 shl bitSize - 1
+          sizeRangeStr = "0 to " & $maxSize
+          uintType = ident("uint" & $bitSize)
+        result = quote do:
+          let x = `getField`
+          if x > `maxSize` or x < 0:
+            raise newException(ValueError, "Value out of range of byte, expected " & `sizeRangeStr` & ", got " & $x)
+          `uintType`(x)
+    elif paramType[0 .. 2].toLowerAscii == "int":
+      let (numeric, bitSize) = paramType[3 .. paramType.high].getDigit
+      if numeric:
+        assert bitSize mod 8 == 0
+        let
+          maxSize = 1 shl (bitSize - 1)
+          minVal = -maxSize
+          maxVal = maxSize - 1
+          sizeRangeStr = $minVal & " to " & $maxVal
+          intType = ident("int" & $bitSize)
+        result = quote do:
+          let x = `getField`
+          if x < `minVal` or x > `maxVal`:
+            raise newException(ValueError, "Value out of range of byte, expected " & `sizeRangeStr` & ", got " & $x)
+          `intType`(x)
+    else:
+      let nativeParamType = ident(paramTypeStr)
+      result = quote do: `nativeParamType`(`getField`)
 
 macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
   result = newStmtList()
   let
-    fieldTypeStr = fieldType.repr
+    fieldTypeStr = fieldType.repr.toLowerAscii()
     (jFetch, jKind) = jsonGetFunc(fieldTypeStr)
-  var translation: NimNode
+  
   if not jFetch.isNil:
+    # TODO: getType(fieldType) to translate byte -> uint8 and avoid special cases
     result.expectKind(jsonIdent, fieldName, jKind)
-    #let transIdent = translation.jsonTranslate(fieldTypeStr)
     let
       getField = quote do: `jsonIdent`.`jFetch`
       res = translate(`fieldTypeStr`, `getField`)
     result.add(quote do:
       `fieldName` = `res`
     )
-    echo ">>", result.repr, "<<"
-    #result.add(quote do:
-    #  `translation`
-    #  `fieldName` = `transIdent`(`jsonIdent`.`jFetch`)
-    #)
   else:
     var fetchedType = getType(fieldType)
     var derivedType: NimNode
@@ -229,20 +251,21 @@ macro processFields(jsonIdent, fieldName, fieldType: typed): untyped =
       else:
         raise newException(ValueError, "Cannot determine bracket expression type of \"" & derivedType.treerepr & "\"")
       # add fetch code for array/seq
-      let (jFunc, jKind) = jsonGetFunc($rootType)
-      let transIdent = translation.jsonTranslate($rootType)
+      var translation: NimNode
+      let
+        (jFunc, jKind) = jsonGetFunc(($rootType).toLowerAscii)
+        transIdent = translation.jsonTranslate($rootType)
+      # TODO: Add checks PER ITEM (performance hit!) in the array, if required by the type
+      # TODO: Refactor `jsonTranslate` into `translate`
       result.add(quote do:
         `translation`
         for i in 0 ..< `jsonIdent`.len: 
           `fieldName`[i] = `transIdent`(`jsonIdent`.elems[i].`jFunc`)
       )
     else:
-      echo "DT ", fieldType.treerepr
-      echo "DT ", fetchedType.treerepr
-      echo "DT ", derivedType.treerepr
-      echo "fts ", fieldTypeStr
-      echo "JN ", jFetch.treerepr
       raise newException(ValueError, "Unknown type \"" & derivedType.treerepr & "\"")
+  when defined(nimDumpRpcs):
+    echo result.repr
 
 proc setupParams(node, parameters, paramsIdent: NimNode) =
   # recurse parameter's fields until we only have symbols
@@ -324,9 +347,10 @@ when isMainModule:
 
   s.on("rpc.objparam") do(a: string, obj: MyObject):
     result = %obj
-  s.on("rpc.specialtypes") do(a: byte):
-    result = %int(a)
-  # TODO: Add path as constant for each rpc
+  s.on("rpc.uinttypes") do(a: byte, b: uint16, c: uint32):
+    result = %[int(a), int(b), int(c)]
+  s.on("rpc.inttypes") do(a: int8, b: int16, c: int32, d: int8, e: int16, f: int32):
+    result = %[int(a), int(b), int(c), int(d), int(e), int(f)]
 
   suite "Server types":
     test "Array/seq parameters":
@@ -351,11 +375,22 @@ when isMainModule:
         let
           obj = %*{"a": %1, "b": %*{"a": %[5, 0]}, "c": %1.23}
         discard waitFor rpcObjParam(%[%"abc", obj]) # Why doesn't asyncCheck raise?
-    test "Special types":
-      let r = waitfor rpcSpecialTypes(%[%5])
-      check r == %5
+    test "Uint types":
+      let
+        testCase = %[%255, %65534, %4294967295]
+        r = waitfor rpcUIntTypes(testCase)
+      check r == testCase
+    test "Int types":
+      let
+        testCase = %[
+          %(127), %(32767), %(2147483647),
+          %(-128), %(-32768), %(-2147483648)
+        ]
+        r = waitfor rpcIntTypes(testCase)
+      check r == testCase
     test "Runtime errors":
       expect ValueError:
         echo waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
 
-
+# TODO: Split runtime strictness checking into defines - is there ever a reason to trust input?
+# TODO: Add path as constant for each rpc
