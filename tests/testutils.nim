@@ -1,4 +1,4 @@
-import strutils, eth-rpc/server/private/transportutils, unittest
+import strutils, ../eth-rpc/server/private/transportutils, unittest
 
 suite "Encoding":
   test "Encode quantity":

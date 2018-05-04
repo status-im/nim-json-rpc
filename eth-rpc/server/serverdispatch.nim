@@ -1,5 +1,5 @@
 import asyncdispatch, asyncnet, json, tables, strutils,
-  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils, ethprocs,
+  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils,
   options
 
 proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.async.} =
@@ -20,7 +20,7 @@ proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.asyn
     if not server.procs.hasKey(methodName):
       await client.sendError(METHOD_NOT_FOUND, "Method not found", id, %(methodName & " is not a registered method."))
     else:
-      let callRes = server.procs[methodName](node["params"])
+      let callRes = await server.procs[methodName](node["params"])
       await client.send($wrapReply(id, callRes, newJNull()) & "\c\l")
 
 proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
@@ -33,18 +33,16 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
 
     ifDebug: echo "Process client: ", server.port, ":" & line
 
-    let fut = processMessage(server, client, line)
-    await fut
-    if fut.failed:
-      if fut.readError of RpcProcError:
-        # TODO: Currently exceptions in rpc calls are not properly handled
-        let err = fut.readError.RpcProcError
+    let future = processMessage(server, client, line)
+    await future
+    if future.failed:
+      if future.readError of RpcProcError:
+        let err = future.readError.RpcProcError
         await client.sendError(err.code, err.msg, err.data)
       else:
         await client.sendError(-32000, "Error", %getCurrentExceptionMsg())
 
 proc serve*(server: RpcServer) {.async.} =
-  server.registerEthereumRpcs
   server.socket.bindAddr(server.port, server.address)
   server.socket.listen()
 
