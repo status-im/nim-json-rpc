@@ -56,50 +56,54 @@ proc fromJson(n: JsonNode, argName: string, result: var string) =
   result = n.getStr()
 
 proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
-  if n.kind != JArray: raise newException(ValueError, "Parameter \"" & argName & "\" expected JArray but got " & $n.kind)
   result = newSeq[T](n.len)
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
 proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
-  if n.kind != JArray: raise newException(ValueError, "Parameter \"" & argName & "\" expected JArray but got " & $n.kind)
-  if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
 proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
-  if n.kind != JObject: raise newException(ValueError, "Parameter \"" & argName & "\" expected JObject but got " & $n.kind)
   for k, v in fieldpairs(result):
     fromJson(n[k], k, v)
 
 proc unpackArg[T](argIdx: int, argName: string, argtype: typedesc[T], args: JsonNode): T =
+  when argType is array or argType is seq:
+    if args[argIdx].kind != JArray: raise newException(ValueError, "Parameter \"" & argName & "\" expected JArray but got " & $args[argIdx].kind)
+  when argType is array:
+    if args[argIdx].len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
+  when argType is object:
+    if args[argIdx].kind != JObject: raise newException(ValueError, "Parameter \"" & argName & "\" expected JObject but got " & $args[argIdx].kind)
   fromJson(args[argIdx], argName, result)
+
+proc expectArrayLen(node: NimNode, paramsIdent: untyped, length: int) =
+  let expectedStr = "Expected " & $length & " Json parameter(s) but got "
+  node.add(quote do:
+    if `paramsIdent`.kind != JArray:
+      raise newException(ValueError, "Parameter params expected JArray but got " & $`paramsIdent`.kind)
+    if `paramsIdent`.len != `length`:
+      raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
+  )
 
 proc setupParams(parameters, paramsIdent: NimNode): NimNode =
   # Add code to verify input and load parameters into Nim types
   result = newStmtList()
   if not parameters.isNil:
     # initial parameter array length check
-    var expectedLen = parameters.len - 1
-    let expectedStr = "Expected " & $expectedLen & " Json parameter(s) but got "
-    result.add(quote do:
-      if `paramsIdent`.kind != JArray:
-        raise newException(ValueError, "Parameter params expected JArray but got " & $`paramsIdent`.kind)
-      if `paramsIdent`.len != `expectedLen`:
-        raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
-    )
+    result.expectArrayLen(paramsIdent, parameters.len - 1)
     # unpack each parameter and provide assignments
     for i in 1 ..< parameters.len:
       let
-        paramName = parameters[i][0]
         pos = i - 1
+        paramName = parameters[i][0]
         paramNameStr = $paramName
         paramType = parameters[i][1]
       result.add(quote do:
         var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
       )
 
-macro multiRemove(s: string, values: varargs[string]): untyped =
+macro multiRemove(s: string, values: varargs[string]): string =
   ## Wrapper for multiReplace
   var
     body = newStmtList()
@@ -114,6 +118,7 @@ macro multiRemove(s: string, values: varargs[string]): untyped =
 
   body.add multiReplaceCall
   result = newBlockStmt(body)
+  echo "!!", result.repr
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
