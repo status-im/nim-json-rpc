@@ -31,21 +31,33 @@ proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.
   self.awaiting[id] = newFut
   result = await newFut
 
+macro checkGet(node: JsonNode, fieldName: string, jKind: static[JsonNodeKind]): untyped =
+  result = quote do:
+    if not node.hasKey(`fieldName`): raise newException(ValueError, "Message is missing required field \"" & `fieldName` & "\"")
+    if `node`[`fieldName`].kind != `jKind`.JsonNodeKind: raise newException(ValueError, "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
+  case jKind
+  of JBool: result.add(quote do: `node`[`fieldName`].getBool)
+  of JInt: result.add(quote do: `node`[`fieldName`].getInt)
+  of JString: result.add(quote do: `node`[`fieldName`].getStr)
+  of JFloat: result.add(quote do: `node`[`fieldName`].getFloat)
+  of JObject: result.add(quote do: `node`[`fieldName`].getObject)
+  else: discard
+
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
   
   # TODO: Use more appropriate exception objects
-  if not node.hasKey("jsonrpc"): raise newException(ValueError, "Message is missing rpc version field")
-  elif node["jsonrpc"].str != "2.0": raise newException(ValueError, "Unsupported version of JSON, expected 2.0, received \"" & node["jsonrpc"].str & "\"")
-  elif not node.hasKey("id"): raise newException(ValueError, "Message is missing id field")
-  elif not self.awaiting.hasKey(node["id"].str): raise newException(ValueError, "Cannot find message id \"" & node["id"].str & "\"")
+  let version = checkGet(node, "jsonrpc", JString)
+  if version != "2.0": raise newException(ValueError, "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
+  let id = checkGet(node, "id", JString)
+  if not self.awaiting.hasKey(id): raise newException(ValueError, "Cannot find message id \"" & node["id"].str & "\"")
 
   if node["error"].kind == JNull:
-    self.awaiting[node["id"].str].complete((false, node["result"]))
-    self.awaiting.del(node["id"].str)
+    self.awaiting[id].complete((false, node["result"]))
+    self.awaiting.del(id)
   else:
-    self.awaiting[node["id"].str].complete((true, node["error"]))
-    self.awaiting.del(node["id"].str)
+    self.awaiting[id].complete((true, node["error"]))
+    self.awaiting.del(id)
 
 proc connect*(self: RpcClient, address: string, port: Port): Future[void]
 
