@@ -30,15 +30,10 @@ var s = newRpcServer("localhost")
 
 # RPC definitions
 s.on("rpc.simplepath"):
-  echo "hello3"
   result = %1
 
-s.on("rpc.returnint") do() -> int:
-  echo "hello2"
-
-s.on("rpc.differentparams") do(a: int, b: string):
-  var node = %"test"
-  result = node
+s.on("rpc.differentparams") do(a: int, b: string): 
+  result = %"test"
 
 s.on("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
   var res = newJArray()
@@ -69,8 +64,12 @@ suite "Server types":
 
   test "On macro registration":
     check s.procs.hasKey("rpc.simplepath")
-    check s.procs.hasKey("rpc.returnint")
-    check s.procs.hasKey("rpc.returnint")
+    check s.procs.hasKey("rpc.differentparams")
+    check s.procs.hasKey("rpc.arrayparam")
+    check s.procs.hasKey("rpc.seqparam")
+    check s.procs.hasKey("rpc.objparam")
+    check s.procs.hasKey("rpc.returntypesimple")
+    check s.procs.hasKey("rpc.returntypecomplex")
 
   test "Array parameters":
     let r1 = waitfor rpcArrayParam(%[%[1, 2, 3], %"hello"])
@@ -102,4 +101,11 @@ suite "Server types":
 
   test "Runtime errors":
     expect ValueError:
+      # root param not array
+      discard waitfor rpcArrayParam(%"test")
+    expect ValueError:
+      # too big for array
       discard waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
+    expect ValueError:
+      # wrong sub parameter type
+      discard waitfor rpcArrayParam(%[%"test", %"hello"])
