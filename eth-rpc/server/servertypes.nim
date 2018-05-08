@@ -118,7 +118,6 @@ macro multiRemove(s: string, values: varargs[string]): string =
 
   body.add multiReplaceCall
   result = newBlockStmt(body)
-  echo "!!", result.repr
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
