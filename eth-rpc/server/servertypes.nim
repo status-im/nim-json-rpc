@@ -64,6 +64,72 @@ var sharedServer: RpcServer
 proc sharedRpcServer*(): RpcServer =
   if sharedServer.isNil: sharedServer = newRpcServer("")
   result = sharedServer
+  
+proc fromJson(n: JsonNode, result: var bool) =
+  if n.kind != JBool: raise newException(ValueError, "Expected JBool but got " & $n.kind)
+  result = n.getBool()
+
+proc fromJson(n: JsonNode, result: var int) =
+  if n.kind != JInt: raise newException(ValueError, "Expected JInt but got " & $n.kind)
+  result = n.getInt()
+
+proc fromJson(n: JsonNode, result: var byte) =
+  if n.kind != JInt: raise newException(ValueError, "Expected JInt but got " & $n.kind)
+  let v = n.getInt()
+  if v > 255 or v < 0: raise newException(ValueError, "Parameter value out of range for byte: " & $v)
+  result = byte(v)
+
+proc fromJson(n: JsonNode, result: var float) =
+  if n.kind != JFloat: raise newException(ValueError, "Expected JFloat but got " & $n.kind)
+  result = n.getFloat()
+
+proc fromJson(n: JsonNode, result: var string) =
+  if n.kind != JString: raise newException(ValueError, "Expected JString but got " & $n.kind)
+  result = n.getStr()
+
+proc fromJson[T](n: JsonNode, result: var seq[T]) =
+  if n.kind != JArray: raise newException(ValueError, "Expected JArray but got " & $n.kind)
+  result = newSeq[T](n.len)
+  for i in 0 ..< n.len:
+    fromJson(n[i], result[i])
+
+proc fromJson[N, T](n: JsonNode, result: var array[N, T]) =
+  if n.kind != JArray: raise newException(ValueError, "Expected JArray but got " & $n.kind)
+  if n.len > result.len: raise newException(ValueError, "Parameter item count is too big for array")
+  for i in 0 ..< n.len:
+    fromJson(n[i], result[i])
+
+proc fromJson[T: object](n: JsonNode, result: var T) =
+  if n.kind != JObject: raise newException(ValueError, "Expected JObject but got " & $n.kind)
+  for k, v in fieldpairs(result):
+    fromJson(n[k], v)
+
+proc unpackArg[T](argIdx: int, argName: string, argtype: typedesc[T], args: JsonNode): T =
+  fromJson(args[argIdx], result)
+
+proc setupParams(parameters, paramsIdent: NimNode): NimNode =
+  # Add code to verify input and load parameters into Nim types
+  result = newStmtList()
+  if not parameters.isNil:
+    # initial parameter array length check
+    var expectedLen = parameters.len - 1
+    let expectedStr = "Expected " & $expectedLen & " Json parameter(s) but got "
+    result.add(quote do:
+      if `paramsIdent`.len != `expectedLen`:
+        raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
+    )
+    # unpack each parameter and provide assignments
+    for i in 1 ..< parameters.len:
+      let
+        paramName = parameters[i][0]
+        pos = i - 1
+        paramNameStr = $paramName
+      var
+        paramType = parameters[i][1]
+      result.add(quote do:
+        var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
+      )
+  echo result.repr
 
 macro multiRemove(s: string, values: varargs[string]): untyped =
   ## Wrapper for multiReplace
@@ -81,99 +147,13 @@ macro multiRemove(s: string, values: varargs[string]): untyped =
   body.add multiReplaceCall
   result = newBlockStmt(body)
 
-proc preParseTypes(typeNode: var NimNode, typeName: NimNode, errorCheck: var NimNode): bool {.compileTime.} =
-  # handle byte
-  for i, item in typeNode:
-    if item.kind == nnkIdent and item.basename == ident"byte":
-      typeNode[i] = ident"int"
-      # add some extra checks
-      result = true
-    else:
-      var t = typeNode[i]
-      if preParseTypes(t, typeName, errorCheck):
-        typeNode[i] = t
-
-proc expect(node, jsonIdent, fieldName: NimNode, tn: JsonNodeKind) =
-  let
-    expectedStr = "Expected parameter `" & fieldName.repr & "` to be " & $tn & " but got "
-    tnIdent = ident($tn)
-  node.add(quote do:
-    if `jsonIdent`.kind != `tnIdent`:
-      raise newException(ValueError, `expectedStr` & $`jsonIdent`.kind)
-  )
-  
-###
-
-proc fromJson(n: JsonNode, result: var int) =
-  # TODO: validate...
-  result = n.getInt()
-
-proc fromJson(n: JsonNode, result: var byte) =
-  let v = n.getInt()
-  if v > 255: raise newException(ValueError, "Parameter value to large for byte: " & $v)
-  result = byte(v)
-
-proc fromJson(n: JsonNode, result: var float) =
-  # TODO: validate...
-  result = n.getFloat()
-
-proc fromJson(n: JsonNode, result: var string) =
-  # TODO: validate...
-  result = n.getStr()
-
-proc fromJson[T](n: JsonNode, result: var seq[T]) =
-  # TODO: validate...
-  result = newSeq[T](n.len)
-  for i in 0 ..< n.len:
-    fromJson(n[i], result[i])
-
-proc fromJson[N, T](n: JsonNode, result: var array[N, T]) =
-  # TODO: validate...
-  if n.len > result.len: raise newException(ValueError, "Parameter data too big for array")
-  for i in 0..< n.len:
-    fromJson(n[i], result[i])
-
-proc fromJson[T: object](n: JsonNode, result: var T) = # This reads a custom object
-  # TODO: validate...
-  for k, v in fieldpairs(result):
-    fromJson(n[k], v)
-
-proc unpackArg[T](argIdx: int, argName: string, argtype: typedesc[T], args: JsonNode): T =
-  echo argName, " ", args.pretty
-  fromJson(args[argIdx], result)
-
-proc setupParams(node, parameters, paramsIdent: NimNode) =
-  # recurse parameter's fields until we only have symbols
-  if not parameters.isNil:
-    var
-      errorCheck = newStmtList()
-      expectedParams = parameters.len - 1
-    let expectedStr = "Expected " & $`expectedParams` & " Json parameter(s) but got "
-    node.add(quote do:
-      if `paramsIdent`.len != `expectedParams`:
-        raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
-    )
-
-    for i in 1 ..< parameters.len:
-      let
-        paramName = parameters[i][0]
-        pos = i - 1
-        paramNameStr = $paramName
-      var
-        paramType = parameters[i][1]
-      node.add(quote do:
-        var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
-        
-        `errorCheck`
-      )
-
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
-  var setup = newStmtList()
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
     paramsIdent = ident"params"  
-  setup.setupParams(parameters, paramsIdent)
+  var setup = setupParams(parameters, paramsIdent)
+  #setup.setupParams(parameters, paramsIdent)
 
   # wrapping proc
   let
