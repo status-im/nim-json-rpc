@@ -130,13 +130,6 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
       result.add(quote do:
         var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
       )
-  else:
-    # no parameters expected
-    result.add(quote do:
-      if `paramsIdent`.len != 0:
-        raise newException(ValueError, "Expected no parameters but got " & $`paramsIdent`.len)
-    )
-
 
 macro multiRemove(s: string, values: varargs[string]): untyped =
   ## Wrapper for multiReplace
@@ -159,22 +152,22 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
     paramsIdent = ident"params"  
-  var setup = setupParams(parameters, paramsIdent)
-
-  # wrapping proc
-  let
     pathStr = $path
-    procName = ident(pathStr.multiRemove(".", "/")) # TODO: Make this unique to avoid potential clashes, or allow people to know the name for calling?
-  var procBody: NimNode
+    procName = ident(pathStr.multiRemove(".", "/"))
+  var
+    setup = setupParams(parameters, paramsIdent)
+    procBody: NimNode
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
+  
+  # wrapping async proc
   result = quote do:
     proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
       `setup`
       `procBody`
     `server`.register(`path`, `procName`)
   when defined(nimDumpRpcs):
-    echo pathStr, ": ", result.repr
+    echo "\n", pathStr, ": ", result.repr
 
 when isMainModule:
   import unittest
