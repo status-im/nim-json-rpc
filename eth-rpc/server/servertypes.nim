@@ -119,13 +119,16 @@ macro multiRemove(s: string, values: varargs[string]): string =
   body.add multiReplaceCall
   result = newBlockStmt(body)
 
+proc makeProcName(s: string): string =
+  s.multiRemove(".", "/")
+
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
     paramsIdent = ident"params"  
     pathStr = $path
-    procName = ident(pathStr.multiRemove(".", "/"))
+    procName = ident(pathStr.makeProcName)
   var
     setup = setupParams(parameters, paramsIdent)
     procBody: NimNode
