@@ -57,6 +57,13 @@ s.on("rpc.seqparam") do(a: string, s: seq[int]):
 s.on("rpc.objparam") do(a: string, obj: MyObject):
   result = %obj
 
+s.on("rpc.returntypesimple") do(i: int) -> int:
+  result = i
+
+s.on("rpc.returntypecomplex") do(i: int) -> Test2:
+  result.x = [1, i, 3]
+  result.y = "test"
+
 # Tests
 suite "Server types":
 
@@ -80,6 +87,18 @@ suite "Server types":
   test "Object parameters":
     let r = waitfor rpcObjParam(%[%"abc", testObj])
     check r == testObj
+
+  test "Simple return types":
+    let
+      inp = %99
+      r1 = waitfor rpcReturnTypeSimple(%[%inp])
+    check r1 == inp
+
+  test "Complex return types":
+    let
+      inp = 99
+      r1 = waitfor rpcReturnTypeComplex(%[%inp])
+    check r1 == %*{"x": %[1, inp, 3], "y": "test"}
 
   test "Runtime errors":
     expect ValueError:
