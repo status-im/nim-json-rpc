@@ -1,3 +1,3 @@
 import
-  testutils, testserverclient
+  testutils, testrpcmacro, testserverclient
 

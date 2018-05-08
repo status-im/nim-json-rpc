@@ -14,6 +14,7 @@ proc configForTests() =
   --debuginfo
   --path: "."
   --run
+  --forceBuild
 
 task test, "run tests":
   configForTests()
