@@ -125,14 +125,34 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   var
     setup = setupParams(parameters, paramsIdent)
     procBody: NimNode
+    bodyWrapper = newStmtList()
+
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
-  
-  # wrapping async proc
+
+  if parameters.len > 0 and parameters[0] != nil:
+    # when a return type is specified, shadow async's result
+    # and pass it back jsonified    
+    let
+      returnType = parameters[0]
+      res = ident"result"
+    template doMain(body: untyped): untyped =
+      # create a new scope to allow shadowing result
+      block:
+        body
+    bodyWrapper = quote do:
+      `res` = `doMain`:
+        var `res`: `returnType`
+        `procBody`
+        %`res`
+  else:
+    bodyWrapper = quote do: `procBody`
+    
+  # async proc wrapper around body
   result = quote do:
-    proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-      `setup`
-      `procBody`
-    `server`.register(`path`, `procName`)
+      proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+        `setup`
+        `bodyWrapper`
+      `server`.register(`path`, `procName`)
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr
