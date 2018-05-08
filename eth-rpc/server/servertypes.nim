@@ -65,47 +65,47 @@ proc sharedRpcServer*(): RpcServer =
   if sharedServer.isNil: sharedServer = newRpcServer("")
   result = sharedServer
   
-proc fromJson(n: JsonNode, result: var bool) =
-  if n.kind != JBool: raise newException(ValueError, "Expected JBool but got " & $n.kind)
+proc fromJson(n: JsonNode, argName: string, result: var bool) =
+  if n.kind != JBool: raise newException(ValueError, "Parameter \"" & argName & "\" expected JBool but got " & $n.kind)
   result = n.getBool()
 
-proc fromJson(n: JsonNode, result: var int) =
-  if n.kind != JInt: raise newException(ValueError, "Expected JInt but got " & $n.kind)
+proc fromJson(n: JsonNode, argName: string, result: var int) =
+  if n.kind != JInt: raise newException(ValueError, "Parameter \"" & argName & "\" expected JInt but got " & $n.kind)
   result = n.getInt()
 
-proc fromJson(n: JsonNode, result: var byte) =
-  if n.kind != JInt: raise newException(ValueError, "Expected JInt but got " & $n.kind)
+proc fromJson(n: JsonNode, argName: string, result: var byte) =
+  if n.kind != JInt: raise newException(ValueError, "Parameter \"" & argName & "\" expected JInt but got " & $n.kind)
   let v = n.getInt()
-  if v > 255 or v < 0: raise newException(ValueError, "Parameter value out of range for byte: " & $v)
+  if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
   result = byte(v)
 
-proc fromJson(n: JsonNode, result: var float) =
-  if n.kind != JFloat: raise newException(ValueError, "Expected JFloat but got " & $n.kind)
+proc fromJson(n: JsonNode, argName: string, result: var float) =
+  if n.kind != JFloat: raise newException(ValueError, "Parameter \"" & argName & "\" expected JFloat but got " & $n.kind)
   result = n.getFloat()
 
-proc fromJson(n: JsonNode, result: var string) =
-  if n.kind != JString: raise newException(ValueError, "Expected JString but got " & $n.kind)
+proc fromJson(n: JsonNode, argName: string, result: var string) =
+  if n.kind != JString: raise newException(ValueError, "Parameter \"" & argName & "\" expected JString but got " & $n.kind)
   result = n.getStr()
 
-proc fromJson[T](n: JsonNode, result: var seq[T]) =
-  if n.kind != JArray: raise newException(ValueError, "Expected JArray but got " & $n.kind)
+proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
+  if n.kind != JArray: raise newException(ValueError, "Parameter \"" & argName & "\" expected JArray but got " & $n.kind)
   result = newSeq[T](n.len)
   for i in 0 ..< n.len:
-    fromJson(n[i], result[i])
+    fromJson(n[i], argName, result[i])
 
-proc fromJson[N, T](n: JsonNode, result: var array[N, T]) =
-  if n.kind != JArray: raise newException(ValueError, "Expected JArray but got " & $n.kind)
-  if n.len > result.len: raise newException(ValueError, "Parameter item count is too big for array")
+proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
+  if n.kind != JArray: raise newException(ValueError, "Parameter \"" & argName & "\" expected JArray but got " & $n.kind)
+  if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   for i in 0 ..< n.len:
-    fromJson(n[i], result[i])
+    fromJson(n[i], argName, result[i])
 
-proc fromJson[T: object](n: JsonNode, result: var T) =
-  if n.kind != JObject: raise newException(ValueError, "Expected JObject but got " & $n.kind)
+proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
+  if n.kind != JObject: raise newException(ValueError, "Parameter \"" & argName & "\" expected JObject but got " & $n.kind)
   for k, v in fieldpairs(result):
-    fromJson(n[k], v)
+    fromJson(n[k], k, v)
 
 proc unpackArg[T](argIdx: int, argName: string, argtype: typedesc[T], args: JsonNode): T =
-  fromJson(args[argIdx], result)
+  fromJson(args[argIdx], argName, result)
 
 proc setupParams(parameters, paramsIdent: NimNode): NimNode =
   # Add code to verify input and load parameters into Nim types
@@ -115,6 +115,8 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
     var expectedLen = parameters.len - 1
     let expectedStr = "Expected " & $expectedLen & " Json parameter(s) but got "
     result.add(quote do:
+      if `paramsIdent`.kind != JArray:
+        raise newException(ValueError, "Parameter params expected JArray but got " & $`paramsIdent`.kind)
       if `paramsIdent`.len != `expectedLen`:
         raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
     )
@@ -124,12 +126,17 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
         paramName = parameters[i][0]
         pos = i - 1
         paramNameStr = $paramName
-      var
         paramType = parameters[i][1]
       result.add(quote do:
         var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
       )
-  echo result.repr
+  else:
+    # no parameters expected
+    result.add(quote do:
+      if `paramsIdent`.len != 0:
+        raise newException(ValueError, "Expected no parameters but got " & $`paramsIdent`.len)
+    )
+
 
 macro multiRemove(s: string, values: varargs[string]): untyped =
   ## Wrapper for multiReplace
@@ -153,7 +160,6 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
     parameters = body.findChild(it.kind == nnkFormalParams)
     paramsIdent = ident"params"  
   var setup = setupParams(parameters, paramsIdent)
-  #setup.setupParams(parameters, paramsIdent)
 
   # wrapping proc
   let
@@ -164,7 +170,6 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   else: procBody = body.body
   result = quote do:
     proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-      #`checkTypeError`
       `setup`
       `procBody`
     `server`.register(`path`, `procName`)
@@ -207,6 +212,17 @@ when isMainModule:
       a: int
       b: Test
       c: float
+  let
+    testObj = %*{
+      "a": %1,
+      "b": %*{
+        "a": %[5, 0],
+        "b": %*{
+          "x": %[1, 2, 3],
+          "y": %"test"
+        }
+      },
+      "c": %1.23}
 
   s.on("rpc.objparam") do(a: string, obj: MyObject):
     result = %obj
@@ -226,19 +242,8 @@ when isMainModule:
       for i in 0..4: ckR2.add %(i + 1)
       check r2 == ckR2
     test "Object parameters":
-      let
-        obj = %*{
-          "a": %1,
-          "b": %*{
-            "a": %[5, 0],
-            "b": %*{
-              "x": %[1, 2, 3],
-              "y": %"test"
-            }
-          },
-          "c": %1.23}
-        r = waitfor rpcObjParam(%[%"abc", obj])
-      check r == obj
+      let r = waitfor rpcObjParam(%[%"abc", testObj])
+      check r == testObj
     test "Runtime errors":
       expect ValueError:
         echo waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
