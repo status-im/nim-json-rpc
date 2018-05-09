@@ -33,26 +33,29 @@ proc sharedRpcServer*(): RpcServer =
   if sharedServer.isNil: sharedServer = newRpcServer("")
   result = sharedServer
   
+template expect*(actual, expected: JsonNodeKind, argName: string) =
+  if actual != expected: raise newException(ValueError, "Parameter \"" & argName & "\" expected " & $expected & " but got " & $actual)
+
 proc fromJson(n: JsonNode, argName: string, result: var bool) =
-  if n.kind != JBool: raise newException(ValueError, "Parameter \"" & argName & "\" expected JBool but got " & $n.kind)
+  n.kind.expect(JBool, argName)
   result = n.getBool()
 
 proc fromJson(n: JsonNode, argName: string, result: var int) =
-  if n.kind != JInt: raise newException(ValueError, "Parameter \"" & argName & "\" expected JInt but got " & $n.kind)
+  n.kind.expect(JInt, argName)
   result = n.getInt()
 
 proc fromJson(n: JsonNode, argName: string, result: var byte) =
-  if n.kind != JInt: raise newException(ValueError, "Parameter \"" & argName & "\" expected JInt but got " & $n.kind)
+  n.kind.expect(JInt, argName)
   let v = n.getInt()
   if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
   result = byte(v)
 
 proc fromJson(n: JsonNode, argName: string, result: var float) =
-  if n.kind != JFloat: raise newException(ValueError, "Parameter \"" & argName & "\" expected JFloat but got " & $n.kind)
+  n.kind.expect(JFloat, argName)
   result = n.getFloat()
 
 proc fromJson(n: JsonNode, argName: string, result: var string) =
-  if n.kind != JString: raise newException(ValueError, "Parameter \"" & argName & "\" expected JString but got " & $n.kind)
+  n.kind.expect(JString, argName)
   result = n.getStr()
 
 proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
@@ -70,18 +73,19 @@ proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
 
 proc unpackArg[T](argIdx: int, argName: string, argtype: typedesc[T], args: JsonNode): T =
   when argType is array or argType is seq:
-    if args[argIdx].kind != JArray: raise newException(ValueError, "Parameter \"" & argName & "\" expected JArray but got " & $args[argIdx].kind)
+    args[argIdx].kind.expect(JArray, argName)
   when argType is array:
     if args[argIdx].len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   when argType is object:
-    if args[argIdx].kind != JObject: raise newException(ValueError, "Parameter \"" & argName & "\" expected JObject but got " & $args[argIdx].kind)
+    args[argIdx].kind.expect(JObject, argName)
   fromJson(args[argIdx], argName, result)
 
 proc expectArrayLen(node: NimNode, paramsIdent: untyped, length: int) =
-  let expectedStr = "Expected " & $length & " Json parameter(s) but got "
+  let
+    identStr = paramsIdent.repr
+    expectedStr = "Expected " & $length & " Json parameter(s) but got "
   node.add(quote do:
-    if `paramsIdent`.kind != JArray:
-      raise newException(ValueError, "Parameter params expected JArray but got " & $`paramsIdent`.kind)
+    `paramsIdent`.kind.expect(JArray, `identStr`)
     if `paramsIdent`.len != `length`:
       raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
   )
