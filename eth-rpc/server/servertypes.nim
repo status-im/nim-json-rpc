@@ -1,5 +1,5 @@
-import asyncdispatch, asyncnet, json, tables, macros, strutils
-export asyncdispatch, asyncnet, json
+import asyncdispatch, asyncnet, json, tables, macros, strutils, jsonconverters
+export asyncdispatch, asyncnet, json, jsonconverters
 
 type
   RpcProc* = proc (params: JsonNode): Future[JsonNode]
@@ -121,9 +121,10 @@ macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
 
-  if parameters.len > 0 and parameters[0] != nil:
+  if parameters.len > 0 and parameters[0] != nil and parameters[0] != ident"JsonNode":
     # when a return type is specified, shadow async's result
-    # and pass it back jsonified    
+    # and pass it back jsonified - of course, we don't want to do this
+    # if a JsonNode is explicitly declared as the return type     
     let
       returnType = parameters[0]
       res = ident"result"
