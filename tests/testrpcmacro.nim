@@ -33,12 +33,10 @@ s.on("rpc.simplepath"):
   result = %1
 
 s.on("rpc.differentparams") do(a: int, b: string): 
-  result = %"test"
+  result = %[%a, %b]
 
 s.on("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
-  var res = newJArray()
-  for item in arr:
-    res.add %int(item)
+  var res = %arr
   res.add %b
   result = %res
 
@@ -70,6 +68,16 @@ suite "Server types":
     check s.procs.hasKey("rpc.objparam")
     check s.procs.hasKey("rpc.returntypesimple")
     check s.procs.hasKey("rpc.returntypecomplex")
+
+  test "Simple paths":
+    let r = waitFor rpcSimplePath(%[])
+    check r == %1
+
+  test "Different param types":
+    let
+      inp = %[%1, %"abc"]
+      r = waitFor rpcDifferentParams(inp)
+    check r == inp
 
   test "Array parameters":
     let r1 = waitfor rpcArrayParam(%[%[1, 2, 3], %"hello"])
@@ -109,3 +117,9 @@ suite "Server types":
     expect ValueError:
       # wrong sub parameter type
       discard waitfor rpcArrayParam(%[%"test", %"hello"])
+    expect ValueError:
+      # wrong param type
+      let res = waitFor rpcDifferentParams(%[%"abc", %1])
+      # TODO: When errors are proper return values, check error for param name
+
+
