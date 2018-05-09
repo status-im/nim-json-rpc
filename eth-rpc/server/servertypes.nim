@@ -103,24 +103,8 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
         var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
       )
 
-macro multiRemove(s: string, values: varargs[string]): string =
-  ## Wrapper for multiReplace
-  var
-    body = newStmtList()
-    multiReplaceCall = newCall(ident"multiReplace", s)
-
-  body.add(newVarStmt(ident"eStr", newStrLitNode("")))
-  let emptyStr = ident"eStr"
-  for item in values:
-    # generate tuples of values with the empty string `eStr`
-    let sItem = $item
-    multiReplaceCall.add(newPar(newStrLitNode(sItem), emptyStr))
-
-  body.add multiReplaceCall
-  result = newBlockStmt(body)
-
 proc makeProcName(s: string): string =
-  s.multiRemove(".", "/")
+  s.multiReplace((".", ""), ("/", ""))
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
