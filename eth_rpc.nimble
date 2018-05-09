@@ -7,7 +7,8 @@ srcDir        = "src"
 
 ### Dependencies
 requires "nim >= 0.17.3",
-         "nimcrypto"
+         "nimcrypto",
+         "stint"
 
 proc configForTests() =
   --hints: off
