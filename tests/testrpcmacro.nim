@@ -1,4 +1,4 @@
-import ../ eth-rpc / server / servertypes, unittest, asyncdispatch, json, tables
+import ../ rpcserver, unittest, asyncdispatch, json, tables
 
 type
   # some nested types to check object parsing
