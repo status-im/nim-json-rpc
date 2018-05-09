@@ -2,8 +2,8 @@ import  ../ rpcserver, ../ rpcclient, unittest, asyncdispatch, json, tables
 
 #[
   TODO: Importing client before server causes the error:
-  Error: undeclared identifier: 'result' for the custom procedure.
-  This is because the rpc procs created by clientdispatch clash with ethprocs.
+  Error: undeclared identifier: 'result' for the `myProc` RPC.
+  This is because the RPC procs created by clientdispatch clash with ethprocs.
   Currently, easiest solution is to import rpcserver (and therefore generate 
   ethprocs) before rpcclient.
 ]#
