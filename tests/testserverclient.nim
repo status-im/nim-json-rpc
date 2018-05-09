@@ -1,7 +1,14 @@
-import ../ rpcclient, ../ rpcserver, 
-  asyncdispatch, json, unittest, tables
+import  ../ rpcserver, ../ rpcclient, unittest, asyncdispatch, json, tables
 
+#[
+  TODO: Importing client before server causes the error:
+  Error: undeclared identifier: 'result' for the custom procedure.
+  This is because the rpc procs created by clientdispatch clash with ethprocs.
+  Currently, easiest solution is to import rpcserver (and therefore generate 
+  ethprocs) before rpcclient.
+]#
 # TODO: dummy implementations of RPC calls handled in async fashion.
+# TODO: check required json parameters like version are being raised
 var srv = sharedRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
@@ -16,7 +23,6 @@ suite "RPC":
     var client = newRpcClient()
     await client.connect("localhost", Port(8545))
     var response: Response
-
     test "Version":
       response = waitFor client.web3_clientVersion(newJNull())
       check response.result == %"Nimbus-RPC-Test"
@@ -27,8 +33,6 @@ suite "RPC":
       # Custom async RPC call
       response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
       check response.result.getStr == "Hello abc data: [1, 2, 3, 4]"
-
-  
 
   waitFor main()
   
