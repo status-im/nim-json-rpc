@@ -91,7 +91,7 @@ macro generateCalls: untyped =
   for callName in ETHEREUM_RPC_CALLS:
     let nameLit = ident(callName)
     result.add(quote do:
-      proc `nameLit`*(client: RpcClient, params: JsonNode): Future[Response] {.inline.} = client.call(`callName`, params)  # TODO: Back to template
+      template `nameLit`*(client: RpcClient, params: JsonNode): Future[Response] = client.call(`callName`, params)  # TODO: Back to template
     )
 
 # generate all client ethereum rpc calls
