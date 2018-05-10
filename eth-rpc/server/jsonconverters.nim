@@ -8,13 +8,11 @@ iterator bytes(i: UInt256|Int256): byte =
     pos += 1
 
 proc `%`*(n: UInt256): JsonNode =
-  ## Generic constructor for JSON data. Creates a new `JInt JsonNode`.
   result = newJArray()
   for elem in n.bytes:
     result.add(%int(elem))
 
 proc `%`*(n: Int256): JsonNode =
-  ## Generic constructor for JSON data. Creates a new `JInt JsonNode`.
   result = newJArray()
   for elem in n.bytes:
     result.add(%int(elem))
@@ -22,3 +20,5 @@ proc `%`*(n: Int256): JsonNode =
 proc `%`*(n: byte{not lit}): JsonNode =
   result = newJInt(int(n))
 
+proc `%`*(n: ref int|ref int64): JsonNode =
+  result = newJInt(int(n[]))
