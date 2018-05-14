@@ -1,4 +1,4 @@
-import asyncdispatch, asyncnet, json, tables, macros, strutils, jsonconverters
+import asyncdispatch, asyncnet, json, tables, macros, strutils, jsonconverters, stint
 export asyncdispatch, asyncnet, json, jsonconverters
 
 type
@@ -46,12 +46,12 @@ proc fromJson(n: JsonNode, argName: string, result: var int) =
 
 # TODO: Why does compiler complain that result cannot be assigned to when using result: var int|var int64
 # TODO: Compiler requires forward decl when processing out of module
-proc fromJson(n: JsonNode, argName: string, result: var uint64)
 proc fromJson(n: JsonNode, argName: string, result: var byte)
 proc fromJson(n: JsonNode, argName: string, result: var float)
 proc fromJson(n: JsonNode, argName: string, result: var string)
 proc fromJson[T](n: JsonNode, argName: string, result: var seq[T])
 proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T])
+proc fromJson(n: JsonNode, argName: string, result: var UInt256)
 
 # TODO: Why can't this be forward declared? Complains of lack of definition
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
@@ -67,22 +67,15 @@ proc fromJson(n: JsonNode, argName: string, result: var int64) =
   n.kind.expect(JInt, argName)
   result = n.getInt()
 
-proc fromJson(n: JsonNode, argName: string, result: var uint64) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt().uint64
-
 proc fromJson(n: JsonNode, argName: string, result: var byte) =
   n.kind.expect(JInt, argName)
   let v = n.getInt()
   if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
   result = byte(v)
 
-# TODO: Alow string input for UInt256?
-#[
 proc fromJson(n: JsonNode, argName: string, result: var UInt256) =
   n.kind.expect(JString, argName)
-  result = n.getStr().parse(Stint[256]) # TODO: Requires error checking?
-]#
+  result = parse(StUint[256], n.getStr()) # TODO: Requires error checking?
 
 proc fromJson(n: JsonNode, argName: string, result: var float) =
   n.kind.expect(JFloat, argName)
@@ -134,7 +127,7 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
         paramNameStr = $paramName
         paramType = parameters[i][1]
       result.add(quote do:
-        var `paramName` = `unpackArg`(`pos`, `paramNameStr`, `paramType`, `paramsIdent`)
+        var `paramName` = `unpackArg`(`pos`, `paramNameStr`, type(`paramType`), `paramsIdent`)
       )
 
 proc makeProcName(s: string): string =
