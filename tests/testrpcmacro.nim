@@ -1,4 +1,4 @@
-import ../ rpcserver, unittest, asyncdispatch, json, tables
+import unittest, asyncdispatch, json, tables, ../ rpcserver
 
 type
   # some nested types to check object parsing
