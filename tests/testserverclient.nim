@@ -1,4 +1,4 @@
-import  ../ rpcserver, ../ rpcclient, unittest, asyncdispatch, json, tables
+import   ../ rpcclient, ../ rpcserver, unittest, asyncdispatch, json, tables
 
 #[
   TODO: Importing client before server causes the error:
