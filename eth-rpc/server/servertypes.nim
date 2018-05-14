@@ -75,7 +75,7 @@ proc fromJson(n: JsonNode, argName: string, result: var byte) =
 
 proc fromJson(n: JsonNode, argName: string, result: var UInt256) =
   n.kind.expect(JString, argName)
-  result = parse(StUint[256], n.getStr()) # TODO: Requires error checking?
+  result = n.getStr().parse(StUint[256]) # TODO: Requires error checking?
 
 proc fromJson(n: JsonNode, argName: string, result: var float) =
   n.kind.expect(JFloat, argName)
