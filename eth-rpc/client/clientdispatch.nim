@@ -33,8 +33,9 @@ proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.
 
 macro checkGet(node: JsonNode, fieldName: string, jKind: static[JsonNodeKind]): untyped =
   result = quote do:
-    if not node.hasKey(`fieldName`): raise newException(ValueError, "Message is missing required field \"" & `fieldName` & "\"")
-    if `node`[`fieldName`].kind != `jKind`.JsonNodeKind: raise newException(ValueError, "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
+    let n = `node`{`fieldName`}
+    if n.isNil: raise newException(ValueError, "Message is missing required field \"" & `fieldName` & "\"")
+    if n.kind != `jKind`.JsonNodeKind: raise newException(ValueError, "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
   case jKind
   of JBool: result.add(quote do: `node`[`fieldName`].getBool)
   of JInt: result.add(quote do: `node`[`fieldName`].getInt)
@@ -49,14 +50,19 @@ proc processMessage(self: RpcClient, line: string) =
   # TODO: Use more appropriate exception objects
   let version = checkGet(node, "jsonrpc", JString)
   if version != "2.0": raise newException(ValueError, "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
+
   let id = checkGet(node, "id", JString)
   if not self.awaiting.hasKey(id): raise newException(ValueError, "Cannot find message id \"" & node["id"].str & "\"")
 
-  if node["error"].kind == JNull:
-    self.awaiting[id].complete((false, node["result"]))
+  let errorNode = node{"error"}
+  if errorNode.isNil or errorNode.kind == JNull:
+    var res = node{"result"}
+    if not res.isNil:
+      self.awaiting[id].complete((false, res))
     self.awaiting.del(id)
+    # TODO: actions on unable find result node
   else:
-    self.awaiting[id].complete((true, node["error"]))
+    self.awaiting[id].complete((true, errorNode))
     self.awaiting.del(id)
 
 proc connect*(self: RpcClient, address: string, port: Port): Future[void]
