@@ -1,4 +1,4 @@
-import unittest, asyncdispatch, json, tables, ../ rpcserver
+import unittest, ../ rpcserver, asyncdispatch, json, tables
 
 type
   # some nested types to check object parsing
@@ -121,5 +121,3 @@ suite "Server types":
       # wrong param type
       let res = waitFor rpcDifferentParams(%[%"abc", %1])
       # TODO: When errors are proper return values, check error for param name
-
-
