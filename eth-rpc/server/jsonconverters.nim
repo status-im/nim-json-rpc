@@ -1,21 +1,14 @@
-import json, stint
+import json, stint, strutils
 
-iterator bytes(i: UInt256|Int256): byte =
-  let b = cast[ptr array[32, byte]](i.unsafeaddr)
-  var pos = 0
-  while pos < 32:
-    yield b[pos]
-    pos += 1
+template stintStr(n: UInt256|Int256): JsonNode =
+  var s = n.toString
+  if s.len mod 2 != 0: s = "0" & s
+  s = "0x" & s
+  %s
 
-proc `%`*(n: UInt256): JsonNode =
-  result = newJArray()
-  for elem in n.bytes:
-    result.add(%int(elem))
+proc `%`*(n: UInt256): JsonNode = n.stintStr
 
-proc `%`*(n: Int256): JsonNode =
-  result = newJArray()
-  for elem in n.bytes:
-    result.add(%int(elem))
+proc `%`*(n: Int256): JsonNode = n.stintStr
 
 proc `%`*(n: byte{not lit}): JsonNode =
   result = newJInt(int(n))
