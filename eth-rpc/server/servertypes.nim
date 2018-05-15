@@ -32,6 +32,8 @@ var sharedServer: RpcServer
 proc sharedRpcServer*(): RpcServer =
   if sharedServer.isNil: sharedServer = newRpcServer("")
   result = sharedServer
+
+proc `$`*(port: Port): string = $int(port)
   
 template expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter \"" & argName & "\" expected " & $expected & " but got " & $actual)

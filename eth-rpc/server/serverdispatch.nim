@@ -1,5 +1,5 @@
 import asyncdispatch, asyncnet, json, tables, strutils,
-  servertypes, rpcconsts, private / [transportutils, debugutils], jsonutils, asyncutils,
+  servertypes, rpcconsts, private / debugutils, jsonutils, asyncutils,
   options
 
 proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.async.} =
