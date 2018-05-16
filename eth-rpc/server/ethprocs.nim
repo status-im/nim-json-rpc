@@ -76,7 +76,7 @@ server.on("eth_syncing") do() -> JsonNode:
     sync: SyncObject
   if true: res = %sync
   else: res = newJBool(false)
-  result = %res
+  result = res
 
 server.on("eth_coinbase") do() -> string:
   ## Returns the current coinbase address.
