@@ -133,47 +133,64 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
       )
 
 proc makeProcName(s: string): string =
-  s.multiReplace((".", ""), ("/", ""))
+  # only alpha
+  result = ""
+  for c in s:
+    if c.isAlphaAscii: result.add c
+
+proc hasReturnType(params: NimNode): bool =
+  if params.len > 0 and params[0] != nil and params[0].kind != nnkEmpty:
+    result = true
 
 macro on*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
-    paramsIdent = ident"params"  
-    pathStr = $path
+    paramsIdent = ident"params" # all remote calls have a single parameter: `params: JsonNode`  
+    pathStr = $path             # procs are generated from the stripped path
     procName = ident(pathStr.makeProcName)
+    doMain = genSym(nskProc)    # proc that contains our rpc body
+    res = ident"result"         # async result
   var
     setup = setupParams(parameters, paramsIdent)
     procBody: NimNode
-    bodyWrapper = newStmtList()
 
   if body.kind == nnkStmtList: procBody = body
   else: procBody = body.body
 
-  if parameters.len > 0 and parameters[0] != nil and parameters[0] != ident"JsonNode":
-    # when a return type is specified, shadow async's result
-    # and pass it back jsonified - of course, we don't want to do this
-    # if a JsonNode is explicitly declared as the return type     
-    let
-      returnType = parameters[0]
-      res = ident"result"
-    template doMain(body: untyped): untyped =
-      # create a new scope to allow shadowing result
-      block:
-        body
-    bodyWrapper = quote do:
-      `res` = `doMain`:
-        var `res`: `returnType`
+  if parameters.hasReturnType:
+    let returnType = parameters[0]
+
+    # `doMain` is outside of async transformation,
+    # allowing natural `return`
+    result.add(quote do:
+      proc `doMain`(`paramsIdent`: JsonNode): `returnType` {.inline.} =
+        `setup`
         `procBody`
-        %`res`
+    )
+
+    # Note ``res` =` (which becomes `result = `) will be transformed by {.async.} to `complete`
+    if returnType == ident"JsonNode":
+      # `JsonNode` results don't need conversion
+      result.add( quote do:
+        proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+          `res` = `doMain`(`paramsIdent`)
+      )
+    else:
+      result.add( quote do:
+        proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+          `res` = %`doMain`(`paramsIdent`)
+      )
   else:
-    bodyWrapper = quote do: `procBody`
-    
-  # async proc wrapper around body
-  result = quote do:
+    # no return types, inline contents
+    result.add( quote do:
       proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
         `setup`
-        `bodyWrapper`
-      `server`.register(`path`, `procName`)
+        `procBody`
+    )
+  result.add( quote do:
+    `server`.register(`path`, `procName`)
+  )
+
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr
