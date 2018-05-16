@@ -29,6 +29,7 @@ let
 var s = newRpcServer("localhost")
 
 # RPC definitions
+
 s.on("rpc.simplepath"):
   result = %1
 
@@ -57,6 +58,9 @@ s.on("rpc.returntypecomplex") do(i: int) -> Test2:
   result.x = [1, i, 3]
   result.y = "test"
 
+s.on("rpc.testreturns") do() -> int:
+  return 1234
+
 # Tests
 suite "Server types":
 
@@ -68,6 +72,7 @@ suite "Server types":
     check s.procs.hasKey("rpc.objparam")
     check s.procs.hasKey("rpc.returntypesimple")
     check s.procs.hasKey("rpc.returntypecomplex")
+    check s.procs.hasKey("rpc.testreturns")
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])
@@ -106,6 +111,10 @@ suite "Server types":
       inp = 99
       r1 = waitfor rpcReturnTypeComplex(%[%inp])
     check r1 == %*{"x": %[1, inp, 3], "y": "test"}
+
+  test "Return statement":
+    let r = waitFor rpcTestReturns(%[])
+    check r == %1234
 
   test "Runtime errors":
     expect ValueError:
