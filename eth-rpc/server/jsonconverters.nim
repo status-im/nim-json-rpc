@@ -1,7 +1,7 @@
 import json, stint, strutils
 
 template stintStr(n: UInt256|Int256): JsonNode =
-  var s = n.toString
+  var s = n.toHex
   if s.len mod 2 != 0: s = "0" & s
   s = "0x" & s
   %s
