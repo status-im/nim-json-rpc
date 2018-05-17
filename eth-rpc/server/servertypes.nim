@@ -79,7 +79,10 @@ proc fromJson(n: JsonNode, argName: string, result: var byte) =
 proc fromJson(n: JsonNode, argName: string, result: var UInt256) =
   # expects base 16 string, starting with "0x"
   n.kind.expect(JString, argName)
-  result = n.getStr().parse(StUint[256], 16) # TODO: Handle errors
+  let hexStr = n.getStr()
+  if hexStr.len > 64 + 2: # including "0x"
+    raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
+  result = hexStr.parse(StUint[256], 16) # TODO: Handle errors
 
 proc fromJson(n: JsonNode, argName: string, result: var float) =
   n.kind.expect(JFloat, argName)
