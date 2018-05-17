@@ -24,7 +24,7 @@ suite "RPC":
     await client.connect("localhost", Port(8545))
     var response: Response
     test "Version":
-      response = waitFor client.web3_clientVersion(newJNull())
+      response = waitFor client.web3_clientVersion(%[])
       check response.result == %"Nimbus-RPC-Test"
     test "SHA3":
       response = waitFor client.web3_sha3(%["abc"])
@@ -34,5 +34,5 @@ suite "RPC":
       response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
       check response.result.getStr == "Hello abc data: [1, 2, 3, 4]"
 
-  waitFor main()
+  waitFor main()  # TODO: When an error occurs during a test, stop the server
   
