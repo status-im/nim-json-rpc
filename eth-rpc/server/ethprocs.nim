@@ -20,16 +20,13 @@ import servertypes, cryptoutils, json, stint
   NOTE:
     * as `from` is a keyword, this has been replaced with `source` for variable names.
 
-  TODO:
-    * Check UInt256 is being converted correctly as input
-
 ]#
 
 var server = sharedRpcServer()
 
-server.on("web3_clientVersion"):
+server.on("web3_clientVersion") do() -> string:
   ## Returns the current client version.
-  result = %"Nimbus-RPC-Test"
+  result = "Nimbus-RPC-Test"
 
 server.on("web3_sha3") do(data: string) -> string:
   ## Returns Keccak-256 (not the standardized SHA3-256) of the given data.
@@ -38,7 +35,7 @@ server.on("web3_sha3") do(data: string) -> string:
   ## Returns the SHA3 result of the given string.
   result = k256(data)
 
-server.on("net_version"):
+server.on("net_version") do() -> string:
   ## Returns string of the current network id:
   ## "1": Ethereum Mainnet
   ## "2": Morden Testnet (deprecated)
@@ -49,7 +46,7 @@ server.on("net_version"):
     https://github.com/ethereum/interfaces/issues/6
     https://github.com/ethereum/EIPs/issues/611
   ]#
-  discard
+  result = ""
 
 server.on("net_listening") do() -> bool:
   ## Returns boolean true when listening, otherwise false.
@@ -80,7 +77,7 @@ server.on("eth_syncing") do() -> JsonNode:
 
 server.on("eth_coinbase") do() -> string:
   ## Returns the current coinbase address.
-  discard
+  result = ""
 
 server.on("eth_mining") do() -> bool:
   ## Returns true of the client is mining, otherwise false.
