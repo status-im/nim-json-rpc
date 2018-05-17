@@ -62,6 +62,7 @@ proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
 
 # TODO: Why can't this be forward declared? Complains of lack of definition
 proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
+  n.kind.expect(JObject, argName)
   for k, v in fieldpairs(result):
     fromJson(n[k], k, v)
 
@@ -76,8 +77,9 @@ proc fromJson(n: JsonNode, argName: string, result: var byte) =
   result = byte(v)
 
 proc fromJson(n: JsonNode, argName: string, result: var UInt256) =
+  # expects base 16 string, starting with "0x"
   n.kind.expect(JString, argName)
-  result = n.getStr().parse(StUint[256]) # TODO: Requires error checking?
+  result = n.getStr().parse(StUint[256], 16) # TODO: Handle errors
 
 proc fromJson(n: JsonNode, argName: string, result: var float) =
   n.kind.expect(JFloat, argName)
@@ -88,21 +90,18 @@ proc fromJson(n: JsonNode, argName: string, result: var string) =
   result = n.getStr()
 
 proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
+  n.kind.expect(JArray, argName)
   result = newSeq[T](n.len)
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
 proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
+  n.kind.expect(JArray, argName)
+  if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
-proc unpackArg[T](argIdx: int, argName: string, argtype: typedesc[T], args: JsonNode): T =
-  when argType is array or argType is seq:
-    args[argIdx].kind.expect(JArray, argName)
-  when argType is array:
-    if args[argIdx].len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
-  when argType is object:
-    args[argIdx].kind.expect(JObject, argName)
+proc unpackArg[T](args: JsonNode, argIdx: int, argName: string, argtype: typedesc[T]): T =
   fromJson(args[argIdx], argName, result)
 
 proc expectArrayLen(node: NimNode, paramsIdent: untyped, length: int) =
@@ -129,7 +128,7 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
         paramNameStr = $paramName
         paramType = parameters[i][1]
       result.add(quote do:
-        var `paramName` = `unpackArg`(`pos`, `paramNameStr`, type(`paramType`), `paramsIdent`)
+        var `paramName` = `unpackArg`(`paramsIdent`, `pos`, `paramNameStr`, type(`paramType`))
       )
 
 proc makeProcName(s: string): string =
