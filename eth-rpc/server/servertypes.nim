@@ -133,10 +133,10 @@ proc setupParams(parameters, paramsIdent: NimNode): NimNode =
       )
 
 proc makeProcName(s: string): string =
-  # only alpha
+  # only alphanumeric
   result = ""
   for c in s:
-    if c.isAlphaAscii: result.add c
+    if c.isAlphaNumeric: result.add c
 
 proc hasReturnType(params: NimNode): bool =
   if params.len > 0 and params[0] != nil and params[0].kind != nnkEmpty:
