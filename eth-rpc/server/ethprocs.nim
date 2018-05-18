@@ -1,4 +1,4 @@
-import servertypes, cryptoutils, json, stint
+import servertypes, cryptoutils, json, stint, ../ethtypes.nim
 
 #[
   For details on available RPC calls, see: https://github.com/ethereum/wiki/wiki/JSON-RPC
@@ -59,12 +59,6 @@ server.on("net_peerCount") do() -> int:
 server.on("eth_protocolVersion") do() -> string:
   ## Returns string of the current ethereum protocol version.
   discard
-
-type
-  SyncObject = object
-    startingBlock: int
-    currentBlock: int
-    highestBlock: int
 
 server.on("eth_syncing") do() -> JsonNode:
   ## Returns SyncObject or false when not syncing.
@@ -175,15 +169,6 @@ server.on("eth_sign") do(data: array[20, byte], message: seq[byte]) -> seq[byte]
   ## Returns signature.
   discard
 
-type EthSend = object
-  source: array[20, byte] # the address the transaction is send from.
-  to: array[20, byte]     # (optional when creating new contract) the address the transaction is directed to.
-  gas: int                # (optional, default: 90000) integer of the gas provided for the transaction execution. It will return unused gas.
-  gasPrice: int           # (optional, default: To-Be-Determined) integer of the gasPrice used for each paid gas.
-  value: int              # (optional) integer of the value sent with this transaction.
-  data: int               # the compiled code of a contract OR the hash of the invoked method signature and encoded parameters. For details see Ethereum Contract ABI.
-  nonce: int              # (optional) integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce.
-
 server.on("eth_sendTransaction") do(obj: EthSend) -> UInt256:
   ## Creates new message call transaction or a contract creation, if the data field contains code.
   ##
@@ -199,14 +184,6 @@ server.on("eth_sendRawTransaction") do(data: string, quantityTag: int) -> UInt25
   ## Returns the transaction hash, or the zero hash if the transaction is not yet available.
   ## Note: Use eth_getTransactionReceipt to get the contract address, after the transaction was mined, when you created a contract.
   discard
-
-type EthCall = object
-  source: array[20, byte] # (optional) The address the transaction is send from.
-  to: array[20, byte]     # The address the transaction is directed to.
-  gas: int                # (optional) Integer of the gas provided for the transaction execution. eth_call consumes zero gas, but this parameter may be needed by some executions.
-  gasPrice: int           # (optional) Integer of the gasPrice used for each paid gas.
-  value: int              # (optional) Integer of the value sent with this transaction.
-  data: int               # (optional) Hash of the method signature and encoded parameters. For details see Ethereum Contract ABI.
 
 server.on("eth_call") do(call: EthCall, quantityTag: string) -> UInt256:
   ## Executes a new message call immediately without creating a transaction on the block chain.
@@ -227,29 +204,6 @@ server.on("eth_estimateGas") do(call: EthCall, quantityTag: string) -> UInt256: 
   ## Returns the amount of gas used.
   discard
 
-type
-  ## A block object, or null when no block was found
-  BlockObject = ref object
-    number: int                   # the block number. null when its pending block.
-    hash: UInt256                 # hash of the block. null when its pending block.
-    parentHash: UInt256           # hash of the parent block.
-    nonce: int64                  # hash of the generated proof-of-work. null when its pending block.
-    sha3Uncles: UInt256           # SHA3 of the uncles data in the block.
-    logsBloom: array[256, byte]   # the bloom filter for the logs of the block. null when its pending block.
-    transactionsRoot: UInt256     # the root of the transaction trie of the block.
-    stateRoot: UInt256            # the root of the final state trie of the block.
-    receiptsRoot: UInt256         # the root of the receipts trie of the block.
-    miner: array[20, byte]        # the address of the beneficiary to whom the mining rewards were given.
-    difficulty: int               # integer of the difficulty for this block.
-    totalDifficulty: int          # integer of the total difficulty of the chain until this block.
-    extraData: string             # the "extra data" field of this block.
-    size: int                     # integer the size of this block in bytes.
-    gasLimit: int                 # the maximum gas allowed in this block.
-    gasUsed: int                  # the total used gas by all transactions in this block.
-    timestamp: int                # the unix timestamp for when the block was collated.
-    transactions: seq[Uint256]    # list of transaction objects, or 32 Bytes transaction hashes depending on the last given parameter.
-    uncles: seq[Uint256]          # list of uncle hashes.
-
 server.on("eth_getBlockByHash") do(data: array[32, byte], fullTransactions: bool) -> BlockObject:
   ## Returns information about a block by hash.
   ##
@@ -265,20 +219,6 @@ server.on("eth_getBlockByNumber") do(quantityTag: string, fullTransactions: bool
   ## fullTransactions: If true it returns the full transaction objects, if false only the hashes of the transactions.
   ## Returns BlockObject or nil when no block was found.
   discard
-
-type
-  TransactionObject = object  # A transaction object, or null when no transaction was found:
-    hash: UInt256             # hash of the transaction.
-    nonce: int64              # TODO: Is int? the number of transactions made by the sender prior to this one.
-    blockHash: UInt256        # hash of the block where this transaction was in. null when its pending.
-    blockNumber: int64        # block number where this transaction was in. null when its pending.
-    transactionIndex: int64   # integer of the transactions index position in the block. null when its pending.
-    source: array[20, byte]   # address of the sender.
-    to: array[20, byte]       # address of the receiver. null when its a contract creation transaction.
-    value: int64              # value transferred in Wei.
-    gasPrice: int64           # gas price provided by the sender in Wei.
-    gas: int64                # gas provided by the sender.
-    input: seq[byte]          # the data send along with the transaction.
 
 server.on("eth_getTransactionByHash") do(data: Uint256) -> TransactionObject:
   ## Returns the information about a transaction requested by transaction hash.
@@ -301,23 +241,6 @@ server.on("eth_getTransactionByBlockNumberAndIndex") do(quantityTag: string, qua
   ## quantityTag: a block number, or the string "earliest", "latest" or "pending", as in the default block parameter.
   ## quantity: the transaction index position.
   discard
-
-type
-  ReceiptKind = enum rkRoot, rkStatus
-  ReceiptObject = object
-    # A transaction receipt object, or null when no receipt was found:
-    transactionHash: UInt256          # hash of the transaction.
-    transactionIndex: int             # integer of the transactions index position in the block.
-    blockHash: UInt256                # hash of the block where this transaction was in.
-    blockNumber: int                  # block number where this transaction was in.
-    cumulativeGasUsed: int            # the total amount of gas used when this transaction was executed in the block.
-    gasUsed: int                      # the amount of gas used by this specific transaction alone.
-    contractAddress: array[20, byte]  # the contract address created, if the transaction was a contract creation, otherwise null.
-    logs: seq[string]                 # TODO: See Wiki for details. list of log objects, which this transaction generated.
-    logsBloom: array[256, byte]       # bloom filter for light clients to quickly retrieve related logs.
-    case kind: ReceiptKind
-    of rkRoot: root: UInt256          # post-transaction stateroot (pre Byzantium).
-    of rkStatus: status: int          # 1 = success, 0 = failure.
 
 server.on("eth_getTransactionReceipt") do(data: UInt256) -> ReceiptObject:
   ## Returns the receipt of a transaction by transaction hash.
@@ -369,22 +292,6 @@ server.on("eth_compileSerpent") do(sourceCode: string) -> seq[byte]:
   ## Returns compiles source code.
   result = @[]
 
-type
-  FilterDataKind = enum fkItem, fkList
-  FilterData = object
-    # Difficult to process variant objects in input data, as kind is immutable.
-    # TODO: This might need more work to handle "or" options
-    kind: FilterDataKind
-    items: seq[FilterData]
-    item: UInt256
-    # TODO: I don't think this will work as input, need only one value that is either UInt256 or seq[UInt256]
-
-  FilterOptions = object
-    fromBlock: string             # (optional, default: "latest") integer block number, or "latest" for the last mined block or "pending", "earliest" for not yet mined transactions.
-    toBlock: string               # (optional, default: "latest") integer block number, or "latest" for the last mined block or "pending", "earliest" for not yet mined transactions.
-    address: seq[array[20, byte]] # (optional) contract address or a list of addresses from which logs should originate.
-    topics: seq[FilterData]       # (optional) list of DATA topics. Topics are order-dependent. Each topic can also be a list of DATA with "or" options.
-
 server.on("eth_newFilter") do(filterOptions: FilterOptions) -> int:
   ## Creates a filter object, based on filter options, to notify when the state changes (logs).
   ## To check if the state has changed, call eth_getFilterChanges.
@@ -420,20 +327,6 @@ server.on("eth_uninstallFilter") do(filterId: int) -> bool:
   ## filterId: The filter id.
   ## Returns true if the filter was successfully uninstalled, otherwise false.
   discard
-
-type
-  LogObject = object
-    removed: bool             # true when the log was removed, due to a chain reorganization. false if its a valid log.
-    logIndex: int             # integer of the log index position in the block. null when its pending log.
-    transactionIndex: ref int # integer of the transactions index position log was created from. null when its pending log.
-    transactionHash: UInt256  # hash of the transactions this log was created from. null when its pending log.
-    blockHash: ref UInt256    # hash of the block where this log was in. null when its pending. null when its pending log.
-    blockNumber: ref int64    # the block number where this log was in. null when its pending. null when its pending log.
-    address: array[20, byte]  # address from which this log originated.
-    data: seq[UInt256]        # contains one or more 32 Bytes non-indexed arguments of the log.
-    topics: array[4, UInt256] # array of 0 to 4 32 Bytes DATA of indexed log arguments.
-                              # (In solidity: The first topic is the hash of the signature of the event.
-                              # (e.g. Deposit(address,bytes32,uint256)), except you declared the event with the anonymous specifier.)
 
 server.on("eth_getFilterChanges") do(filterId: int) -> seq[LogObject]:
   ## Polling method for a filter, which returns an list of logs which occurred since last poll.
@@ -479,16 +372,6 @@ server.on("eth_submitHashrate") do(hashRate: UInt256, id: Uint256) -> bool:
 server.on("shh_version") do() -> string:
   ## Returns string of the current whisper protocol version.
   discard
-
-type
-  WhisperPost = object
-    # The whisper post object:
-    source: array[60, byte] # (optional) the identity of the sender.
-    to: array[60, byte]     # (optional) the identity of the receiver. When present whisper will encrypt the message so that only the receiver can decrypt it.
-    topics: seq[UInt256]    # TODO: Correct type? list of DATA topics, for the receiver to identify messages.
-    payload: UInt256        # TODO: Correct type - maybe string? the payload of the message.
-    priority: int           # integer of the priority in a rang from ... (?).
-    ttl: int                # integer of the time to live in seconds.
 
 server.on("shh_post") do(message: WhisperPost) -> bool:
   ## Sends a whisper message.
@@ -543,19 +426,6 @@ server.on("shh_uninstallFilter") do(id: int) -> bool:
   ## id: the filter id.
   ## Returns true if the filter was successfully uninstalled, otherwise false.
   discard
-
-type
-  WhisperMessage = object
-    # (?) are from the RPC Wiki, indicating uncertainty in type format.
-    hash: UInt256           # (?) the hash of the message.
-    source: array[60, byte] # the sender of the message, if a sender was specified.
-    to: array[60, byte]     # the receiver of the message, if a receiver was specified.
-    expiry: int             # integer of the time in seconds when this message should expire (?).
-    ttl: int                # integer of the time the message should float in the system in seconds (?).
-    sent: int               # integer of the unix timestamp when the message was sent.
-    topics: seq[UInt256]    # list of DATA topics the message contained.
-    payload: string         # TODO: Correct type? the payload of the message.
-    workProved: int         # integer of the work this message required before it was send (?).
 
 server.on("shh_getFilterChanges") do(id: int) -> seq[WhisperMessage]:
   ## Polling method for whisper filters. Returns new messages since the last call of this method.
