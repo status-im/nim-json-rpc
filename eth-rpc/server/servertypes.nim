@@ -141,51 +141,47 @@ proc makeProcName(s: string): string =
     if c.isAlphaNumeric: result.add c
 
 proc hasReturnType(params: NimNode): bool =
-  if params.len > 0 and params[0] != nil and params[0].kind != nnkEmpty:
+  if params != nil and params.len > 0 and params[0] != nil and params[0].kind != nnkEmpty:
     result = true
 
-macro on*(server: var RpcServer, path: string, body: untyped): untyped =
+macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
-    paramsIdent = ident"params" # all remote calls have a single parameter: `params: JsonNode`  
-    pathStr = $path             # procs are generated from the stripped path
-    procName = ident(pathStr.makeProcName)
-    doMain = genSym(nskProc)    # proc that contains our rpc body
-    res = ident"result"         # async result
+    paramsIdent = newIdentNode"params"            # all remote calls have a single parameter: `params: JsonNode`  
+    pathStr = $path                               # procs are generated from the stripped path
+    procNameStr = pathStr.makeProcName            # strip non alphanumeric
+    procName = newIdentNode(procNameStr)          # public rpc proc
+    doMain = newIdentNode(procNameStr & "DoMain") # when parameters: proc that contains our rpc body
+    res = newIdentNode("result")                  # async result
   var
     setup = setupParams(parameters, paramsIdent)
-    procBody: NimNode
-
-  if body.kind == nnkStmtList: procBody = body
-  else: procBody = body.body
+    procBody = if body.kind == nnkStmtList: body else: body.body
 
   if parameters.hasReturnType:
     let returnType = parameters[0]
 
-    # `doMain` is outside of async transformation,
-    # allowing natural `return`
+    # delgate async proc allows return and setting of result as native type
     result.add(quote do:
-      proc `doMain`(`paramsIdent`: JsonNode): `returnType` {.inline.} =
+      proc `doMain`(`paramsIdent`: JsonNode): Future[`returnType`] {.async.} =
         `setup`
         `procBody`
     )
 
-    # Note ``res` =` (which becomes `result = `) will be transformed by {.async.} to `complete`
     if returnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
       result.add( quote do:
         proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          `res` = `doMain`(`paramsIdent`)
+          `res` = await `doMain`(`paramsIdent`)
       )
     else:
-      result.add( quote do:
+      result.add(quote do:
         proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          `res` = %`doMain`(`paramsIdent`)
+          `res` = %await `doMain`(`paramsIdent`)
       )
   else:
     # no return types, inline contents
-    result.add( quote do:
+    result.add(quote do:
       proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
         `setup`
         `procBody`
