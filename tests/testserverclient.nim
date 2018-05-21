@@ -13,7 +13,7 @@ var srv = sharedRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
 
-srv.on("myProc") do(input: string, data: array[0..3, int]):
+srv.rpc("myProc") do(input: string, data: array[0..3, int]):
   result = %("Hello " & input & " data: " & $data)
 
 asyncCheck srv.serve

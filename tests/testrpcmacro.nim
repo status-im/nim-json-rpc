@@ -30,42 +30,42 @@ var s = newRpcServer("localhost")
 
 # RPC definitions
 
-s.on("rpc.simplepath"):
+s.rpc("rpc.simplepath"): 
   result = %1
 
-s.on("rpc.differentparams") do(a: int, b: string): 
+s.rpc("rpc.differentparams") do(a: int, b: string): 
   result = %[%a, %b]
 
-s.on("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
+s.rpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
   var res = %arr
   res.add %b
   result = %res
 
-s.on("rpc.seqparam") do(a: string, s: seq[int]):
+s.rpc("rpc.seqparam") do(a: string, s: seq[int]):
   var res = newJArray()
   res.add %a
   for item in s:
     res.add %int(item)
   result = res
 
-s.on("rpc.objparam") do(a: string, obj: MyObject):
+s.rpc("rpc.objparam") do(a: string, obj: MyObject):
   result = %obj
 
-s.on("rpc.uint256param") do(i: UInt256):
+s.rpc("rpc.uint256param") do(i: UInt256):
   let r = i + 1.stUint(256)
   result = %r
 
-s.on("rpc.returntypesimple") do(i: int) -> int:
+s.rpc("rpc.returntypesimple") do(i: int) -> int:
   result = i
 
-s.on("rpc.returntypecomplex") do(i: int) -> Test2:
+s.rpc("rpc.returntypecomplex") do(i: int) -> Test2:
   result.x = [1, i, 3]
   result.y = "test"
 
-s.on("rpc.testreturns") do() -> int:
+s.rpc("rpc.testreturns") do() -> int:
   return 1234
 
-s.on("rpc.testreturnuint256") do() -> UInt256:
+s.rpc("rpc.testreturnuint256") do() -> UInt256:
   let r: UInt256 = "0x1234567890abcdef".parse(UInt256, 16)
   return r
 
