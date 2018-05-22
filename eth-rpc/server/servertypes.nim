@@ -1,4 +1,4 @@
-import asyncdispatch, asyncnet, json, tables, macros, strutils, jsonconverters, stint
+import asyncdispatch, asyncnet, json, tables, macros, strutils, ../ jsonconverters, stint
 export asyncdispatch, asyncnet, json, jsonconverters
 
 type
@@ -192,3 +192,5 @@ macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
 
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr
+
+# TODO: Check supplied rpc do signatures with ethcallsigs
