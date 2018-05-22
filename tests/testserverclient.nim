@@ -22,16 +22,16 @@ suite "RPC":
   proc main {.async.} =
     var client = newRpcClient()
     await client.connect("localhost", Port(8545))
-    var response: Response
+
     test "Version":
-      response = waitFor client.web3_clientVersion(%[])
-      check response.result == %"Nimbus-RPC-Test"
+      var response = waitFor client.web3_clientVersion()
+      check response == "Nimbus-RPC-Test"
     test "SHA3":
-      response = waitFor client.web3_sha3(%["abc"])
-      check response.result.getStr == "3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532"
+      var response = waitFor client.web3_sha3("abc")
+      check response == "3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532"
     test "Custom RPC":
       # Custom async RPC call
-      response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
+      var response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
       check response.result.getStr == "Hello abc data: [1, 2, 3, 4]"
 
   waitFor main()  # TODO: When an error occurs during a test, stop the server
