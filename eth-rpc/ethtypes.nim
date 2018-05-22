@@ -70,9 +70,10 @@ type
     contractAddress*: array[20, byte] # the contract address created, if the transaction was a contract creation, otherwise null.
     logs*: seq[string]                # TODO: See Wiki for details. list of log objects, which this transaction generated.
     logsBloom*: array[256, byte]      # bloom filter for light clients to quickly retrieve related logs.
-    case kind*: ReceiptKind
-    of rkRoot: root*: UInt256         # post-transaction stateroot (pre Byzantium).
-    of rkStatus: status*: int         # 1 = success, 0 = failure.
+    # TODO: 
+    #case kind*: ReceiptKind
+    #of rkRoot: root*: UInt256         # post-transaction stateroot (pre Byzantium).
+    #of rkStatus: status*: int         # 1 = success, 0 = failure.
 
   FilterDataKind* = enum fkItem, fkList
   FilterData* = object
