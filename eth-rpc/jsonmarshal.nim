@@ -25,12 +25,12 @@ proc fromJson(n: JsonNode, argName: string, result: var int) =
   n.kind.expect(JInt, argName)
   result = n.getInt()
 
-# TODO: Why can't this be forward declared? Complains of lack of definition
+# This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
   result = n.getInt().T
 
-# TODO: Why can't this be forward declared? Complains of lack of definition
+# This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   for k, v in fieldpairs(result):
