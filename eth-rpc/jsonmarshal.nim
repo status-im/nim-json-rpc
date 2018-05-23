@@ -1,18 +1,11 @@
-import macros, json, ../ jsonconverters, stint
+import macros, json, jsonconverters, stint
 
 template expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter \"" & argName & "\" expected " & $expected & " but got " & $actual)
 
-proc fromJson(n: JsonNode, argName: string, result: var bool) =
-  n.kind.expect(JBool, argName)
-  result = n.getBool()
-
-proc fromJson(n: JsonNode, argName: string, result: var int) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt()
-
-# TODO: Why does compiler complain that result cannot be assigned to when using result: var int|var int64
-# TODO: Compiler requires forward decl when processing out of module
+# Compiler requires forward decl when processing out of module
+proc fromJson(n: JsonNode, argName: string, result: var bool)
+proc fromJson(n: JsonNode, argName: string, result: var int)
 proc fromJson(n: JsonNode, argName: string, result: var byte)
 proc fromJson(n: JsonNode, argName: string, result: var float)
 proc fromJson(n: JsonNode, argName: string, result: var string)
@@ -23,6 +16,14 @@ proc fromJson(n: JsonNode, argName: string, result: var int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
 proc fromJson(n: JsonNode, argName: string, result: var ref UInt256)
+
+proc fromJson(n: JsonNode, argName: string, result: var bool) =
+  n.kind.expect(JBool, argName)
+  result = n.getBool()
+
+proc fromJson(n: JsonNode, argName: string, result: var int) =
+  n.kind.expect(JInt, argName)
+  result = n.getInt()
 
 # TODO: Why can't this be forward declared? Complains of lack of definition
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
@@ -98,28 +99,46 @@ proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
-import typetraits
 proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
   fromJson(args, argName, result)
 
-proc expectArrayLen(node: NimNode, paramsIdent: untyped, length: int) =
+proc expectArrayLen(node: NimNode, jsonIdent: untyped, length: int) =
   let
-    identStr = paramsIdent.repr
+    identStr = jsonIdent.repr
     expectedStr = "Expected " & $length & " Json parameter(s) but got "
   node.add(quote do:
-    `paramsIdent`.kind.expect(JArray, `identStr`)
-    if `paramsIdent`.len != `length`:
-      raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
+    `jsonIdent`.kind.expect(JArray, `identStr`)
+    if `jsonIdent`.len != `length`:
+      raise newException(ValueError, `expectedStr` & $`jsonIdent`.len)
   )
 
-proc setupParamFromJson*(assignIdent, paramType, jsonIdent: NimNode): NimNode =
-  # Add code to verify input and load json parameters into provided Nim type
+proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string): NimNode =
+  # verify input and load a Nim type from json data
+  # note: does not create `assignIdent` so can be used for `result` variables
   result = newStmtList()
-  # initial parameter array length check
-  # TODO: do this higher up
-  #result.expectArrayLen(jsonIdent, nimParameters.len - 1)
   # unpack each parameter and provide assignments
-  let paramNameStr = $assignIdent
   result.add(quote do:
     `assignIdent` = `unpackArg`(`jsonIdent`, `paramNameStr`, type(`paramType`))
   )
+
+proc jsonToNim*(parameters, jsonIdent: NimNode): NimNode =
+  # Add code to verify input and load parameters into Nim types
+  result = newStmtList()
+  if not parameters.isNil:
+    # initial parameter array length check
+    result.expectArrayLen(jsonIdent, parameters.len - 1)
+    # unpack each parameter and provide assignments
+    for i in 1 ..< parameters.len:
+      let
+        pos = i - 1
+        paramIdent = parameters[i][0]
+        paramName = $paramIdent
+        paramType = parameters[i][1]
+        jsonElement = quote do:
+          `jsonIdent`.elems[`pos`]
+      # declare variable before assignment
+      result.add(quote do:
+        var `paramIdent`: `paramType`
+      )
+      # unpack Nim type and assign from json
+      result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)
