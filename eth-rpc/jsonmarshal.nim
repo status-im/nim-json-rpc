@@ -17,14 +17,6 @@ proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
 proc fromJson(n: JsonNode, argName: string, result: var ref UInt256)
 
-proc fromJson(n: JsonNode, argName: string, result: var bool) =
-  n.kind.expect(JBool, argName)
-  result = n.getBool()
-
-proc fromJson(n: JsonNode, argName: string, result: var int) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt()
-
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
@@ -35,6 +27,14 @@ proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   for k, v in fieldpairs(result):
     fromJson(n[k], k, v)
+
+proc fromJson(n: JsonNode, argName: string, result: var bool) =
+  n.kind.expect(JBool, argName)
+  result = n.getBool()
+
+proc fromJson(n: JsonNode, argName: string, result: var int) =
+  n.kind.expect(JInt, argName)
+  result = n.getInt()
 
 proc fromJson[T: ref object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
