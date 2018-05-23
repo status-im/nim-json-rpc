@@ -91,55 +91,58 @@ proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
 
 import jsonmarshal
 
+proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
+  # parameters come as a tree
+  var paramList = newSeq[NimNode]()
+  for p in parameters: paramList.add(p)
+
+  result = newProc(procName, paramList, callBody)           # build proc
+  result.addPragma ident"async"                             # make proc async               
+  result[0] = nnkPostFix.newTree(ident"*", newIdentNode($procName))  # export this proc
+
+proc toJsonNode(parameters: NimNode): NimNode =
+  # outputs an array of jsonified parameters
+  # ie; %[%a, %b, %c]
+  parameters.expectKind nnkFormalParams
+  var items = newNimNode(nnkBracket)
+  for i in 2 ..< parameters.len:
+    let curParam = parameters[i][0]
+    if curParam.kind != nnkEmpty:
+      items.add(nnkPrefix.newTree(ident"%", curParam))
+  result = nnkPrefix.newTree(newIdentNode("%"), items)
+
 proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
-  let procNameState = rpcDecl[0]
   var
     parameters = rpcDecl.findChild(it.kind == nnkFormalParams).copy
-    path: NimNode
-    pathStr: string
+    procName = rpcDecl.name
+    pathStr = $procName   
 
-  # get proc signature's name. This becomes the path we send to the server
-  if procNameState.kind == nnkPostFix:
-    path = rpcDecl[0][1]
-  else:
-    path = rpcDecl[0]
-  pathStr = $path   
+  # ensure we have at least space for a return parameter  
+  if parameters.isNil or parameters.kind == nnkEmpty or parameters.len == 0:
+    parameters = nnkFormalParams.newTree(newEmptyNode())
 
-  if parameters.isNil or parameters.kind == nnkEmpty:
-    parameters = newNimNode(nnkFormalParams)
-
-  # if no return parameters specified (parameters[0])
-  if parameters.len == 0: parameters.add(newEmptyNode())
   # insert rpc client as first parameter
-  let
-    clientParam =
-      nnkIdentDefs.newTree(
-        ident"client",
-        ident"RpcClient",
-        newEmptyNode()
-      )
-  parameters.insert(1, clientParam)
+  parameters.insert(1, 
+    nnkIdentDefs.newTree(
+      ident"client",
+      ident"RpcClient",
+      newEmptyNode()
+    )
+  )
 
   # For each input parameter we need to
   # take the Nim type and translate to json with `%`.
   # For return types, we need to take the json and
   # convert it to the Nim type.
+  let
+    jsonParamIdent = genSym(nskVar, "jsonParam")
+    jsonArrayInit = parameters.toJsonNode()
   var
-    callBody = newStmtList()
     returnType: NimNode
-  let jsonParamIdent = genSym(nskVar, "jsonParam")
-  callBody.add(quote do:
-    var `jsonParamIdent` = newJArray()
-  )
-  if parameters.len > 2:
-    # skip return type and the inserted rpc client parameter
-    # add the rest to json node via `%`
-    for i in 2 ..< parameters.len:
-      let curParam = parameters[i][0]
-      if curParam.kind != nnkEmpty:
-        callBody.add(quote do:
-          `jsonParamIdent`.add(%`curParam`)
-        )
+    callBody = newStmtList().add(quote do:
+      var `jsonParamIdent` = `jsonArrayInit`
+    )
+
   if parameters[0].kind != nnkEmpty:
     returnType = parameters[0]
   else:
@@ -148,19 +151,10 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
   # convert return type to Future
   parameters[0] = nnkBracketExpr.newTree(ident"Future", returnType)
 
-  # client call to server using json params
-  var updatedParams = newSeq[NimNode]()
-  # convert parameter tree to seq
-  for p in parameters: updatedParams.add(p) 
-  # create new proc
-  result = newProc(path, updatedParams, callBody)
-  # convert this proc to async
-  result.addPragma ident"async"
-  # export this proc
-  result[0] = nnkPostFix.newTree(ident"*", ident(pathStr))
-  # add rpc call to proc body
+  result = createRpcProc(procName, parameters, callBody)
   var callResult = genSym(nskVar, "res")
 
+  # create client call to server using json params
   callBody.add(quote do:
     let res = await client.call(`pathStr`, `jsonParamIdent`)
     if res.error: raise newException(ValueError, $res.result)
@@ -189,13 +183,10 @@ macro processRpcSigs(): untyped =
     code = staticRead(codePath)
 
   let parsedCode = parseStmt(code)
-  var line = 0
-  while line < parsedCode.len:
-    if parsedCode[line].kind == nnkProcDef: break
-    line += 1
-  for curLine in line ..< parsedCode.len:
-    var procDef = createRpcFromSig(parsedCode[curLine])
-    result.add(procDef)
+  for line in parsedCode:
+    if line.kind == nnkProcDef:
+      var procDef = createRpcFromSig(line)
+      result.add(procDef)
 
 # generate all client ethereum rpc calls
 processRpcSigs()
