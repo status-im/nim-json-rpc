@@ -100,7 +100,7 @@ proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   result.addPragma ident"async"                             # make proc async               
   result[0] = nnkPostFix.newTree(ident"*", newIdentNode($procName))  # export this proc
 
-proc toJsonNode(parameters: NimNode): NimNode =
+proc toJsonArray(parameters: NimNode): NimNode =
   # outputs an array of jsonified parameters
   # ie; %[%a, %b, %c]
   parameters.expectKind nnkFormalParams
@@ -112,63 +112,62 @@ proc toJsonNode(parameters: NimNode): NimNode =
   result = nnkPrefix.newTree(newIdentNode("%"), items)
 
 proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
-  var
-    parameters = rpcDecl.findChild(it.kind == nnkFormalParams).copy
-    procName = rpcDecl.name
-    pathStr = $procName   
+  # Each input parameter in the rpc signature is converted
+  # to json with `%`.
+  # Return types are then converted back to native Nim types.
+  let iJsonNode = newIdentNode("JsonNode")
 
+  var parameters = rpcDecl.findChild(it.kind == nnkFormalParams).copy
   # ensure we have at least space for a return parameter  
   if parameters.isNil or parameters.kind == nnkEmpty or parameters.len == 0:
-    parameters = nnkFormalParams.newTree(newEmptyNode())
+    parameters = nnkFormalParams.newTree(iJsonNode)
+
+  let
+    procName = rpcDecl.name
+    pathStr = $procName
+    returnType =
+      # if no return type specified, defaults to JsonNode
+      if parameters[0].kind == nnkEmpty: iJsonNode
+      else: parameters[0]
+    customReturnType = returnType != iJsonNode
 
   # insert rpc client as first parameter
-  parameters.insert(1, 
-    nnkIdentDefs.newTree(
-      ident"client",
-      ident"RpcClient",
-      newEmptyNode()
-    )
-  )
+  parameters.insert(1, nnkIdentDefs.newTree(ident"client", ident"RpcClient", newEmptyNode()))
 
-  # For each input parameter we need to
-  # take the Nim type and translate to json with `%`.
-  # For return types, we need to take the json and
-  # convert it to the Nim type.
   let
-    jsonParamIdent = genSym(nskVar, "jsonParam")
-    jsonArrayInit = parameters.toJsonNode()
+    jsonParamIdent = genSym(nskVar, "jsonParam")  # variable used to send json to the server
+    jsonParamArray = parameters.toJsonArray()     # json array of marshalled parameters
   var
-    returnType: NimNode
+    # populate json params - even rpcs with no parameters have an empty json array node sent
     callBody = newStmtList().add(quote do:
-      var `jsonParamIdent` = `jsonArrayInit`
+      var `jsonParamIdent` = `jsonParamArray`
     )
 
-  if parameters[0].kind != nnkEmpty:
-    returnType = parameters[0]
-  else:
-    returnType = ident"JsonNode"
-  
   # convert return type to Future
   parameters[0] = nnkBracketExpr.newTree(ident"Future", returnType)
-
+  # create rpc proc
   result = createRpcProc(procName, parameters, callBody)
-  var callResult = genSym(nskVar, "res")
 
-  # create client call to server using json params
-  callBody.add(quote do:
-    let res = await client.call(`pathStr`, `jsonParamIdent`)
-    if res.error: raise newException(ValueError, $res.result)
-    var `callResult` = res.result
-  )
   let
-    procRes = ident"result"
-  # now we need to extract the response and build it into the expected type
-  if returnType != ident"JsonNode":
-    let setup = setupParamFromJson(procRes, returnType, callResult)
-    callBody.add(quote do: `setup`)
+    rpcResult = genSym(nskLet, "res") # temporary variable to hold `Response` from rpc call
+    procRes = ident"result"           # proc return variable
+    jsonRpcResult =                   # actual return value, `rpcResult`.result
+      nnkDotExpr.newTree(rpcResult, newIdentNode("result"))
+  
+  # perform rpc call
+  callBody.add(quote do:
+    let `rpcResult` = await client.call(`pathStr`, `jsonParamIdent`)          # `rpcResult` is of type `Response`
+    if `rpcResult`.error: raise newException(ValueError, $`rpcResult`.result) # TODO: is raise suitable here? 
+  )
+
+  if customReturnType:
+    # marshal json to native Nim type
+    let setup = setupParamFromJson(procRes, returnType, jsonRpcResult)
+    callBody.add(setup)
   else:
+    # native json expected so no work
     callBody.add(quote do:
-      `procRes` = `callResult`
+      `procRes` = `rpcResult`.result
       )
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
