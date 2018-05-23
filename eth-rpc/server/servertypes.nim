@@ -1,5 +1,5 @@
-import asyncdispatch, asyncnet, json, tables, macros, strutils, ../ jsonconverters, stint
-export asyncdispatch, asyncnet, json, jsonconverters
+import asyncdispatch, asyncnet, json, tables, macros, strutils, ../ jsonconverters, ../ jsonmarshal, stint
+export asyncdispatch, asyncnet, json, jsonconverters, expect
 
 type
   RpcProc* = proc (params: JsonNode): Future[JsonNode]
@@ -34,105 +34,6 @@ proc sharedRpcServer*(): RpcServer =
   result = sharedServer
 
 proc `$`*(port: Port): string = $int(port)
-  
-template expect*(actual, expected: JsonNodeKind, argName: string) =
-  if actual != expected: raise newException(ValueError, "Parameter \"" & argName & "\" expected " & $expected & " but got " & $actual)
-
-proc fromJson(n: JsonNode, argName: string, result: var bool) =
-  n.kind.expect(JBool, argName)
-  result = n.getBool()
-
-proc fromJson(n: JsonNode, argName: string, result: var int) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt()
-
-# TODO: Why does compiler complain that result cannot be assigned to when using result: var int|var int64
-# TODO: Compiler requires forward decl when processing out of module
-proc fromJson(n: JsonNode, argName: string, result: var byte)
-proc fromJson(n: JsonNode, argName: string, result: var float)
-proc fromJson(n: JsonNode, argName: string, result: var string)
-proc fromJson[T](n: JsonNode, argName: string, result: var seq[T])
-proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T])
-proc fromJson(n: JsonNode, argName: string, result: var UInt256)
-
-# TODO: Why can't this be forward declared? Complains of lack of definition
-proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt().T
-
-# TODO: Why can't this be forward declared? Complains of lack of definition
-proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
-  n.kind.expect(JObject, argName)
-  for k, v in fieldpairs(result):
-    fromJson(n[k], k, v)
-
-proc fromJson(n: JsonNode, argName: string, result: var int64) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt()
-
-proc fromJson(n: JsonNode, argName: string, result: var byte) =
-  n.kind.expect(JInt, argName)
-  let v = n.getInt()
-  if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
-  result = byte(v)
-
-proc fromJson(n: JsonNode, argName: string, result: var UInt256) =
-  # expects base 16 string, starting with "0x"
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if hexStr.len > 64 + 2: # including "0x"
-    raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
-  result = hexStr.parse(StUint[256], 16) # TODO: Handle errors
-
-proc fromJson(n: JsonNode, argName: string, result: var float) =
-  n.kind.expect(JFloat, argName)
-  result = n.getFloat()
-
-proc fromJson(n: JsonNode, argName: string, result: var string) =
-  n.kind.expect(JString, argName)
-  result = n.getStr()
-
-proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
-  n.kind.expect(JArray, argName)
-  result = newSeq[T](n.len)
-  for i in 0 ..< n.len:
-    fromJson(n[i], argName, result[i])
-
-proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
-  n.kind.expect(JArray, argName)
-  if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
-  for i in 0 ..< n.len:
-    fromJson(n[i], argName, result[i])
-
-proc unpackArg[T](args: JsonNode, argIdx: int, argName: string, argtype: typedesc[T]): T =
-  fromJson(args[argIdx], argName, result)
-
-proc expectArrayLen(node: NimNode, paramsIdent: untyped, length: int) =
-  let
-    identStr = paramsIdent.repr
-    expectedStr = "Expected " & $length & " Json parameter(s) but got "
-  node.add(quote do:
-    `paramsIdent`.kind.expect(JArray, `identStr`)
-    if `paramsIdent`.len != `length`:
-      raise newException(ValueError, `expectedStr` & $`paramsIdent`.len)
-  )
-
-proc setupParams(parameters, paramsIdent: NimNode): NimNode =
-  # Add code to verify input and load parameters into Nim types
-  result = newStmtList()
-  if not parameters.isNil:
-    # initial parameter array length check
-    result.expectArrayLen(paramsIdent, parameters.len - 1)
-    # unpack each parameter and provide assignments
-    for i in 1 ..< parameters.len:
-      let
-        pos = i - 1
-        paramName = parameters[i][0]
-        paramNameStr = $paramName
-        paramType = parameters[i][1]
-      result.add(quote do:
-        var `paramName` = `unpackArg`(`paramsIdent`, `pos`, `paramNameStr`, type(`paramType`))
-      )
 
 proc makeProcName(s: string): string =
   # only alphanumeric
@@ -155,7 +56,7 @@ macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
     doMain = newIdentNode(procNameStr & "DoMain") # when parameters: proc that contains our rpc body
     res = newIdentNode("result")                  # async result
   var
-    setup = setupParams(parameters, paramsIdent)
+    setup = jsonToNim(parameters, paramsIdent)
     procBody = if body.kind == nnkStmtList: body else: body.body
 
   if parameters.hasReturnType:

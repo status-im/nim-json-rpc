@@ -89,7 +89,7 @@ proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
   self.port = port
   asyncCheck processData(self)
 
-import jsonmarshal
+import ../ jsonmarshal
 
 proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree
@@ -162,8 +162,7 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
 
   if customReturnType:
     # marshal json to native Nim type
-    let setup = setupParamFromJson(procRes, returnType, jsonRpcResult)
-    callBody.add(setup)
+    callBody.add(jsonToNim(procRes, returnType, jsonRpcResult, "result"))
   else:
     # native json expected so no work
     callBody.add(quote do:
