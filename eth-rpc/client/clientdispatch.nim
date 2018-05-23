@@ -1,4 +1,4 @@
-import asyncnet, asyncdispatch, tables, json, oids, ethcalls, macros
+import asyncnet, asyncdispatch, tables, json, oids, macros
 import ../ ethtypes, stint, ../ jsonconverters
 
 type
