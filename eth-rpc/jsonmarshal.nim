@@ -114,7 +114,7 @@ proc expectArrayLen(node: NimNode, jsonIdent: untyped, length: int) =
 
 proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string): NimNode =
   # verify input and load a Nim type from json data
-  # note: does not create `assignIdent` so can be used for `result` variables
+  # note: does not create `assignIdent`, so can be used for `result` variables
   result = newStmtList()
   # unpack each parameter and provide assignments
   result.add(quote do:
