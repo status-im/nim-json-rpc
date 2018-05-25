@@ -1,4 +1,4 @@
-import servertypes, cryptoutils, json, stint, ../ethtypes.nim
+import servertypes, nimcrypto, json, stint, ../ethtypes.nim, strutils
 
 #[
   For details on available RPC calls, see: https://github.com/ethereum/wiki/wiki/JSON-RPC
@@ -12,14 +12,18 @@ import servertypes, cryptoutils, json, stint, ../ethtypes.nim
     Changes might be required for parameter types.
     For example:
       * String might be more appropriate than seq[byte], for example for addresses, although would need length constraints.
-        * It might be worth replacing array[X, byte] with the equivilent stInt/stUInt.
       * Int return values might actually be more hex string than int.
-      * UInt256/Int256
-      * Objects such as BlockObject and TransactionObject might be better as the existing Nimbus objects
+      * array[32, byte] could be UInt256 or Int256, but default to UInt256.
+      * EthTypes such as BlockObject and TransactionObject might be better as existing Nimbus objects if present.
 
   NOTE:
-    * as `from` is a keyword, this has been replaced with `source` for variable names.
+    * as `from` is a keyword, this has been replaced with `source` for variable names. TODO: Related - eplace `to` with `dest`?
 
+  TODO:
+    * Some values can be returned as different types (eg, int or bool)
+      * Currently implemented as variant types, but server macros need to support
+        initialisation of these types before any use as `kind` can only be
+        specified once without invoking `reset`.
 ]#
 
 var server = sharedRpcServer()
@@ -33,7 +37,14 @@ server.rpc("web3_sha3") do(data: string) -> string:
   ##
   ## data: the data to convert into a SHA3 hash.
   ## Returns the SHA3 result of the given string.
-  result = k256(data)
+  # TODO: Capture error on malformed input
+  var rawData: seq[byte]
+  if data.len > 2 and data[0] == '0' and data[1] in ['x', 'X']:
+    rawData = data[2..data.high].fromHex
+  else:
+    rawData = data.fromHex
+  # data will have 0x prefix
+  result = "0x" & $keccak_256.digest(rawData)
 
 server.rpc("net_version") do() -> string:
   ## Returns string of the current network id:
