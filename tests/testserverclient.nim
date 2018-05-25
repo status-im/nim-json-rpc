@@ -1,12 +1,5 @@
 import   ../ rpcclient, ../ rpcserver, unittest, asyncdispatch, json, tables
 
-#[
-  TODO: Importing client before server causes the error:
-  Error: undeclared identifier: 'result' for the `myProc` RPC.
-  This is because the RPC procs created by clientdispatch clash with ethprocs.
-  Currently, easiest solution is to import rpcserver (and therefore generate 
-  ethprocs) before rpcclient.
-]#
 # TODO: dummy implementations of RPC calls handled in async fashion.
 # TODO: check required json parameters like version are being raised
 var srv = sharedRpcServer()
@@ -27,8 +20,8 @@ suite "RPC":
       var response = waitFor client.web3_clientVersion()
       check response == "Nimbus-RPC-Test"
     test "SHA3":
-      var response = waitFor client.web3_sha3("abc")
-      check response == "3A985DA74FE225B2045C172D6BD390BD855F086E3E9D525B46BFE24511431532"
+      var response = waitFor client.web3_sha3("0x68656c6c6f20776f726c64")
+      check response == "0x47173285A8D7341E5E972FC677286384F802F8EF42A5EC5F03BBFA254CB01FAD"
     test "Custom RPC":
       # Custom async RPC call
       var response = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
