@@ -9,7 +9,7 @@ var srv = sharedRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
 
-import stint
+import stint, ethtypes, ethprocs
 
 # generate all client ethereum rpc calls
 createRpcSigs(currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & "ethcallsigs.nim")

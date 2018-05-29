@@ -1,7 +1,7 @@
 ## This module contains signatures for the Ethereum client RPCs.
 ## The signatures are not imported directly, but read and processed with parseStmt,
 ## then a procedure body is generated to marshal native Nim parameters to json and visa versa.
-import json, stint, eth-rpc / ethtypes
+import json, stint, ethtypes
 
 proc web3_clientVersion(): string
 proc web3_sha3(data: string): string

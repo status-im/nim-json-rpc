@@ -1,5 +1,5 @@
 import asyncnet, asyncdispatch, tables, json, oids, macros
-import ../ ethtypes, stint, ../ jsonconverters
+import ../jsonconverters
 
 type
   RpcClient* = ref object
@@ -186,3 +186,4 @@ macro createRpcSigs*(filePath: static[string]): untyped =
   ## Inputs are marshalled to json, and results are put into the signature's
   ## Nim type.
   result = processRpcSigs(staticRead($filePath).parseStmt())
+  echo "**", result.repr

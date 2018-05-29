@@ -1,4 +1,4 @@
-import servertypes, nimcrypto, json, stint, ../ethtypes.nim, strutils
+import ../rpcserver, nimcrypto, json, stint, strutils, ethtypes
 
 #[
   For details on available RPC calls, see: https://github.com/ethereum/wiki/wiki/JSON-RPC
