@@ -36,7 +36,6 @@ proc sharedRpcServer*(): RpcServer =
 proc `$`*(port: Port): string = $int(port)
 
 proc makeProcName(s: string): string =
-  # only alphanumeric
   result = ""
   for c in s:
     if c.isAlphaNumeric: result.add c
@@ -53,7 +52,7 @@ macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
     pathStr = $path                               # procs are generated from the stripped path
     procNameStr = pathStr.makeProcName            # strip non alphanumeric
     procName = newIdentNode(procNameStr)          # public rpc proc
-    doMain = newIdentNode(procNameStr & "DoMain") # when parameters: proc that contains our rpc body
+    doMain = newIdentNode(procNameStr & "DoMain") # when parameters present: proc that contains our rpc body
     res = newIdentNode("result")                  # async result
   var
     setup = jsonToNim(parameters, paramsIdent)
@@ -62,7 +61,7 @@ macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
   if parameters.hasReturnType:
     let returnType = parameters[0]
 
-    # delgate async proc allows return and setting of result as native type
+    # delegate async proc allows return and setting of result as native type
     result.add(quote do:
       proc `doMain`(`paramsIdent`: JsonNode): Future[`returnType`] {.async.} =
         `setup`
@@ -94,4 +93,4 @@ macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr
 
-# TODO: Check supplied rpc do signatures with ethcallsigs
+# TODO: Allow cross checking between client signatures and server calls
