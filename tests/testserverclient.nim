@@ -1,10 +1,18 @@
-import   ../ rpcclient, ../ rpcserver, unittest, asyncdispatch, json, tables
+import  ../ rpcclient, ../ rpcserver
+import unittest, asyncdispatch, json, tables
+from os import getCurrentDir, DirSep
+from strutils import rsplit
 
 # TODO: dummy implementations of RPC calls handled in async fashion.
 # TODO: check required json parameters like version are being raised
 var srv = sharedRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
+
+import stint
+
+# generate all client ethereum rpc calls
+createRpcSigs(currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & "ethcallsigs.nim")
 
 srv.rpc("myProc") do(input: string, data: array[0..3, int]):
   result = %("Hello " & input & " data: " & $data)
