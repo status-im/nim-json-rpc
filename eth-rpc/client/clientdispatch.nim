@@ -33,10 +33,11 @@ proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.
   result = await newFut
 
 macro checkGet(node: JsonNode, fieldName: string, jKind: static[JsonNodeKind]): untyped =
-  result = quote do:
-    let n = `node`{`fieldName`}
-    if n.isNil: raise newException(ValueError, "Message is missing required field \"" & `fieldName` & "\"")
-    if n.kind != `jKind`.JsonNodeKind: raise newException(ValueError, "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
+  let n = genSym(ident = "n") #`node`{`fieldName`}
+  result = quote:
+    let `n` = `node`{`fieldname`}
+    if `n`.isNil: raise newException(ValueError, "Message is missing required field \"" & `fieldName` & "\"")
+    if `n`.kind != `jKind`.JsonNodeKind: raise newException(ValueError, "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
   case jKind
   of JBool: result.add(quote do: `node`[`fieldName`].getBool)
   of JInt: result.add(quote do: `node`[`fieldName`].getInt)
@@ -109,7 +110,7 @@ proc toJsonArray(parameters: NimNode): NimNode =
     let curParam = parameters[i][0]
     if curParam.kind != nnkEmpty:
       items.add(nnkPrefix.newTree(ident"%", curParam))
-  result = nnkPrefix.newTree(newIdentNode("%"), items)
+  result = nnkPrefix.newTree(bindSym("%", brForceOpen), items)
 
 proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
   # Each input parameter in the rpc signature is converted
@@ -171,20 +172,17 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
 
-from os import getCurrentDir, DirSep
-from strutils import rsplit
-
-macro processRpcSigs(): untyped =
+proc processRpcSigs(parsedCode: NimNode): NimNode =
   result = newStmtList()
-  const
-    codePath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & "ethcallsigs.nim"
-    code = staticRead(codePath)
 
-  let parsedCode = parseStmt(code)
   for line in parsedCode:
     if line.kind == nnkProcDef:
       var procDef = createRpcFromSig(line)
       result.add(procDef)
 
-# generate all client ethereum rpc calls
-processRpcSigs()
+macro createRpcSigs*(filePath: static[string]): untyped =
+  ## Takes a file of forward declarations in Nim and builds them into RPC
+  ## calls, based on their parameters.
+  ## Inputs are marshalled to json, and results are put into the signature's
+  ## Nim type.
+  result = processRpcSigs(staticRead($filePath).parseStmt())
