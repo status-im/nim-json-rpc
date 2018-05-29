@@ -1,4 +1,3 @@
 import
-  r"eth-rpc/server" / [servertypes, rpcconsts, serverdispatch, ethprocs],
-  eth-rpc / ethtypes
-export servertypes, rpcconsts, serverdispatch, ethprocs, ethtypes
+  r"eth-rpc/server" / [servertypes, rpcconsts, serverdispatch]
+export servertypes, rpcconsts, serverdispatch
