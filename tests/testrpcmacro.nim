@@ -1,4 +1,4 @@
-import unittest, ../ rpcserver, asyncdispatch, json, tables, stint
+import unittest, ../ rpcserver, asyncdispatch, json, tables
 
 type
   # some nested types to check object parsing
@@ -51,9 +51,6 @@ s.rpc("rpc.seqparam") do(a: string, s: seq[int]):
 s.rpc("rpc.objparam") do(a: string, obj: MyObject):
   result = %obj
 
-s.rpc("rpc.uint256param") do(i: UInt256):
-  let r = i + 1.stUint(256)
-  result = %r
 
 s.rpc("rpc.returntypesimple") do(i: int) -> int:
   result = i
@@ -64,10 +61,6 @@ s.rpc("rpc.returntypecomplex") do(i: int) -> Test2:
 
 s.rpc("rpc.testreturns") do() -> int:
   return 1234
-
-s.rpc("rpc.testreturnuint256") do() -> UInt256:
-  let r: UInt256 = "0x1234567890abcdef".parse(UInt256, 16)
-  return r
 
 # Tests
 suite "Server types":
@@ -108,10 +101,6 @@ suite "Server types":
     let r = waitfor rpcObjParam(%[%"abc", testObj])
     check r == testObj
 
-  test "UInt256 param":
-    let r = waitFor rpcUInt256Param(%[%"0x1234567890"])
-    check r == %"0x1234567891"
-
   test "Simple return types":
     let
       inp = %99
@@ -127,10 +116,6 @@ suite "Server types":
   test "Return statement":
     let r = waitFor rpcTestReturns(%[])
     check r == %1234
-
-  test "Return UInt256":
-    let r = waitFor rpcTestReturnUInt256(%[])
-    check r == %"0x1234567890abcdef"
 
   test "Runtime errors":
     expect ValueError:

@@ -1,4 +1,4 @@
-import  ../ rpcclient, ../ rpcserver
+import ../ rpcclient, ../ rpcserver
 import unittest, asyncdispatch, json, tables
 
 from os import getCurrentDir, DirSep
@@ -10,9 +10,17 @@ srv.address = "localhost"
 srv.port = Port(8546)
 
 # importing ethprocs creates the server rpc calls
-import stint, ethtypes, ethprocs
+import stint, ethtypes, ethprocs, stintJsonConverters
 # generate all client ethereum rpc calls
 createRpcSigs(sourceDir & DirSep & "ethcallsigs.nim")
+
+srv.rpc("rpc.uint256param") do(i: UInt256):
+  let r = i + 1.stUint(256)
+  result = %r
+  
+srv.rpc("rpc.testreturnuint256") do() -> UInt256:
+  let r: UInt256 = "0x1234567890abcdef".parse(UInt256, 16)
+  return r
 
 asyncCheck srv.serve
 
@@ -20,6 +28,14 @@ suite "Ethereum RPCs":
   proc main {.async.} =
     var client = newRpcClient()
     await client.connect("localhost", Port(8546))
+
+    test "UInt256 param":
+      let r = waitFor rpcUInt256Param(%[%"0x1234567890"])
+      check r == %"0x1234567891"
+
+    test "Return UInt256":
+      let r = waitFor rpcTestReturnUInt256(%[])
+      check r == %"0x1234567890abcdef"
 
     test "Version":
       var
