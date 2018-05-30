@@ -1,5 +1,5 @@
 import asyncnet, asyncdispatch, tables, json, macros
-import ".." / [jsonconverters, jsonmarshal]
+import ../ jsonmarshal
 
 type
   RpcClient* = ref object

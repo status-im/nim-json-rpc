@@ -1,7 +1,16 @@
-import macros, json, jsonconverters, stint
+import macros, json
 
 template expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter \"" & argName & "\" expected " & $expected & " but got " & $actual)
+
+proc `%`*(n: byte{not lit}): JsonNode =
+  result = newJInt(int(n))
+
+proc `%`*(n: uint64{not lit}): JsonNode =
+  result = newJInt(int(n))
+
+proc `%`*(n: ref int|ref int64): JsonNode =
+  result = newJInt(int(n[]))
 
 # Compiler requires forward decl when processing out of module
 proc fromJson(n: JsonNode, argName: string, result: var bool)
@@ -11,11 +20,10 @@ proc fromJson(n: JsonNode, argName: string, result: var float)
 proc fromJson(n: JsonNode, argName: string, result: var string)
 proc fromJson[T](n: JsonNode, argName: string, result: var seq[T])
 proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T])
-proc fromJson(n: JsonNode, argName: string, result: var UInt256)
 proc fromJson(n: JsonNode, argName: string, result: var int64)
+proc fromJson(n: JsonNode, argName: string, result: var uint64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
-proc fromJson(n: JsonNode, argName: string, result: var ref UInt256)
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
@@ -25,7 +33,7 @@ proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
-  for k, v in fieldpairs(result):
+  for k, v in fieldPairs(result):
     fromJson(n[k], k, v)
 
 proc fromJson(n: JsonNode, argName: string, result: var bool) =
@@ -46,6 +54,10 @@ proc fromJson(n: JsonNode, argName: string, result: var int64) =
   n.kind.expect(JInt, argName)
   result = n.getInt()
 
+proc fromJson(n: JsonNode, argName: string, result: var uint64) =
+  n.kind.expect(JInt, argName)
+  result = n.getInt().uint64
+
 proc fromJson(n: JsonNode, argName: string, result: var ref int64) =
   n.kind.expect(JInt, argName)
   new result
@@ -61,23 +73,6 @@ proc fromJson(n: JsonNode, argName: string, result: var byte) =
   let v = n.getInt()
   if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
   result = byte(v)
-
-proc fromJson(n: JsonNode, argName: string, result: var UInt256) =
-  # expects base 16 string, starting with "0x"
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if hexStr.len > 64 + 2: # including "0x"
-    raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
-  result = hexStr.parse(StUint[256], 16) # TODO: Handle errors
-
-proc fromJson(n: JsonNode, argName: string, result: var ref UInt256) =
-  # expects base 16 string, starting with "0x"
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if hexStr.len > 64 + 2: # including "0x"
-    raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
-  new result
-  result[] = hexStr.parse(StUint[256], 16) # TODO: Handle errors
 
 proc fromJson(n: JsonNode, argName: string, result: var float) =
   n.kind.expect(JFloat, argName)
@@ -142,3 +137,4 @@ proc jsonToNim*(parameters, jsonIdent: NimNode): NimNode =
       )
       # unpack Nim type and assign from json
       result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)
+

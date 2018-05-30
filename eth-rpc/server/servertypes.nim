@@ -1,5 +1,5 @@
-import asyncdispatch, asyncnet, json, tables, macros, strutils, ../ jsonconverters, ../ jsonmarshal, stint
-export asyncdispatch, asyncnet, json, jsonconverters, expect
+import asyncdispatch, asyncnet, json, tables, macros, strutils, ../ jsonmarshal
+export asyncdispatch, asyncnet, json, jsonmarshal
 
 type
   RpcProc* = proc (params: JsonNode): Future[JsonNode]
