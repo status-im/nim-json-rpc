@@ -1,5 +1,5 @@
-import asyncnet, asyncdispatch, tables, json, oids, macros
-import ../jsonconverters
+import asyncnet, asyncdispatch, tables, json, macros
+import ".." / [jsonconverters, jsonmarshal]
 
 type
   RpcClient* = ref object
@@ -89,8 +89,6 @@ proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
   self.address = address
   self.port = port
   asyncCheck processData(self)
-
-import ../ jsonmarshal
 
 proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree
