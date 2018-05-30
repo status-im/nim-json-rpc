@@ -40,7 +40,7 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
         let err = future.readError.RpcProcError
         await client.sendError(err.code, err.msg, err.data)
       else:
-        await client.sendError(-32000, "Error", %getCurrentExceptionMsg())
+        await client.sendError(SERVER_ERROR, "Error", %getCurrentExceptionMsg())
 
 proc serve*(server: RpcServer) {.async.} =
   server.socket.bindAddr(server.port, server.address)
