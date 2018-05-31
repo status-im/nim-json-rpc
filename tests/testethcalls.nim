@@ -10,7 +10,7 @@ srv.address = "localhost"
 srv.port = Port(8546)
 
 # importing ethprocs creates the server rpc calls
-import stint, ethtypes, ethprocs, stintJsonConverters
+import stint, ethtypes, ethprocs, stintjson
 # generate all client ethereum rpc calls
 createRpcSigs(sourceDir & DirSep & "ethcallsigs.nim")
 
