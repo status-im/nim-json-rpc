@@ -30,5 +30,5 @@ when isMainModule:
     test "Custom `Method not found` RPC call":
       check waitFor(test2()) == true
 
-srv.stop()
-srv.close()
+    srv.stop()
+    srv.close()

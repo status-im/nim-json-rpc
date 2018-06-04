@@ -32,10 +32,10 @@ var s = newRpcServer(initTAddress("127.0.0.1:8545"))
 
 # RPC definitions
 
-s.registerRpc("rpc.simplepath"): 
+s.registerRpc("rpc.simplepath"):
   result = %1
 
-s.registerRpc("rpc.differentparams") do(a: int, b: string): 
+s.registerRpc("rpc.differentparams") do(a: int, b: string):
   result = %[%a, %b]
 
 s.registerRpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
@@ -133,3 +133,6 @@ suite "Server types":
       # wrong param type
       let res = waitFor rpcDifferentParams(%[%"abc", %1])
       # TODO: When errors are proper return values, check error for param name
+
+  s.stop()
+  s.close()
