@@ -8,7 +8,8 @@ skipDirs      = @["tests"]
 ### Dependencies
 requires "nim >= 0.17.3",
          "nimcrypto",
-         "stint"
+         "stint",
+         "https://github.com/status-im/nim-asyncdispatch2"
 
 proc configForTests() =
   --hints: off
