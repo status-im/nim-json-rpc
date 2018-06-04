@@ -1,48 +1,66 @@
-import ../ rpcclient, ../ rpcserver
-import unittest, asyncdispatch, json, tables
+import unittest, json, tables
+import asyncdispatch2
+import ../rpcclient, ../rpcserver
 
 from os import getCurrentDir, DirSep
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
-
-var srv = sharedRpcServer()
-srv.address = "localhost"
-srv.port = Port(8546)
 
 # importing ethprocs creates the server rpc calls
 import stint, ethtypes, ethprocs, stintjson
 # generate all client ethereum rpc calls
 createRpcSigs(sourceDir & DirSep & "ethcallsigs.nim")
 
-srv.rpc("rpc.uint256param") do(i: UInt256):
+rpc("rpc.uint256param") do(i: UInt256):
   let r = i + 1.stUint(256)
   result = %r
-  
-srv.rpc("rpc.testreturnuint256") do() -> UInt256:
+
+rpc("rpc.testreturnuint256") do() -> UInt256:
   let r: UInt256 = "0x1234567890abcdef".parse(UInt256, 16)
   return r
 
-asyncCheck srv.serve
+proc test1(): Future[bool] {.async.} =
+  var client = newRpcClient()
+  await client.connect(initTAddress("127.0.0.1:8546"))
+  let r = await rpcUInt256Param(%[%"0x1234567890"])
+  result = (r == %"0x1234567891")
+  client.close()
+
+proc test2(): Future[bool] {.async.} =
+  var client = newRpcClient()
+  await client.connect(initTAddress("127.0.0.1:8546"))
+  let r = await rpcTestReturnUInt256(%[])
+  result = (r == %"0x1234567890abcdef")
+  client.close()
+
+proc test3(): Future[bool] {.async.} =
+  var client = newRpcClient()
+  await client.connect(initTAddress("127.0.0.1:8546"))
+  let r = await client.web3_clientVersion()
+  result = (r == "Nimbus-RPC-Test")
+  client.close()
+
+proc test4(): Future[bool] {.async.} =
+  var e = "0x47173285A8D7341E5E972FC677286384F802F8EF42A5EC5F03BBFA254CB01FAD"
+  var client = newRpcClient()
+  await client.connect(initTAddress("127.0.0.1:8546"))
+  let r = await client.web3_sha3("0x68656c6c6f20776f726c64")
+  result = (r == e)
+  client.close()
 
 suite "Ethereum RPCs":
-  proc main {.async.} =
-    var client = newRpcClient()
-    await client.connect("localhost", Port(8546))
+  var srv = newRpcServer(initTAddress("127.0.0.1:8546"))
+  srv.register("rpc.uint256param", "rpc.testreturnuint256",
+               "web3_clientVersion", "web3_sha3")
+  srv.start()
+  test "UInt256 param":
+    check waitFor(test1()) == true
+  test "Return UInt256":
+    check waitFor(test2()) == true
+  test "Version":
+    check waitFor(test3()) == true
+  test "SHA3":
+    check waitFor(test4()) == true
 
-    test "UInt256 param":
-      let r = waitFor rpcUInt256Param(%[%"0x1234567890"])
-      check r == %"0x1234567891"
-
-    test "Return UInt256":
-      let r = waitFor rpcTestReturnUInt256(%[])
-      check r == %"0x1234567890abcdef"
-
-    test "Version":
-      var
-        response = waitFor client.web3_clientVersion()
-      check response == "Nimbus-RPC-Test"
-    test "SHA3":
-      var response = waitFor client.web3_sha3("0x68656c6c6f20776f726c64")
-      check response == "0x47173285A8D7341E5E972FC677286384F802F8EF42A5EC5F03BBFA254CB01FAD"
-
-  waitFor main()
+  srv.stop()
+  srv.close()

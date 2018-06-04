@@ -1,4 +1,6 @@
-import unittest, ../ rpcserver, asyncdispatch, json, tables
+import unittest, json, tables
+import asyncdispatch2
+import ../rpcserver
 
 type
   # some nested types to check object parsing
@@ -26,40 +28,40 @@ let
     },
     "c": %1.23}
 
-var s = newRpcServer("localhost")
+var s = newRpcServer(initTAddress("127.0.0.1:8545"))
 
 # RPC definitions
 
-s.rpc("rpc.simplepath"): 
+s.registerRpc("rpc.simplepath"): 
   result = %1
 
-s.rpc("rpc.differentparams") do(a: int, b: string): 
+s.registerRpc("rpc.differentparams") do(a: int, b: string): 
   result = %[%a, %b]
 
-s.rpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
+s.registerRpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
   var res = %arr
   res.add %b
   result = %res
 
-s.rpc("rpc.seqparam") do(a: string, s: seq[int]):
+s.registerRpc("rpc.seqparam") do(a: string, s: seq[int]):
   var res = newJArray()
   res.add %a
   for item in s:
     res.add %int(item)
   result = res
 
-s.rpc("rpc.objparam") do(a: string, obj: MyObject):
+s.registerRpc("rpc.objparam") do(a: string, obj: MyObject):
   result = %obj
 
 
-s.rpc("rpc.returntypesimple") do(i: int) -> int:
+s.registerRpc("rpc.returntypesimple") do(i: int) -> int:
   result = i
 
-s.rpc("rpc.returntypecomplex") do(i: int) -> Test2:
+s.registerRpc("rpc.returntypecomplex") do(i: int) -> Test2:
   result.x = [1, i, 3]
   result.y = "test"
 
-s.rpc("rpc.testreturns") do() -> int:
+s.registerRpc("rpc.testreturns") do() -> int:
   return 1234
 
 # Tests
