@@ -5,10 +5,13 @@ var srv = newRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
 
-srv.rpc("myProc") do(input: string, data: array[0..3, int]):
-  result = %("Hello " & input & " data: " & $data)
+proc makeProc(server: RpcServer) =
+  server.rpc("myProc") do(input: string, data: array[0..3, int]):
+    result = %("Hello " & input & " data: " & $data)
 
 asyncCheck srv.serve
+
+srv.makeProc
 
 suite "Server/Client RPC":
   proc main {.async.} =

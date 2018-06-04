@@ -44,7 +44,7 @@ proc hasReturnType(params: NimNode): bool =
   if params != nil and params.len > 0 and params[0] != nil and params[0].kind != nnkEmpty:
     result = true
 
-macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
+macro rpc*(server: RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
@@ -71,18 +71,18 @@ macro rpc*(server: var RpcServer, path: string, body: untyped): untyped =
     if returnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
       result.add( quote do:
-        proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
           `res` = await `doMain`(`paramsIdent`)
       )
     else:
       result.add(quote do:
-        proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
           `res` = %await `doMain`(`paramsIdent`)
       )
   else:
     # no return types, inline contents
     result.add(quote do:
-      proc `procName`*(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+      proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
         `setup`
         `procBody`
     )
