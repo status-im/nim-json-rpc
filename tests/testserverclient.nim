@@ -5,7 +5,7 @@ var srv = newRpcServer()
 srv.address = "localhost"
 srv.port = Port(8545)
 
-proc makeProc(server: var RpcServer) =
+proc makeProc(server: RpcServer) =
   server.rpc("myProc") do(input: string, data: array[0..3, int]):
     result = %("Hello " & input & " data: " & $data)
 
