@@ -1,4 +1,5 @@
-import json, stint
+import json
+import stint
 from ../rpcserver import expect
 
 template stintStr(n: UInt256|Int256): JsonNode =
@@ -29,4 +30,3 @@ proc fromJson*(n: JsonNode, argName: string, result: var ref UInt256) =
     raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
   new result
   result[] = hexStr.parse(StUint[256], 16) # TODO: Handle errors
-

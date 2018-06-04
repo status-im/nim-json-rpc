@@ -1,3 +1,1 @@
-import
-  testrpcmacro, testserverclient, testethcalls
-
+import testrpcmacro, testserverclient, testethcalls
