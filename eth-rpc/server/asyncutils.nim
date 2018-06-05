@@ -6,7 +6,7 @@ proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): JsonNode =
 proc sendError*(client: AsyncSocket, code: int, msg: string, id: JsonNode, data: JsonNode = newJNull()) {.async.} =
   ## Send error message to client
   let error = %{"code": %(code), "message": %msg, "data": data}
-  ifDebug: echo "Send error json: ", wrapReply(newJNull(), error, id).pretty & "\c\l"
+  ifDebug: echo "Send error json: ", wrapReply(newJNull(), error, id).pretty, "\c\l"
   # REVIEW: prefer in-place appending instead of string concatenation
   # (see the similar comment in clientdispatch.nim)
   result = client.send($wrapReply(id, newJNull(), error) & "\c\l")
