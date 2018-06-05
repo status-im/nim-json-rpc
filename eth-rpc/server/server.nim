@@ -21,7 +21,7 @@ proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.asyn
       await client.sendError(METHOD_NOT_FOUND, "Method not found", id, %(methodName & " is not a registered method."))
     else:
       let callRes = await server.procs[methodName](node["params"])
-      await client.send($wrapReply(id, callRes, newJNull()) & "\c\l")
+      await client.send(wrapReply(id, callRes, newJNull()))
 
 proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
   while true:
