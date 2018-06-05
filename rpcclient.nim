@@ -1,3 +1,3 @@
-import eth-rpc / client / clientdispatch
-export clientdispatch
+import eth-rpc / client / client
+export client
 

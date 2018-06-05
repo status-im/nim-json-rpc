@@ -39,8 +39,11 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
       if future.readError of RpcProcError:
         let err = future.readError.RpcProcError
         await client.sendError(err.code, err.msg, err.data)
+      elif future.readError of ValueError:
+        let err = future.readError[].ValueError
+        await client.sendError(INVALID_PARAMS, err.msg, %"")
       else:
-        await client.sendError(SERVER_ERROR, "Error", %getCurrentExceptionMsg())
+        await client.sendError(SERVER_ERROR, "Error: Unknown error occurred", %"")
 
 proc serve*(server: RpcServer) {.async.} =
   server.socket.bindAddr(server.port, server.address)

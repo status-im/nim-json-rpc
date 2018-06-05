@@ -149,14 +149,15 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
 
   let
     rpcResult = genSym(nskLet, "res") # temporary variable to hold `Response` from rpc call
+    clientIdent = newIdentNode("client")
     procRes = ident"result"           # proc return variable
     jsonRpcResult =                   # actual return value, `rpcResult`.result
       nnkDotExpr.newTree(rpcResult, newIdentNode("result"))
   
   # perform rpc call
   callBody.add(quote do:
-    let `rpcResult` = await client.call(`pathStr`, `jsonParamIdent`)          # `rpcResult` is of type `Response`
-    if `rpcResult`.error: raise newException(ValueError, $`rpcResult`.result) # TODO: is raise suitable here? 
+    let `rpcResult` = await `clientIdent`.call(`pathStr`, `jsonParamIdent`)          # `rpcResult` is of type `Response`
+    if `rpcResult`.error: raise newException(ValueError, $`rpcResult`.result)
   )
 
   if customReturnType:
