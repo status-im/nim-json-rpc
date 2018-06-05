@@ -27,12 +27,6 @@ proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
     procs: newTable[string, RpcProc]()
   )
 
-var sharedServer: RpcServer
-
-proc sharedRpcServer*(): RpcServer =
-  if sharedServer.isNil: sharedServer = newRpcServer("")
-  result = sharedServer
-
 proc `$`*(port: Port): string = $int(port)
 
 proc makeProcName(s: string): string =
