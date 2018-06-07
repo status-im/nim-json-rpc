@@ -142,15 +142,17 @@ proc processClient(server: StreamServer, client: StreamTransport) {.async.} =
 
 proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
   let tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
-  let tas6 = resolveTAddress(address, port, IpAddressFamily.IPv4)
+  let tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
   result = RpcServer()
   result.procs = newTable[string, RpcProc]()
   result.servers = newSeq[StreamServer]()
   for item in tas4:
+    ifDebug: echo "Create server on " & $item
     var server = createStreamServer(item, processClient, {ReuseAddr},
                                     udata = result)
     result.servers.add(server)
   for item in tas6:
+    ifDebug: echo "Create server on " & $item
     var server = createStreamServer(item, processClient, {ReuseAddr},
                                     udata = result)
     result.servers.add(server)
