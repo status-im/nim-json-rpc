@@ -92,7 +92,6 @@ proc sendJsonError*(state: RpcJsonError, client: StreamTransport, id: JsonNode,
   await client.sendError(errMsgs[0], errMsgs[1], id, data)
 
 # Server message processing
-
 proc processMessage(server: RpcServer, client: StreamTransport,
                     line: string) {.async.} =
   var
