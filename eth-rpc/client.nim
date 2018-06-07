@@ -95,7 +95,7 @@ proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
   # TODO: `address` hostname can be resolved to many IP addresses, we are using
   # first one, but maybe it would be better to iterate over all IP addresses
   # and try to establish connection until it will not be established.
-  let addresses = resolveTAddress(address & ":" & $int(port))
+  let addresses = resolveTAddress(address, port)
   self.transp = await connect(addresses[0])
   self.address = addresses[0]
   asyncCheck processData(self)
