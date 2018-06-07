@@ -1,30 +1,28 @@
-import asyncnet, asyncdispatch, tables, json, macros
+import tables, json, macros
+import asyncdispatch2
 import jsonmarshal
 
 type
   RpcClient* = ref object
-    socket: AsyncSocket
+    transp: StreamTransport
     awaiting: Table[string, Future[Response]]
-    address: string
-    port: Port
+    address: TransportAddress
     nextId: int64
   Response* = tuple[error: bool, result: JsonNode]
 
-
 proc newRpcClient*(): RpcClient =
-  ## Creates a new ``RpcClient`` instance. 
-  RpcClient(
-    socket: newAsyncSocket(),
-    awaiting: initTable[string, Future[Response]](),
-    nextId: 1
-  )
+  ## Creates a new ``RpcClient`` instance.
+  result = RpcClient(awaiting: initTable[string, Future[Response]](), nextId: 1)
 
-proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.async.} =
+proc call*(self: RpcClient, name: string,
+           params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = $self.nextId
   self.nextId.inc
-  let msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params, "id": %id} & "\c\l"
-  await self.socket.send(msg)
+  let msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params,
+                "id": %id} & "\c\l"
+  let res = await self.transp.write(msg)
+  assert(res == len(msg))
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
@@ -32,12 +30,17 @@ proc call*(self: RpcClient, name: string, params: JsonNode): Future[Response] {.
   self.awaiting[id] = newFut
   result = await newFut
 
-macro checkGet(node: JsonNode, fieldName: string, jKind: static[JsonNodeKind]): untyped =
+macro checkGet(node: JsonNode, fieldName: string,
+               jKind: static[JsonNodeKind]): untyped =
   let n = genSym(ident = "n") #`node`{`fieldName`}
   result = quote:
     let `n` = `node`{`fieldname`}
-    if `n`.isNil: raise newException(ValueError, "Message is missing required field \"" & `fieldName` & "\"")
-    if `n`.kind != `jKind`.JsonNodeKind: raise newException(ValueError, "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
+    if `n`.isNil:
+      raise newException(ValueError,
+                    "Message is missing required field \"" & `fieldName` & "\"")
+    if `n`.kind != `jKind`.JsonNodeKind:
+      raise newException(ValueError,
+   "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
   case jKind
   of JBool: result.add(quote do: `node`[`fieldName`].getBool)
   of JInt: result.add(quote do: `node`[`fieldName`].getInt)
@@ -48,13 +51,17 @@ macro checkGet(node: JsonNode, fieldName: string, jKind: static[JsonNodeKind]): 
 
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
-  
+
   # TODO: Use more appropriate exception objects
   let version = checkGet(node, "jsonrpc", JString)
-  if version != "2.0": raise newException(ValueError, "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
+  if version != "2.0":
+    raise newException(ValueError,
+      "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
 
   let id = checkGet(node, "id", JString)
-  if not self.awaiting.hasKey(id): raise newException(ValueError, "Cannot find message id \"" & node["id"].str & "\"")
+  if not self.awaiting.hasKey(id):
+    raise newException(ValueError,
+                            "Cannot find message id \"" & node["id"].str & "\"")
 
   let errorNode = node{"error"}
   if errorNode.isNil or errorNode.kind == JNull:
@@ -72,22 +79,25 @@ proc connect*(self: RpcClient, address: string, port: Port): Future[void]
 proc processData(self: RpcClient) {.async.} =
   while true:
     # read until no data
-    let line = await self.socket.recvLine()
-
+    # TODO: we need to limit number of bytes we going to read, without any
+    # limits server can fill all memory it can here.
+    let line = await self.transp.readLine()
     if line == "":
       # transmission ends
-      self.socket.close()  # TODO: Do we need to drop/reacquire sockets?
-      self.socket = newAsyncSocket()
+      self.transp.close()
       break
-    
+
     processMessage(self, line)
   # async loop reconnection and waiting
-  await connect(self, self.address, self.port)
+  self.transp = await connect(self.address)
 
 proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
-  await self.socket.connect(address, port)
-  self.address = address
-  self.port = port
+  # TODO: `address` hostname can be resolved to many IP addresses, we are using
+  # first one, but maybe it would be better to iterate over all IP addresses
+  # and try to establish connection until it will not be established.
+  let addresses = resolveTAddress(address & ":" & $int(port))
+  self.transp = await connect(addresses[0])
+  self.address = addresses[0]
   asyncCheck processData(self)
 
 proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
@@ -95,9 +105,12 @@ proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   var paramList = newSeq[NimNode]()
   for p in parameters: paramList.add(p)
 
-  result = newProc(procName, paramList, callBody)           # build proc
-  result.addPragma ident"async"                             # make proc async               
-  result[0] = nnkPostFix.newTree(ident"*", newIdentNode($procName))  # export this proc
+  # build proc
+  result = newProc(procName, paramList, callBody)
+  # make proc async
+  result.addPragma ident"async"
+  # export this proc
+  result[0] = nnkPostFix.newTree(ident"*", newIdentNode($procName))
 
 proc toJsonArray(parameters: NimNode): NimNode =
   # outputs an array of jsonified parameters
@@ -117,7 +130,7 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
   let iJsonNode = newIdentNode("JsonNode")
 
   var parameters = rpcDecl.findChild(it.kind == nnkFormalParams).copy
-  # ensure we have at least space for a return parameter  
+  # ensure we have at least space for a return parameter
   if parameters.isNil or parameters.kind == nnkEmpty or parameters.len == 0:
     parameters = nnkFormalParams.newTree(iJsonNode)
 
@@ -131,13 +144,17 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
     customReturnType = returnType != iJsonNode
 
   # insert rpc client as first parameter
-  parameters.insert(1, nnkIdentDefs.newTree(ident"client", ident"RpcClient", newEmptyNode()))
+  parameters.insert(1, nnkIdentDefs.newTree(ident"client", ident"RpcClient",
+                                            newEmptyNode()))
 
   let
-    jsonParamIdent = genSym(nskVar, "jsonParam")  # variable used to send json to the server
-    jsonParamArray = parameters.toJsonArray()     # json array of marshalled parameters
+    # variable used to send json to the server
+    jsonParamIdent = genSym(nskVar, "jsonParam")
+    # json array of marshalled parameters
+    jsonParamArray = parameters.toJsonArray()
   var
-    # populate json params - even rpcs with no parameters have an empty json array node sent
+    # populate json params - even rpcs with no parameters have an empty json
+    # array node sent
     callBody = newStmtList().add(quote do:
       var `jsonParamIdent` = `jsonParamArray`
     )
@@ -148,15 +165,18 @@ proc createRpcFromSig*(rpcDecl: NimNode): NimNode =
   result = createRpcProc(procName, parameters, callBody)
 
   let
-    rpcResult = genSym(nskLet, "res") # temporary variable to hold `Response` from rpc call
+    # temporary variable to hold `Response` from rpc call
+    rpcResult = genSym(nskLet, "res")
     clientIdent = newIdentNode("client")
-    procRes = ident"result"           # proc return variable
-    jsonRpcResult =                   # actual return value, `rpcResult`.result
-      nnkDotExpr.newTree(rpcResult, newIdentNode("result"))
-  
+    # proc return variable
+    procRes = ident"result"
+    # actual return value, `rpcResult`.result
+    jsonRpcResult = nnkDotExpr.newTree(rpcResult, newIdentNode("result"))
+
   # perform rpc call
   callBody.add(quote do:
-    let `rpcResult` = await `clientIdent`.call(`pathStr`, `jsonParamIdent`)          # `rpcResult` is of type `Response`
+    # `rpcResult` is of type `Response`
+    let `rpcResult` = await `clientIdent`.call(`pathStr`, `jsonParamIdent`)
     if `rpcResult`.error: raise newException(ValueError, $`rpcResult`.result)
   )
 

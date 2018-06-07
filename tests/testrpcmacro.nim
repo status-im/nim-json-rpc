@@ -1,4 +1,5 @@
-import unittest, ../ rpcserver, asyncdispatch, json, tables
+import unittest, json, tables
+import ../rpcserver
 
 type
   # some nested types to check object parsing
@@ -30,10 +31,10 @@ var s = newRpcServer("localhost")
 
 # RPC definitions
 
-s.rpc("rpc.simplepath"): 
+s.rpc("rpc.simplepath"):
   result = %1
 
-s.rpc("rpc.differentparams") do(a: int, b: string): 
+s.rpc("rpc.differentparams") do(a: int, b: string):
   result = %[%a, %b]
 
 s.rpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):

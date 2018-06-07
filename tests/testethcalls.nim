@@ -1,5 +1,5 @@
-import ../ rpcclient, ../ rpcserver
-import unittest, asyncdispatch, json, tables
+import unittest, json, tables
+import ../rpcclient, ../rpcserver
 import stint, ethtypes, ethprocs, stintjson
 
 from os import getCurrentDir, DirSep
@@ -7,7 +7,7 @@ from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 var
-  server = newRpcServer()
+  server = newRpcServer("localhost", Port(8546))
   client = newRpcClient()
 
 ## Generate Ethereum server RPCs
@@ -48,9 +48,7 @@ proc testSigCalls: Future[seq[string]] =
     sha3 = client.web3_sha3("0x68656c6c6f20776f726c64")
   result = all(version, sha3)
 
-server.address = "localhost"
-server.port = Port(8546)
-asyncCheck server.serve
+server.start()
 waitFor client.connect("localhost", Port(8546))
 
 

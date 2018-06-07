@@ -1,16 +1,14 @@
-import  ../ rpcclient, ../ rpcserver
 import unittest, json
+import  ../rpcclient, ../rpcserver
 
 var srv = newRpcServer()
-srv.address = "localhost"
-srv.port = Port(8545)
 var client = newRpcClient()
 
 # Create RPC on server
 srv.rpc("myProc") do(input: string, data: array[0..3, int]):
   result = %("Hello " & input & " data: " & $data)
 
-asyncCheck srv.serve
+srv.start()
 waitFor client.connect("localhost", Port(8545))
 
 # TODO: When an error occurs during a test, stop the server
