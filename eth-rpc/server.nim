@@ -165,6 +165,11 @@ proc stop*(server: RpcServer) =
   for item in server.servers:
     item.stop()
 
+proc close*(server: RpcServer) =
+  ## Cleanup resources of RPC server.
+  for item in server.servers:
+    item.close()
+
 # Server registration and RPC generation
 
 proc register*(server: RpcServer, name: string, rpc: RpcProc) =

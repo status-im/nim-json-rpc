@@ -16,3 +16,6 @@ suite "Server/Client RPC":
   test "Custom RPC":
     var r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
     check r.result.getStr == "Hello abc data: [1, 2, 3, 4]"
+
+srv.stop()
+srv.close()
