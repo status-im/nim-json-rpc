@@ -140,21 +140,54 @@ proc processClient(server: StreamServer, client: StreamTransport) {.async.} =
                                "Error: Unknown error occurred", %"")
 
 proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
-  let tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
-  let tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
+  var
+    tas4: seq[TransportAddress]
+    tas6: seq[TransportAddress]
+
+  # Attempt to resolve `address` for IPv4 address space.
+  try:
+    tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
+  except:
+    discard
+
+  # Attempt to resolve `address` for IPv6 address space.
+  try:
+    tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
+  except:
+    discard
+
+  if len(tas4) == 0 and len(tas6) == 0:
+    # Address was not resolved, critical error.
+    # TODO: Custom RpcException error.
+    raise newException(ValueError,
+                       "Address " & address & " could not be resolved!")
+
   result = RpcServer()
   result.procs = newTable[string, RpcProc]()
   result.servers = newSeq[StreamServer]()
   for item in tas4:
-    ifDebug: echo "Create server on " & $item
-    var server = createStreamServer(item, processClient, {ReuseAddr},
-                                    udata = result)
-    result.servers.add(server)
+    try:
+      ifDebug: echo "Create server on " & $item
+      var server = createStreamServer(item, processClient, {ReuseAddr},
+                                      udata = result)
+      result.servers.add(server)
+    except:
+      ifDebug: echo "Failed to create server on " & $item
+
   for item in tas6:
-    ifDebug: echo "Create server on " & $item
-    var server = createStreamServer(item, processClient, {ReuseAddr},
-                                    udata = result)
-    result.servers.add(server)
+    try:
+      ifDebug: echo "Create server on " & $item
+      var server = createStreamServer(item, processClient, {ReuseAddr},
+                                      udata = result)
+      result.servers.add(server)
+    except:
+      ifDebug: echo "Failed to create server on " & $item
+
+  if len(result.servers) == 0:
+    # Server was not bound, critical error.
+    # TODO: Custom RpcException error
+    raise newException(ValueError,
+                      "Could not setup server on " & address & ":" & $int(port))
 
 proc start*(server: RpcServer) =
   ## Start the RPC server.
