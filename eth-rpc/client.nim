@@ -22,6 +22,7 @@ proc call*(self: RpcClient, name: string,
   let msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params,
                 "id": %id} & "\c\l"
   let res = await self.transp.write(msg)
+  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
   assert(res == len(msg))
 
   # completed by processMessage.

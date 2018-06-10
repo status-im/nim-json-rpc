@@ -27,7 +27,7 @@ let
     },
     "c": %1.23}
 
-var s = newRpcServer("localhost")
+var s = newRpcServer(["localhost:8545"])
 
 # RPC definitions
 
