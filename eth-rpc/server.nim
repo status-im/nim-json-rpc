@@ -1,4 +1,4 @@
-import json, tables, strutils, options, macros
+import json, tables, strutils, options, macros, chronicles
 import asyncdispatch2
 import jsonmarshal
 
@@ -20,6 +20,9 @@ type
     code*: int
     data*: JsonNode
 
+  RpcBindError* = object of Exception
+  RpcAddressUnresolvableError* = object of Exception
+
 const
   JSON_PARSE_ERROR* = -32700
   INVALID_REQUEST* = -32600
@@ -36,12 +39,9 @@ const
       (INVALID_REQUEST, "No id specified")
     ]
 
-when not defined(release):
-  template ifDebug*(actions: untyped): untyped =
-    actions
-else:
-  template ifDebug*(actions: untyped): untyped =
-    discard
+# Utility functions
+# TODO: Move outside server
+func `%`*(p: Port): JsonNode = %(p.int)
 
 # Json state checking
 
@@ -53,6 +53,7 @@ template jsonValid*(jsonString: string, node: var JsonNode): (bool, string) =
   except:
     valid = false
     msg = getCurrentExceptionMsg()
+    debug "Cannot process json", json = jsonString, msg = msg
   (valid, msg)
 
 proc checkJsonErrors*(line: string,
@@ -80,7 +81,7 @@ proc sendError*(client: StreamTransport, code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()) {.async.} =
   ## Send error message to client
   let error = %{"code": %(code), "message": %msg, "data": data}
-  ifDebug: echo "Send error json: ", wrapReply(newJNull(), error, id)
+  debug "Error generated", error = error, id = id
   result = client.write(wrapReply(id, newJNull(), error))
 
 proc sendJsonError*(state: RpcJsonError, client: StreamTransport, id: JsonNode,
@@ -96,6 +97,9 @@ proc processMessage(server: RpcServer, client: StreamTransport,
     node: JsonNode
     # set up node and/or flag errors
     jsonErrorState = checkJsonErrors(line, node)
+
+  debug "Received line", line = line
+  
   if jsonErrorState.isSome:
     let errState = jsonErrorState.get
     var id = if errState.err == rjeInvalidJson: newJNull() else: node["id"]
@@ -107,12 +111,12 @@ proc processMessage(server: RpcServer, client: StreamTransport,
 
     if not server.procs.hasKey(methodName):
       await client.sendError(METHOD_NOT_FOUND, "Method not found", id,
-                                 %(methodName & " is not a registered method."))
+                              %(methodName & " is not a registered method."))
     else:
       let callRes = await server.procs[methodName](node["params"])
       discard await client.write(wrapReply(id, callRes, newJNull()))
 
-proc processClient(server: StreamServer, client: StreamTransport) {.async.} =
+proc processClient(server: StreamServer, client: StreamTransport) {.async, gcsafe.} =
   var rpc = getUserData[RpcServer](server)
   while true:
     ## TODO: We need to put limit here, or server could be easily put out of
@@ -122,7 +126,7 @@ proc processClient(server: StreamServer, client: StreamTransport) {.async.} =
       client.close()
       break
 
-    ifDebug: echo "Process client: ", client.remoteAddress()
+    debug "Processing client", addresss = client.remoteAddress()
 
     let future = processMessage(rpc, client, line)
     yield future
@@ -145,17 +149,17 @@ proc newRpcServer*(addresses: openarray[TransportAddress]): RpcServer =
 
   for item in addresses:
     try:
-      ifDebug: echo "Create server on " & $item
+      info "Creating server on ", address = $item
       var server = createStreamServer(item, processClient, {ReuseAddr},
                                       udata = result)
       result.servers.add(server)
     except:
-      ifDebug: echo "Failed to create server on " & $item
+      error "Failed to create server", address = $item, message = getCurrentExceptionMsg()
 
   if len(result.servers) == 0:
     # Server was not bound, critical error.
     # TODO: Custom RpcException error
-    raise newException(ValueError, "Unable to create server!")
+    raise newException(RpcBindError, "Unable to create server!")
 
 proc newRpcServer*(addresses: openarray[string]): RpcServer =
   ## Create new server and assign it to addresses ``addresses``.  
@@ -184,7 +188,7 @@ proc newRpcServer*(addresses: openarray[string]): RpcServer =
 
   if len(baddrs) == 0:
     # Addresses could not be resolved, critical error.
-    raise newException(ValueError, "Unable to get address!")
+    raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
   result = newRpcServer(baddrs)
 
@@ -207,8 +211,7 @@ proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
 
   if len(tas4) == 0 and len(tas6) == 0:
     # Address was not resolved, critical error.
-    # TODO: Custom RpcException error.
-    raise newException(ValueError,
+    raise newException(RpcAddressUnresolvableError,
                        "Address " & address & " could not be resolved!")
 
   result = RpcServer()
@@ -216,26 +219,25 @@ proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
   result.servers = newSeq[StreamServer]()
   for item in tas4:
     try:
-      ifDebug: echo "Create server on " & $item
+      info "Creating server for address", ip4address = $item
       var server = createStreamServer(item, processClient, {ReuseAddr},
                                       udata = result)
       result.servers.add(server)
     except:
-      ifDebug: echo "Failed to create server on " & $item
+      error "Failed to create server for address", address = $item
 
   for item in tas6:
     try:
-      ifDebug: echo "Create server on " & $item
+      info "Server created", ip6address = $item
       var server = createStreamServer(item, processClient, {ReuseAddr},
                                       udata = result)
       result.servers.add(server)
     except:
-      ifDebug: echo "Failed to create server on " & $item
+      error "Failed to create server", address = $item
 
   if len(result.servers) == 0:
     # Server was not bound, critical error.
-    # TODO: Custom RpcException error
-    raise newException(ValueError,
+    raise newException(RpcBindError,
                       "Could not setup server on " & address & ":" & $int(port))
 
 proc start*(server: RpcServer) =
