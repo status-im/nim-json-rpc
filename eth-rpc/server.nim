@@ -1,5 +1,8 @@
-import asyncdispatch, asyncnet, json, tables, strutils, options, jsonmarshal, macros
-export asyncdispatch, asyncnet, json, jsonmarshal
+import json, tables, strutils, options, macros
+import asyncdispatch2
+import jsonmarshal
+
+export asyncdispatch2, json, jsonmarshal
 
 type
   RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId
@@ -10,9 +13,7 @@ type
   RpcProc* = proc (params: JsonNode): Future[JsonNode]
 
   RpcServer* = ref object
-    socket*: AsyncSocket
-    port*: Port
-    address*: string
+    servers*: seq[StreamServer]
     procs*: TableRef[string, RpcProc]
 
   RpcProcError* = ref object of Exception
@@ -35,19 +36,12 @@ const
       (INVALID_REQUEST, "No id specified")
     ]
 
-template ifDebug*(actions: untyped): untyped =
-  # TODO: Replace with nim-chronicle
-  when not defined(release): actions else: discard
-
-proc `$`*(port: Port): string = $int(port)
-
-proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
-  result = RpcServer(
-    socket: newAsyncSocket(),
-    port: port,
-    address: address,
-    procs: newTable[string, RpcProc]()
-  )
+when not defined(release):
+  template ifDebug*(actions: untyped): untyped =
+    actions
+else:
+  template ifDebug*(actions: untyped): untyped =
+    discard
 
 # Json state checking
 
@@ -61,7 +55,8 @@ template jsonValid*(jsonString: string, node: var JsonNode): (bool, string) =
     msg = getCurrentExceptionMsg()
   (valid, msg)
 
-proc checkJsonErrors*(line: string, node: var JsonNode): Option[RpcJsonErrorContainer] =
+proc checkJsonErrors*(line: string,
+                      node: var JsonNode): Option[RpcJsonErrorContainer] =
   ## Tries parsing line into node, if successful checks required fields
   ## Returns: error state or none
   let res = jsonValid(line, node)
@@ -79,30 +74,31 @@ proc checkJsonErrors*(line: string, node: var JsonNode): Option[RpcJsonErrorCont
 
 proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): string =
   let node = %{"jsonrpc": %"2.0", "result": value, "error": error, "id": id}
-  return $node & "\c\l" 
+  return $node & "\c\l"
 
-proc sendError*(client: AsyncSocket, code: int, msg: string, id: JsonNode, data: JsonNode = newJNull()) {.async.} =
+proc sendError*(client: StreamTransport, code: int, msg: string, id: JsonNode,
+                data: JsonNode = newJNull()) {.async.} =
   ## Send error message to client
   let error = %{"code": %(code), "message": %msg, "data": data}
   ifDebug: echo "Send error json: ", wrapReply(newJNull(), error, id)
-  result = client.send(wrapReply(id, newJNull(), error))
+  result = client.write(wrapReply(id, newJNull(), error))
 
-proc sendJsonError*(state: RpcJsonError, client: AsyncSocket, id: JsonNode, data = newJNull()) {.async.} =
+proc sendJsonError*(state: RpcJsonError, client: StreamTransport, id: JsonNode,
+                    data = newJNull()) {.async.} =
   ## Send client response for invalid json state
   let errMsgs = jsonErrorMessages[state]
   await client.sendError(errMsgs[0], errMsgs[1], id, data)
 
 # Server message processing
-
-proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.async.} =
+proc processMessage(server: RpcServer, client: StreamTransport,
+                    line: string) {.async.} =
   var
     node: JsonNode
-    jsonErrorState = checkJsonErrors(line, node)        # set up node and/or flag errors
+    # set up node and/or flag errors
+    jsonErrorState = checkJsonErrors(line, node)
   if jsonErrorState.isSome:
     let errState = jsonErrorState.get
-    var id: JsonNode
-    if errState.err == rjeInvalidJson: id = newJNull()  # id cannot be retrieved
-    else: id = node["id"]
+    var id = if errState.err == rjeInvalidJson: newJNull() else: node["id"]
     await errState.err.sendJsonError(client, id, %errState.msg)
   else:
     let
@@ -110,23 +106,26 @@ proc processMessage(server: RpcServer, client: AsyncSocket, line: string) {.asyn
       id = node["id"]
 
     if not server.procs.hasKey(methodName):
-      await client.sendError(METHOD_NOT_FOUND, "Method not found", id, %(methodName & " is not a registered method."))
+      await client.sendError(METHOD_NOT_FOUND, "Method not found", id,
+                                 %(methodName & " is not a registered method."))
     else:
       let callRes = await server.procs[methodName](node["params"])
-      await client.send(wrapReply(id, callRes, newJNull()))
+      discard await client.write(wrapReply(id, callRes, newJNull()))
 
-proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
+proc processClient(server: StreamServer, client: StreamTransport) {.async.} =
+  var rpc = getUserData[RpcServer](server)
   while true:
-    let line = await client.recvLine()
+    ## TODO: We need to put limit here, or server could be easily put out of
+    ## service without never-ending line (data without CRLF).
+    let line = await client.readLine()
     if line == "":
-      # Disconnected.
       client.close()
       break
 
-    ifDebug: echo "Process client: ", server.port, ":" & line
+    ifDebug: echo "Process client: ", client.remoteAddress()
 
-    let future = processMessage(server, client, line)
-    await future
+    let future = processMessage(rpc, client, line)
+    yield future
     if future.failed:
       if future.readError of RpcProcError:
         let err = future.readError.RpcProcError
@@ -135,16 +134,124 @@ proc processClient(server: RpcServer, client: AsyncSocket) {.async.} =
         let err = future.readError[].ValueError
         await client.sendError(INVALID_PARAMS, err.msg, %"")
       else:
-        await client.sendError(SERVER_ERROR, "Error: Unknown error occurred", %"")
+        await client.sendError(SERVER_ERROR,
+                               "Error: Unknown error occurred", %"")
 
-proc serve*(server: RpcServer) {.async.} =
+proc newRpcServer*(addresses: openarray[TransportAddress]): RpcServer =
+  ## Create new server and assign it to addresses ``addresses``.
+  result = RpcServer()
+  result.procs = newTable[string, RpcProc]()
+  result.servers = newSeq[StreamServer]()
+
+  for item in addresses:
+    try:
+      ifDebug: echo "Create server on " & $item
+      var server = createStreamServer(item, processClient, {ReuseAddr},
+                                      udata = result)
+      result.servers.add(server)
+    except:
+      ifDebug: echo "Failed to create server on " & $item
+
+  if len(result.servers) == 0:
+    # Server was not bound, critical error.
+    # TODO: Custom RpcException error
+    raise newException(ValueError, "Unable to create server!")
+
+proc newRpcServer*(addresses: openarray[string]): RpcServer =
+  ## Create new server and assign it to addresses ``addresses``.  
+  var
+    tas4: seq[TransportAddress]
+    tas6: seq[TransportAddress]
+    baddrs: seq[TransportAddress]
+
+  for a in addresses:
+    # Attempt to resolve `address` for IPv4 address space.
+    try:
+      tas4 = resolveTAddress(a, IpAddressFamily.IPv4)
+    except:
+      discard
+
+    # Attempt to resolve `address` for IPv6 address space.
+    try:
+      tas6 = resolveTAddress(a, IpAddressFamily.IPv6)
+    except:
+      discard
+
+    for r in tas4:
+      baddrs.add(r)
+    for r in tas6:
+      baddrs.add(r)
+
+  if len(baddrs) == 0:
+    # Addresses could not be resolved, critical error.
+    raise newException(ValueError, "Unable to get address!")
+
+  result = newRpcServer(baddrs)
+
+proc newRpcServer*(address = "localhost", port: Port = Port(8545)): RpcServer =
+  var
+    tas4: seq[TransportAddress]
+    tas6: seq[TransportAddress]
+
+  # Attempt to resolve `address` for IPv4 address space.
+  try:
+    tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
+  except:
+    discard
+
+  # Attempt to resolve `address` for IPv6 address space.
+  try:
+    tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
+  except:
+    discard
+
+  if len(tas4) == 0 and len(tas6) == 0:
+    # Address was not resolved, critical error.
+    # TODO: Custom RpcException error.
+    raise newException(ValueError,
+                       "Address " & address & " could not be resolved!")
+
+  result = RpcServer()
+  result.procs = newTable[string, RpcProc]()
+  result.servers = newSeq[StreamServer]()
+  for item in tas4:
+    try:
+      ifDebug: echo "Create server on " & $item
+      var server = createStreamServer(item, processClient, {ReuseAddr},
+                                      udata = result)
+      result.servers.add(server)
+    except:
+      ifDebug: echo "Failed to create server on " & $item
+
+  for item in tas6:
+    try:
+      ifDebug: echo "Create server on " & $item
+      var server = createStreamServer(item, processClient, {ReuseAddr},
+                                      udata = result)
+      result.servers.add(server)
+    except:
+      ifDebug: echo "Failed to create server on " & $item
+
+  if len(result.servers) == 0:
+    # Server was not bound, critical error.
+    # TODO: Custom RpcException error
+    raise newException(ValueError,
+                      "Could not setup server on " & address & ":" & $int(port))
+
+proc start*(server: RpcServer) =
   ## Start the RPC server.
-  server.socket.bindAddr(server.port, server.address)
-  server.socket.listen()
+  for item in server.servers:
+    item.start()
 
-  while true:
-    let client = await server.socket.accept()
-    asyncCheck server.processClient(client)
+proc stop*(server: RpcServer) =
+  ## Stop the RPC server.
+  for item in server.servers:
+    item.stop()
+
+proc close*(server: RpcServer) =
+  ## Cleanup resources of RPC server.
+  for item in server.servers:
+    item.close()
 
 # Server registration and RPC generation
 
@@ -162,7 +269,8 @@ proc makeProcName(s: string): string =
     if c.isAlphaNumeric: result.add c
 
 proc hasReturnType(params: NimNode): bool =
-  if params != nil and params.len > 0 and params[0] != nil and params[0].kind != nnkEmpty:
+  if params != nil and params.len > 0 and params[0] != nil and
+     params[0].kind != nnkEmpty:
     result = true
 
 macro rpc*(server: RpcServer, path: string, body: untyped): untyped =
@@ -178,12 +286,18 @@ macro rpc*(server: RpcServer, path: string, body: untyped): untyped =
   result = newStmtList()
   let
     parameters = body.findChild(it.kind == nnkFormalParams)
-    paramsIdent = newIdentNode"params"            # all remote calls have a single parameter: `params: JsonNode`  
-    pathStr = $path                               # procs are generated from the stripped path
-    procNameStr = pathStr.makeProcName            # strip non alphanumeric
-    procName = newIdentNode(procNameStr)          # public rpc proc
-    doMain = newIdentNode(procNameStr & "DoMain") # when parameters present: proc that contains our rpc body
-    res = newIdentNode("result")                  # async result
+    # all remote calls have a single parameter: `params: JsonNode`
+    paramsIdent = newIdentNode"params"
+    # procs are generated from the stripped path
+    pathStr = $path
+    # strip non alphanumeric
+    procNameStr = pathStr.makeProcName
+    # public rpc proc
+    procName = newIdentNode(procNameStr)
+    # when parameters present: proc that contains our rpc body
+    doMain = newIdentNode(procNameStr & "DoMain")
+    # async result
+    res = newIdentNode("result")
   var
     setup = jsonToNim(parameters, paramsIdent)
     procBody = if body.kind == nnkStmtList: body else: body.body

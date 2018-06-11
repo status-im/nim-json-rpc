@@ -1,4 +1,5 @@
-import unittest, ../ rpcserver, asyncdispatch, json, tables
+import unittest, json, tables
+import ../rpcserver
 
 type
   # some nested types to check object parsing
@@ -26,14 +27,14 @@ let
     },
     "c": %1.23}
 
-var s = newRpcServer("localhost")
+var s = newRpcServer(["localhost:8545"])
 
 # RPC definitions
 
-s.rpc("rpc.simplepath"): 
+s.rpc("rpc.simplepath"):
   result = %1
 
-s.rpc("rpc.differentparams") do(a: int, b: string): 
+s.rpc("rpc.differentparams") do(a: int, b: string):
   result = %[%a, %b]
 
 s.rpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
@@ -131,3 +132,6 @@ suite "Server types":
       # wrong param type
       let res = waitFor rpcDifferentParams(%[%"abc", %1])
       # TODO: When errors are proper return values, check error for param name
+
+s.stop()
+s.close()
