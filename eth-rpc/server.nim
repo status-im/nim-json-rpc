@@ -4,6 +4,9 @@ import jsonmarshal
 
 export asyncdispatch2, json, jsonmarshal
 
+logScope:
+  topics = "RpcServer"
+
 type
   RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId
 
