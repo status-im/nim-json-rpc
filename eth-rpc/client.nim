@@ -41,14 +41,15 @@ macro checkGet(node: JsonNode, fieldName: string,
                     "Message is missing required field \"" & `fieldName` & "\"")
     if `n`.kind != `jKind`.JsonNodeKind:
       raise newException(ValueError,
-   "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`node`[`fieldName`].kind)
+   "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`n`.kind)
   case jKind
-  of JBool: result.add(quote do: `node`[`fieldName`].getBool)
-  of JInt: result.add(quote do: `node`[`fieldName`].getInt)
-  of JString: result.add(quote do: `node`[`fieldName`].getStr)
-  of JFloat: result.add(quote do: `node`[`fieldName`].getFloat)
-  of JObject: result.add(quote do: `node`[`fieldName`].getObject)
+  of JBool: result.add(quote do: `n`.getBool)
+  of JInt: result.add(quote do: `n`.getInt)
+  of JString: result.add(quote do: `n`.getStr)
+  of JFloat: result.add(quote do: `n`.getFloat)
+  of JObject: result.add(quote do: `n`.getObject)
   else: discard
+  echo "!!!", result.repr
 
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
@@ -63,7 +64,7 @@ proc processMessage(self: RpcClient, line: string) =
   if not self.awaiting.hasKey(id):
     raise newException(ValueError,
                             "Cannot find message id \"" & node["id"].str & "\"")
-
+                            
   let errorNode = node{"error"}
   if errorNode.isNil or errorNode.kind == JNull:
     var res = node{"result"}
