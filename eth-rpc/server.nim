@@ -34,6 +34,8 @@ const
   INTERNAL_ERROR* = -32603
   SERVER_ERROR* = -32000
 
+  maxRequestLength = 1024 * 128
+
   jsonErrorMessages*: array[RpcJsonError, (int, string)] =
     [
       (JSON_PARSE_ERROR, "Invalid JSON"),
@@ -66,12 +68,12 @@ proc checkJsonErrors*(line: string,
   let res = jsonValid(line, node)
   if not res[0]:
     return some((rjeInvalidJson, res[1]))
+  if not node.hasKey("id"):
+    return some((rjeNoId, ""))
   if not node.hasKey("jsonrpc"):
     return some((rjeVersionError, ""))
   if not node.hasKey("method"):
     return some((rjeNoMethod, ""))
-  if not node.hasKey("id"):
-    return some((rjeNoId, ""))
   return none(RpcJsonErrorContainer)
 
 # Json reply wrappers
@@ -102,11 +104,13 @@ proc processMessage(server: RpcServer, client: StreamTransport,
     # set up node and/or flag errors
     jsonErrorState = checkJsonErrors(line, node)
 
-  debug "Received line", line = line
-  
   if jsonErrorState.isSome:
     let errState = jsonErrorState.get
-    var id = if errState.err == rjeInvalidJson: newJNull() else: node["id"]
+    var id =
+      if errState.err == rjeInvalidJson or errState.err == rjeNoId:
+        newJNull()  # TODO: On malformed json, id is lost and messes up server responses
+      else:
+        node["id"]
     await errState.err.sendJsonError(client, id, %errState.msg)
   else:
     let
@@ -124,14 +128,12 @@ proc processMessage(server: RpcServer, client: StreamTransport,
 proc processClient(server: StreamServer, client: StreamTransport) {.async, gcsafe.} =
   var rpc = getUserData[RpcServer](server)
   while true:
-    ## TODO: We need to put limit here, or server could be easily put out of
-    ## service without never-ending line (data without CRLF).
-    let line = await client.readLine()
+    let line = await client.readLine(maxRequestLength)
     if line == "":
       client.close()
       break
 
-    debug "Processing client", addresss = client.remoteAddress()
+    debug "Processing client", addresss = client.remoteAddress(), line
 
     let future = processMessage(rpc, client, line)
     yield future
