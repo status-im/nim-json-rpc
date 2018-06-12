@@ -19,7 +19,7 @@ proc call*(self: RpcClient, name: string,
   ## Remotely calls the specified RPC method.
   let id = $self.nextId
   self.nextId.inc
-  let msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params,
+  var msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params,
                 "id": %id} & "\c\l"
   let res = await self.transp.write(msg)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
