@@ -49,7 +49,6 @@ macro checkGet(node: JsonNode, fieldName: string,
   of JFloat: result.add(quote do: `n`.getFloat)
   of JObject: result.add(quote do: `n`.getObject)
   else: discard
-  echo "!!!", result.repr
 
 proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
@@ -64,7 +63,7 @@ proc processMessage(self: RpcClient, line: string) =
   if not self.awaiting.hasKey(id):
     raise newException(ValueError,
                             "Cannot find message id \"" & node["id"].str & "\"")
-                            
+
   let errorNode = node{"error"}
   if errorNode.isNil or errorNode.kind == JNull:
     var res = node{"result"}
