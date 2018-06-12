@@ -10,6 +10,8 @@ type
     nextId: int64
   Response* = tuple[error: bool, result: JsonNode]
 
+const maxRequestLength = 1024 * 128
+
 proc newRpcClient*(): RpcClient =
   ## Creates a new ``RpcClient`` instance.
   result = RpcClient(awaiting: initTable[string, Future[Response]](), nextId: 1)
@@ -36,7 +38,7 @@ macro checkGet(node: JsonNode, fieldName: string,
   let n = genSym(ident = "n") #`node`{`fieldName`}
   result = quote:
     let `n` = `node`{`fieldname`}
-    if `n`.isNil:
+    if `n`.isNil or `n`.kind == JNull:
       raise newException(ValueError,
                     "Message is missing required field \"" & `fieldName` & "\"")
     if `n`.kind != `jKind`.JsonNodeKind:
@@ -79,10 +81,7 @@ proc connect*(self: RpcClient, address: string, port: Port): Future[void]
 
 proc processData(self: RpcClient) {.async.} =
   while true:
-    # read until no data
-    # TODO: we need to limit number of bytes we going to read, without any
-    # limits server can fill all memory it can here.
-    let line = await self.transp.readLine()
+    let line = await self.transp.readLine(maxRequestLength)
     if line == "":
       # transmission ends
       self.transp.close()
