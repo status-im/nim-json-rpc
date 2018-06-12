@@ -85,7 +85,8 @@ proc sendError*(client: StreamTransport, code: int, msg: string, id: JsonNode,
   ## Send error message to client
   let error = %{"code": %(code), "message": %msg, "data": data}
   debug "Error generated", error = error, id = id
-  result = client.write(wrapReply(id, newJNull(), error))
+  var res = wrapReply(id, newJNull(), error)
+  result = client.write(res)
 
 proc sendJsonError*(state: RpcJsonError, client: StreamTransport, id: JsonNode,
                     data = newJNull()) {.async.} =
@@ -117,7 +118,8 @@ proc processMessage(server: RpcServer, client: StreamTransport,
                               %(methodName & " is not a registered method."))
     else:
       let callRes = await server.procs[methodName](node["params"])
-      discard await client.write(wrapReply(id, callRes, newJNull()))
+      var res = wrapReply(id, callRes, newJNull())
+      discard await client.write(res)
 
 proc processClient(server: StreamServer, client: StreamTransport) {.async, gcsafe.} =
   var rpc = getUserData[RpcServer](server)
