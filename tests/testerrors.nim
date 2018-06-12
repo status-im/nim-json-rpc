@@ -21,5 +21,7 @@ suite "RPC Errors":
       let
         malformedJson = "{field: 2, \"field: 3}\n"
         res = waitFor client.rawCall("rpc", malformedJson)
-      info "res", res
-
+  test "Missing RPC":
+    #expect: 
+    let res = waitFor client.call("phantomRpc", %[])
+    echo ">>", res
