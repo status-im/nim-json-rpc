@@ -15,13 +15,18 @@ waitFor client.connect("localhost", Port(8547))
 server.rpc("rpc") do(a: int, b: int):
   result = %(&"a: {a}, b: {b}")
 
+proc testMalformed: Future[Response] =
+  let malformedJson = "{field: 2, \"field: 3}\n"
+  result = client.rawCall("rpc", malformedJson)
+
+proc testMissingRpc: Future[Response] =
+  result = client.call("phantomRpc", %[])
+
 suite "RPC Errors":
   test "Malformed json":
     expect ValueError:
-      let
-        malformedJson = "{field: 2, \"field: 3}\n"
-        res = waitFor client.rawCall("rpc", malformedJson)
+      let res = waitFor testMalformed()
   test "Missing RPC":
-    #expect: 
-    let res = waitFor client.call("phantomRpc", %[])
+    let res = waitFor testMissingRpc()
     echo ">>", res
+echo "Error tests completed"
