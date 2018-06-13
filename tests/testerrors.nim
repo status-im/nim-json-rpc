@@ -34,10 +34,17 @@ proc testInvalidJsonVer: Future[Response] {.async.} =
 
 suite "RPC Errors":
   test "Missing RPC":
-    let res = waitfor testMissingRpc()
+    let res = waitFor testMissingRpc()
+    echo res
+    check res.error == true and
+      res.result["message"] == %"Method not found" and
+      res.result["data"] == %"phantomRpc is not a registered method."
 
   test "Incorrect json version":
+    # Note: We don't expect an exception here, because the server should
+    # respond with the correct json version
     let res = waitFor testInvalidJsonVer()
+    check res.error == true and res.result["message"] == %"JSON 2.0 required"
 
   # TODO: Missing ID causes client await to not return next call
   # For now we can use curl for this test
