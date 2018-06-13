@@ -70,7 +70,7 @@ proc checkJsonErrors*(line: string,
     return some((rjeInvalidJson, res[1]))
   if not node.hasKey("id"):
     return some((rjeNoId, ""))
-  if not node.hasKey("jsonrpc"):
+  if node{"jsonrpc"} != %"2.0":
     return some((rjeVersionError, ""))
   if not node.hasKey("method"):
     return some((rjeNoMethod, ""))
@@ -85,7 +85,7 @@ proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): string =
 proc sendError*(client: StreamTransport, code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()) {.async.} =
   ## Send error message to client
-  let error = %{"code": %(code), "message": %msg, "data": data}
+  let error = %{"code": %(code), "id": id, "message": %msg, "data": data}
   debug "Error generated", error = error, id = id
   var res = wrapReply(id, newJNull(), error)
   result = client.write(res)
@@ -108,7 +108,7 @@ proc processMessage(server: RpcServer, client: StreamTransport,
     let errState = jsonErrorState.get
     var id =
       if errState.err == rjeInvalidJson or errState.err == rjeNoId:
-        newJNull()  # TODO: On malformed json, id is lost and messes up server responses
+        newJNull()
       else:
         node["id"]
     await errState.err.sendJsonError(client, id, %errState.msg)
@@ -118,7 +118,7 @@ proc processMessage(server: RpcServer, client: StreamTransport,
       id = node["id"]
 
     if not server.procs.hasKey(methodName):
-      await client.sendError(METHOD_NOT_FOUND, "Method not found", id,
+      await client.sendError(METHOD_NOT_FOUND, "Method not found", %id,
                               %(methodName & " is not a registered method."))
     else:
       let callRes = await server.procs[methodName](node["params"])
