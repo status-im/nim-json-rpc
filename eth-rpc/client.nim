@@ -33,6 +33,11 @@ proc call*(self: RpcClient, name: string,
   self.awaiting[id] = newFut
   result = await newFut
 
+template handleRaise[T](fut: Future[T], errType: typedesc, msg: string) =
+  # complete future before raising
+  fut.complete((true, %msg))
+  raise newException(errType, msg)
+
 macro checkGet(node: JsonNode, fieldName: string,
                jKind: static[JsonNodeKind]): untyped =
   let n = genSym(ident = "n") #`node`{`fieldName`}
@@ -40,10 +45,10 @@ macro checkGet(node: JsonNode, fieldName: string,
     let `n` = `node`{`fieldname`}
     if `n`.isNil or `n`.kind == JNull:
       raise newException(ValueError,
-                    "Message is missing required field \"" & `fieldName` & "\"")
+        "Message is missing required field \"" & `fieldName` & "\"")
     if `n`.kind != `jKind`.JsonNodeKind:
       raise newException(ValueError,
-   "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`n`.kind)
+        "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`n`.kind)
   case jKind
   of JBool: result.add(quote do: `n`.getBool)
   of JInt: result.add(quote do: `n`.getInt)
@@ -56,15 +61,15 @@ proc processMessage(self: RpcClient, line: string) =
   let node = parseJson(line)
 
   # TODO: Use more appropriate exception objects
-  let version = checkGet(node, "jsonrpc", JString)
-  if version != "2.0":
-    raise newException(ValueError,
-      "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
-
   let id = checkGet(node, "id", JString)
   if not self.awaiting.hasKey(id):
     raise newException(ValueError,
-                            "Cannot find message id \"" & node["id"].str & "\"")
+      "Cannot find message id \"" & node["id"].str & "\"")
+  
+  let version = checkGet(node, "jsonrpc", JString)
+  if version != "2.0":
+    self.awaiting[id].handleRaise(ValueError,
+      "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
 
   let errorNode = node{"error"}
   if errorNode.isNil or errorNode.kind == JNull:
