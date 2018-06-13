@@ -1,5 +1,6 @@
 include ../ eth-rpc / client
-import chronicles
+
+proc nextId*(self: RpcClient): int64 = self.nextId
 
 proc rawCall*(self: RpcClient, name: string,
            msg: string): Future[Response] {.async.} =
@@ -7,10 +8,9 @@ proc rawCall*(self: RpcClient, name: string,
   let id = $self.nextId
   self.nextId.inc
 
-  var s = msg & "\c\l"
+  var s = msg & "\c\l"  
   let res = await self.transp.write(s)
-  
-  debug "Receiving length assert", value = res, length = len(msg), lengthDifferent = res != len(msg)
+  assert res == len(s)
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
