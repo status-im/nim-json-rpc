@@ -1,11 +1,16 @@
-import json, tables, strutils, options, macros, chronicles
+import json, tables, strutils, options, macros #, chronicles
 import asyncdispatch2
 import jsonmarshal
 
 export asyncdispatch2, json, jsonmarshal
 
-logScope:
-  topics = "RpcServer"
+# Temporarily disable logging
+macro debug(body: varargs[untyped]): untyped = newStmtList()
+macro info(body: varargs[untyped]): untyped = newStmtList()
+macro error(body: varargs[untyped]): untyped = newStmtList()
+
+#logScope:
+#  topics = "RpcServer"
 
 type
   RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId
