@@ -1,6 +1,6 @@
 import unittest, json, tables
 import ../rpcclient, ../rpcstreamservers
-import stint, ethtypes, ethprocs, stintjson
+import stint, ethtypes, ethprocs, stintjson, nimcrypto
 
 from os import getCurrentDir, DirSep
 from strutils import rsplit
