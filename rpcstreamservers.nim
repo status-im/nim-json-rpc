@@ -7,11 +7,7 @@ macro debug(body: varargs[untyped]): untyped = newStmtList()
 macro info(body: varargs[untyped]): untyped = newStmtList()
 macro error(body: varargs[untyped]): untyped = newStmtList()
 
-type
-  RpcStreamServer* = RpcServer[StreamServer]
-
-proc streamServerProcess(server: StreamServer, client: StreamTransport) {.async.} =
-  result = processClient(server, client)
+type RpcStreamServer* = RpcServer[StreamServer]
 
 proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
   ## Create new server and assign it to addresses ``addresses``.
@@ -22,7 +18,7 @@ proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServe
   for item in addresses:
     try:
       info "Creating server on ", address = $item
-      var server = createStreamServer(item, streamServerProcess, {ReuseAddr},
+      var server = createStreamServer(item, processClient, {ReuseAddr},
                                       udata = result)
       result.servers.add(server)
     except:
@@ -30,7 +26,6 @@ proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServe
 
   if len(result.servers) == 0:
     # Server was not bound, critical error.
-    # TODO: Custom RpcException error
     raise newException(RpcBindError, "Unable to create server!")
 
 proc newRpcStreamServer*(addresses: openarray[string]): RpcServer[StreamServer] =
