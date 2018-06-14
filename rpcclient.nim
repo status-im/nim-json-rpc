@@ -1,3 +1,3 @@
-import eth-rpc / client
+import rpc / client
 export client
 

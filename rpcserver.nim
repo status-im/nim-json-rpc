@@ -1,2 +1,2 @@
-import eth-rpc / server
+import rpc / server
 export server
