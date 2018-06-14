@@ -1,4 +1,4 @@
-include ../ eth-rpc / client
+include ../ rpc / client
 
 proc nextId*(self: RpcClient): int64 = self.nextId
 
