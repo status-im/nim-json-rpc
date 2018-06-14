@@ -1,5 +1,5 @@
 import unittest, json, tables
-import ../rpcserver
+import ../rpcstreamservers
 
 type
   # some nested types to check object parsing
@@ -27,7 +27,7 @@ let
     },
     "c": %1.23}
 
-var s = newRpcServer(["localhost:8545"])
+var s = newRpcStreamServer(["localhost:8545"])
 
 # RPC definitions
 

@@ -1,7 +1,7 @@
 import unittest, json
-import  ../rpcclient, ../rpcserver
+import  ../rpcclient, ../rpcstreamservers
 
-var srv = newRpcServer(["localhost:8545"])
+var srv = newRpcStreamServer(["localhost:8545"])
 var client = newRpcClient()
 
 # Create RPC on server
