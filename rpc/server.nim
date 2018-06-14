@@ -23,7 +23,6 @@ type
   RpcClientTransport* = concept trans, type t
     trans.write(var string) is Future[int]
     trans.readLine(int) is Future[string]
-    #trans.getUserData[t] is t
 
   RpcServerTransport* = concept t
     t.start
