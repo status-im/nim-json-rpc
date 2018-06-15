@@ -20,9 +20,9 @@ type
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc (params: JsonNode): Future[JsonNode]
 
-  RpcClientTransport* = concept trans, type t
-    trans.write(var string) is Future[int]
-    trans.readLine(int) is Future[string]
+  RpcClientTransport* = concept t
+    t.write(var string) is Future[int]
+    t.readLine(int) is Future[string]
 
   RpcServerTransport* = concept t
     t.start
