@@ -9,7 +9,7 @@ macro error(body: varargs[untyped]): untyped = newStmtList()
 
 type RpcStreamServer* = RpcServer[StreamServer]
 
-proc newRpcSocketServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
+proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
   ## Create new server and assign it to addresses ``addresses``.
   result = RpcServer[StreamServer]()
   result.procs = newTable[string, RpcProc]()
@@ -28,7 +28,7 @@ proc newRpcSocketServer*(addresses: openarray[TransportAddress]): RpcStreamServe
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
-proc newRpcSocketServer*(addresses: openarray[string]): RpcServer[StreamServer] =
+proc newRpcStreamServer*(addresses: openarray[string]): RpcServer[StreamServer] =
   ## Create new server and assign it to addresses ``addresses``.  
   var
     tas4: seq[TransportAddress]
@@ -57,9 +57,9 @@ proc newRpcSocketServer*(addresses: openarray[string]): RpcServer[StreamServer] 
     # Addresses could not be resolved, critical error.
     raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
-  result = newRpcSocketServer(baddrs)
+  result = newRpcStreamServer(baddrs)
 
-proc newRpcSocketServer*(address = "localhost", port: Port = Port(8545)): RpcServer[StreamServer] =
+proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcServer[StreamServer] =
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
@@ -74,7 +74,7 @@ proc newRpcSocketServer*(address = "localhost", port: Port = Port(8545)): RpcSer
   try:
     tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
   except:
-    error "Failed to create server for address", address = $item, errror = getCurrentException()
+    discard
 
   if len(tas4) == 0 and len(tas6) == 0:
     # Address was not resolved, critical error.
@@ -91,7 +91,7 @@ proc newRpcSocketServer*(address = "localhost", port: Port = Port(8545)): RpcSer
                                       udata = result)
       result.servers.add(server)
     except:
-      error "Failed to create server for address", address = $item, errror = getCurrentException()
+      error "Failed to create server for address", address = $item
 
   for item in tas6:
     try:
@@ -100,7 +100,7 @@ proc newRpcSocketServer*(address = "localhost", port: Port = Port(8545)): RpcSer
                                       udata = result)
       result.servers.add(server)
     except:
-      error "Failed to create server for address", address = $item, errror = getCurrentException()
+      error "Failed to create server", address = $item
 
   if len(result.servers) == 0:
     # Server was not bound, critical error.
