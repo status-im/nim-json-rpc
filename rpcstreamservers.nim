@@ -11,9 +11,7 @@ type RpcStreamServer* = RpcServer[StreamServer]
 
 proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
   ## Create new server and assign it to addresses ``addresses``.
-  result = RpcServer[StreamServer]()
-  result.procs = newTable[string, RpcProc]()
-  result.servers = newSeq[StreamServer]()
+  result = newRpcServer[StreamServer]()
 
   for item in addresses:
     try:

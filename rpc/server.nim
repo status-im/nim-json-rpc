@@ -58,6 +58,11 @@ const
       (INVALID_REQUEST, "No id specified")
     ]
 
+proc newRpcServer*[T]: RpcServer[T] =
+  result = RpcServer[T]()
+  result.procs = newTable[string, RpcProc]()
+  result.servers = @[]
+
 # Utility functions
 # TODO: Move outside server
 func `%`*(p: Port): JsonNode = %(p.int)
