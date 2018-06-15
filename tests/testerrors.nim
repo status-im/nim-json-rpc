@@ -3,10 +3,10 @@
   allow unchecked and unformatted calls.
 ]#
 
-import unittest, debugclient, ../rpcstreamservers
+import unittest, debugclient, ../rpcsocketservers
 import strformat, chronicles
 
-var server = newRpcStreamServer("localhost", 8547.Port)
+var server = newRpcSocketServer("localhost", 8547.Port)
 var client = newRpcClient()
 
 server.start()
