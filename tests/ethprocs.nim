@@ -1,4 +1,4 @@
-import ../rpcserver, nimcrypto, json, stint, strutils, ethtypes, stintjson, ethutils
+import ../rpcserver, nimcrypto, json, stint, strutils, ethtypes, stintjson, ethhexstrings
 
 #[
   For details on available RPC calls, see: https://github.com/ethereum/wiki/wiki/JSON-RPC
@@ -31,19 +31,16 @@ proc addEthRpcs*(server: RpcServer) =
     ## Returns the current client version.
     result = "Nimbus-RPC-Test"
 
-  server.rpc("web3_sha3") do(data: string) -> string:
+  server.rpc("web3_sha3") do(data: HexDataStr) -> HexDataStr:
     ## Returns Keccak-256 (not the standardized SHA3-256) of the given data.
     ##
     ## data: the data to convert into a SHA3 hash.
     ## Returns the SHA3 result of the given string.
     # TODO: Capture error on malformed input
     var rawData: seq[byte]
-    if data.validateHexData:
-      rawData = data[2..data.high].fromHex
-    else:
-      raise newException(ValueError, "Invalid hex format")
+    rawData = data.string.fromHex
     # data will have 0x prefix
-    result = "0x" & $keccak_256.digest(rawData)
+    result = hexDataStr "0x" & $keccak_256.digest(rawData)
 
   server.rpc("net_version") do() -> string:
     ## Returns string of the current network id:
