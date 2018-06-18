@@ -26,7 +26,7 @@ proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServe
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
-proc newRpcStreamServer*(addresses: openarray[string]): RpcServer[StreamServer] =
+proc newRpcStreamServer*(addresses: openarray[string]): RpcStreamServer =
   ## Create new server and assign it to addresses ``addresses``.  
   var
     tas4: seq[TransportAddress]
@@ -57,7 +57,7 @@ proc newRpcStreamServer*(addresses: openarray[string]): RpcServer[StreamServer] 
 
   result = newRpcStreamServer(baddrs)
 
-proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcServer[StreamServer] =
+proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcStreamServer =
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
@@ -79,7 +79,7 @@ proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcSer
     raise newException(RpcAddressUnresolvableError,
                        "Address " & address & " could not be resolved!")
 
-  result = RpcServer[StreamServer]()
+  result = RpcStreamServer()
   result.procs = newTable[string, RpcProc]()
   result.servers = newSeq[StreamServer]()
   for item in tas4:
