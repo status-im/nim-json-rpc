@@ -79,7 +79,7 @@ proc processMessage(self: RpcClient, line: string) =
     self.awaiting.del(id)
     # TODO: actions on unable find result node
   else:
-    self.awaiting[id].complete((true, errorNode))
+    self.awaiting[id].fail(newException(ValueError, $errorNode))
     self.awaiting.del(id)
 
 proc connect*(self: RpcClient, address: string, port: Port): Future[void]
