@@ -234,7 +234,7 @@ macro rpc*(server: RpcServer, path: string, body: untyped): untyped =
       try:
         `procBody`
       except:
-        debug "Error occurred within RPC " & `path` & ": ", getCurrentExceptionMsg()
+        debug "Error occurred within RPC ", path = `path`, errorMessage = getCurrentExceptionMsg()
   if parameters.hasReturnType:
     let returnType = parameters[0]
 
