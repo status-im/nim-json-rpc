@@ -3,7 +3,7 @@
   allow unchecked and unformatted calls.
 ]#
 
-import unittest, debugclient, ../rpcstreamservers
+import unittest, debugclient, ../rpcserver
 import strformat, chronicles
 
 var server = newRpcStreamServer("localhost", 8547.Port)
@@ -14,6 +14,10 @@ waitFor client.connect("localhost", Port(8547))
 
 server.rpc("rpc") do(a: int, b: int):
   result = %(&"a: {a}, b: {b}")
+
+server.rpc("makeError"):
+  if true:
+    raise newException(ValueError, "Test")  
 
 proc testMissingRpc: Future[Response] {.async.} =
   var fut = client.call("phantomRpc", %[])
@@ -33,18 +37,28 @@ proc testMalformed: Future[Response] {.async.} =
   if fut.finished: result = fut.read()
   else: result = (true, %"Timeout")
 
+proc testRaise: Future[Response] {.async.} =
+  var fut = client.call("rpcMakeError", %[])
+  result = await fut
+
 suite "RPC Errors":
   # Note: We don't expect a exceptions for most of the tests,
   # because the server should respond with the error in json
   test "Missing RPC":
-    let res = waitFor testMissingRpc()
-    check res.error == true and
-      res.result["message"] == %"Method not found" and
-      res.result["data"] == %"phantomRpc is not a registered method."
+    expect ValueError:
+      let res = waitFor testMissingRpc()
+      check res.error == true and
+        res.result["message"] == %"Method not found" and
+        res.result["data"] == %"phantomRpc is not a registered method."
 
   test "Incorrect json version":
-    let res = waitFor testInvalidJsonVer()
-    check res.error == true and res.result["message"] == %"JSON 2.0 required"
+    expect ValueError:
+      let res = waitFor testInvalidJsonVer()
+      check res.error == true and res.result["message"] == %"JSON 2.0 required"
+
+  test "Raising exceptions":
+    expect ValueError:
+      let res = waitFor testRaise()
 
   test "Malformed json":
     # TODO: We time out here because the server won't be able to
