@@ -1,5 +1,5 @@
-import unittest, json
-import  ../rpcclient, ../rpcstreamservers
+import unittest, json, chronicles
+import  ../rpcclient, ../rpcserver
 
 var srv = newRpcStreamServer(["localhost:8545"])
 var client = newRpcClient()

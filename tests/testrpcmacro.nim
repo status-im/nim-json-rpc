@@ -1,5 +1,5 @@
-import unittest, json, tables
-import ../rpcstreamservers
+import unittest, json, tables, chronicles
+import ../rpcserver
 
 type
   # some nested types to check object parsing
