@@ -48,7 +48,7 @@ const
   INTERNAL_ERROR* = -32603
   SERVER_ERROR* = -32000
 
-  defaultMaxRequestLength = 1024 * 128
+  defaultMaxRequestLength* = 1024 * 128
 
   jsonErrorMessages*: array[RpcJsonError, (int, string)] =
     [
@@ -159,7 +159,7 @@ proc genProcessMessages(name, sendErrorName, writeCode: NimNode): NimNode =
           shallowCopy(client, clientTrans)
           asyncCheck `writeCode`
 
-proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, closeCode: NimNode): NimNode =
+proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afterReadCode, closeCode: NimNode): NimNode =
   # This generates the processClient proc to match transport.
   # processClient is compatible with createStreamServer and thus StreamCallback.
   # However the constraints are conceptualised so you only need to match it's interface
@@ -172,14 +172,15 @@ proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, clos
           client {.inject}: C
           maxRequestLength {.inject.} = defaultMaxRequestLength
         shallowCopy(client, clientTrans)
-        let line = await `readCode`
-        if line == "":
+        let value {.inject.} = await `readCode`
+        `afterReadCode`
+        if value == "":
           `closeCode`
           break
 
-        debug "Processing message", address = clientTrans.remoteAddress(), line = line
+        debug "Processing message", address = clientTrans.remoteAddress(), line = value
 
-        let future = `procMessagesIdent`(rpc, clientTrans, line)
+        let future = `procMessagesIdent`(rpc, clientTrans, value)
         yield future
         if future.failed:
           if future.readError of RpcProcError:
@@ -217,6 +218,7 @@ macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped
       client.readLine(defaultMaxRequestLength)
     closeCode = quote do:
       client.close
+    afterReadCode = newStmtList()
 
   if body != nil:
     body.expectKind nnkStmtList
@@ -235,7 +237,9 @@ macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped
         readCode = item[1]
       of "close":
         closeCode = item[1]
-      else: error("Unknown verb \"" & verb & "\"")
+      of "afterread":
+        afterReadCode = item[1]
+      else: error("Unknown RPC verb \"" & verb & "\"")
       
   result = newStmtList()
 
@@ -244,7 +248,7 @@ macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped
     procMsgs = newIdentNode($procClientName & "processMessages")
   result.add(addErrorSending(sendErr, writeCode))
   result.add(genProcessMessages(procMsgs, sendErr, writeCode))
-  result.add(genProcessClient(procClientName, procMsgs, sendErr, readCode, closeCode))
+  result.add(genProcessClient(procClientName, procMsgs, sendErr, readCode, afterReadCode, closeCode))
   
   when defined(nimDumpRpcs):
     echo "defineRpc:\n", result.repr
