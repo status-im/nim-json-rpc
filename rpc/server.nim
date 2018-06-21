@@ -192,34 +192,22 @@ proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, clos
             await clientTrans.`sendErrIdent`(SERVER_ERROR,
                                   "Error: Unknown error occurred", %"")
 
-#[
-  New API:
-    For custom RpcServers that do their own work upon getting/sending data.
-
-    newServer = defineRpcServer[StreamTransport, StreamServer]:
-      write:
-        mySpecialWriter(server, client, line)
-      # Note: Anything not defined here will use the default code to operate
-    
-    Code is directly inserted into processMessages. You can still define your
-    own transports, but this lets you define operations for existing transports
-    without needing to rework them.
-]#
-
-import random
-
 macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped =
   ## Build an rpcServer type that inlines data access operations
   #[
     Injects:
-      line: to be populated by the transport
+      client: RpcClientTransport type
+      maxRequestLength: optional bytes to read
+      value: Json string to be written to transport
 
     Example:
       defineRpcTransport(myServer):
         write:
-          write("http://" & value)
+          client.write(value)
         read:
-          readLine
+          client.readLine(maxRequestLength)
+        close:
+          client.close
   ]#
   procClientName.expectKind nnkIdent
   var
