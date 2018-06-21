@@ -191,8 +191,6 @@ proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, clos
           else:
             await clientTrans.`sendErrIdent`(SERVER_ERROR,
                                   "Error: Unknown error occurred", %"")
-  echo "$$", result.repr
-
 
 #[
   New API:
@@ -260,7 +258,8 @@ macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped
   result.add(genProcessMessages(procMsgs, sendErr, writeCode))
   result.add(genProcessClient(procClientName, procMsgs, sendErr, readCode, closeCode))
   
-  echo "defineRpc:\n", result.repr
+  when defined(nimDumpRpcs):
+    echo "defineRpc:\n", result.repr
 
 proc start*(server: RpcServer) =
   ## Start the RPC server.
