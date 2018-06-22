@@ -101,7 +101,7 @@ proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): string =
   let node = %{"jsonrpc": %"2.0", "result": value, "error": error, "id": id}
   return $node & "\c\l"
 
-proc addErrorSending(name, writeCode: NimNode): NimNode =
+proc genErrorSending(name, writeCode: NimNode): NimNode =
   let
     res = newIdentNode("result")
     sendJsonErr = newIdentNode($name & "Json")
@@ -193,7 +193,7 @@ proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afte
             await clientTrans.`sendErrIdent`(SERVER_ERROR,
                                   "Error: Unknown error occurred", %"")
 
-macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped =
+macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): untyped =
   ## Build an rpcServer type that inlines data access operations
   #[
     Injects:
@@ -232,26 +232,26 @@ macro defineRpcTransport*(procClientName: untyped, body: untyped = nil): untyped
 
       case verb.toLowerAscii
       of "write":
-        writeCode = item[1]
+        writeCode = code
       of "read":
-        readCode = item[1]
+        readCode = code
       of "close":
-        closeCode = item[1]
+        closeCode = code
       of "afterread":
-        afterReadCode = item[1]
+        afterReadCode = code
       else: error("Unknown RPC verb \"" & verb & "\"")
       
   result = newStmtList()
 
   let
-    sendErr = newIdentNode($procClientName & "sendError")
-    procMsgs = newIdentNode($procClientName & "processMessages")
-  result.add(addErrorSending(sendErr, writeCode))
+    sendErr = newIdentNode($procClientName & "SendError")
+    procMsgs = newIdentNode($procClientName & "ProcessMessages")
+  result.add(genErrorSending(sendErr, writeCode))
   result.add(genProcessMessages(procMsgs, sendErr, writeCode))
   result.add(genProcessClient(procClientName, procMsgs, sendErr, readCode, afterReadCode, closeCode))
   
   when defined(nimDumpRpcs):
-    echo "defineRpc:\n", result.repr
+    echo "defineServer:\n", result.repr
 
 proc start*(server: RpcServer) =
   ## Start the RPC server.
@@ -359,7 +359,7 @@ macro rpc*(server: RpcServer, path: string, body: untyped): untyped =
 # Utility functions for setting up servers using stream transport addresses
 
 # Create a default transport that's suitable for createStreamServer
-defineRpcTransport(processStreamClient)
+defineRpcServerTransport(processStreamClient)
 
 proc addStreamServer*[S](server: RpcServer[S], address: TransportAddress, callBack: StreamCallback = processStreamClient) =
   #makeProcessClient(processClient, StreamTransport)
