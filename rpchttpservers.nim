@@ -4,10 +4,10 @@ export rpcserver
 type
   RpcHttpServer* = RpcServer[StreamServer]
 
-defineRpcTransport(httpProcessClient):
+defineRpcServerTransport(httpProcessClient):
   write:
-    let
-      msg = &"Host: {$client.localAddress} Content-Type: application/json-rpc Content-Length: {$value.len} {value}"
+    const contentType = "Content-Type: application/json-rpc"
+    let msg = &"Host: {$client.localAddress} {contentType} Content-Length: {$value.len} {value}"
     debug "Http write", msg = msg
     client.write(msg)
   afterRead:
