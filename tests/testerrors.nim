@@ -7,7 +7,7 @@ import unittest, debugclient, ../rpcserver
 import strformat, chronicles
 
 var server = newRpcStreamServer("localhost", 8547.Port)
-var client = newRpcClient()
+var client = newRpcStreamClient()
 
 server.start()
 waitFor client.connect("localhost", Port(8547))

@@ -8,7 +8,7 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 var
   server = newRpcStreamServer("localhost", Port(8546))
-  client = newRpcClient()
+  client = newRpcStreamClient()
 
 ## Generate Ethereum server RPCs
 server.addEthRpcs()
