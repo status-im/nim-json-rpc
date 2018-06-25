@@ -113,8 +113,7 @@ proc genErrorSending(name, writeCode: NimNode): NimNode =
       debug "Error generated", error = error, id = id
       var
         value {.inject.} = wrapReply(id, newJNull(), error)
-        client {.inject.}: T
-      shallowCopy(client, clientTrans)
+      template client: untyped = clientTrans
       `res` = `writeCode`
 
     proc `sendJsonErr`*(state: RpcJsonError, clientTrans: RpcClientTransport, id: JsonNode,
@@ -153,10 +152,8 @@ proc genProcessMessages(name, sendErrorName, writeCode: NimNode): NimNode =
                                   %(methodName & " is not a registered method."))
         else:
           let callRes = await server.procs[methodName](node["params"])
-          var
-            value {.inject.} = wrapReply(id, callRes, newJNull())
-            client {.inject.}: T
-          shallowCopy(client, clientTrans)
+          var value {.inject.} = wrapReply(id, callRes, newJNull())
+          template client: untyped = clientTrans
           asyncCheck `writeCode`
 
 proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afterReadCode, closeCode: NimNode): NimNode =
@@ -168,10 +165,9 @@ proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afte
     proc `nameIdent`[S: RpcServerTransport, C: RpcClientTransport](server: S, clientTrans: C) {.async, gcsafe.} =
       var rpc = getUserData[RpcServer[S]](server)
       while true:
-        var
-          client {.inject}: C
-          maxRequestLength {.inject.} = defaultMaxRequestLength
-        shallowCopy(client, clientTrans)
+        var maxRequestLength {.inject.} = defaultMaxRequestLength
+        template client: untyped = clientTrans
+
         let value {.inject.} = await `readCode`
         `afterReadCode`
         if value == "":
