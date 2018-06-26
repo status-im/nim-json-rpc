@@ -1,5 +1,5 @@
-import rpcserver, tables, chronicles, strformat
-export rpcserver
+import rpcserver, rpcclient, tables, chronicles, strformat, strutils
+export rpcserver, rpcclient
 
 type
   RpcHttpServer* = RpcServer[StreamServer]
@@ -27,4 +27,26 @@ proc newRpcHttpServer*(addresses: openarray[string]): RpcHttpServer =
 proc newRpcHttpServer*(address = "localhost", port: Port = Port(8545)): RpcHttpServer =
   result = newRpcServer[StreamServer]()
   result.addStreamServer(address, port, httpProcessClient)
+
+type RpcHttpClient* = RpcClient[StreamTransport, TransportAddress]
+
+defineRpcClientTransport(StreamTransport, TransportAddress, "http"):
+  read:
+    client.transp.readLine()
+  afterRead:
+    # Strip out http header
+    # TODO: Performance
+    let p1 = find(value, '{')
+    if p1 > -1:
+      let p2 = rFind(value, '}')
+      if p2 == -1:
+        info "Cannot find json end brace", msg = value
+      else:
+        value = value[p1 .. p2]
+        debug "Extracted json", json = value
+    else:
+      info "Cannot find json start brace", msg = value
+
+proc newRpcHttpClient*(): RpcHttpClient =
+  result = newRpcClient[StreamTransport, TransportAddress]()
 
