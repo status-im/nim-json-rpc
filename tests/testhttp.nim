@@ -18,4 +18,3 @@ suite "HTTP RPC transport":
 
 srv.stop() 
 srv.close()
-echo "done"
