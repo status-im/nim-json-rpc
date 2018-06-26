@@ -1,5 +1,5 @@
-packageName   = "eth_rpc"
-version       = "0.0.1"
+packageName   = "json_rpc"
+version       = "0.0.2"
 author        = "Status Research & Development GmbH"
 description   = "Ethereum remote procedure calls"
 license       = "Apache License 2.0"

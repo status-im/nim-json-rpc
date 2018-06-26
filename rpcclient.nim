@@ -1,3 +1,3 @@
-import rpc / client
+import json_rpc / client
 export client
 
