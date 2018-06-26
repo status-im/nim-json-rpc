@@ -101,7 +101,7 @@ proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): string =
   let node = %{"jsonrpc": %"2.0", "result": value, "error": error, "id": id}
   return $node & "\c\l"
 
-proc genErrorSending(name, writeCode: NimNode): NimNode =
+proc genErrorSending(name, writeCode, errorCode: NimNode): NimNode =
   let
     res = newIdentNode("result")
     sendJsonErr = newIdentNode($name & "Json")
@@ -114,6 +114,7 @@ proc genErrorSending(name, writeCode: NimNode): NimNode =
 
       template transport: untyped = clientTrans
       var value {.inject.} = wrapReply(id, newJNull(), error)
+      `errorCode`
       `res` = `writeCode`
 
     proc `sendJsonErr`*(state: RpcJsonError, clientTrans: RpcClientTransport, id: JsonNode,
@@ -215,6 +216,7 @@ macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): u
     closeCode = quote do:
       transport.close
     afterReadCode = newStmtList()
+    errorCode = newStmtList()
 
   if body != nil:
     body.expectKind nnkStmtList
@@ -245,6 +247,11 @@ macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): u
         # `transport`, the client transport
         # `value`, which contains the data read by `readCode`
         afterReadCode = code
+      of "error":
+        # `transport`, the client transport
+        # `value`, the data returned from the invoked RPC        
+        # Note: Update `value` so it's length can be sent afterwards
+        errorCode = code
       else: error("Unknown RPC verb \"" & verb & "\"")
       
   result = newStmtList()
@@ -252,7 +259,7 @@ macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): u
   let
     sendErr = newIdentNode($procClientName & "SendError")
     procMsgs = newIdentNode($procClientName & "ProcessMessages")
-  result.add(genErrorSending(sendErr, writeCode))
+  result.add(genErrorSending(sendErr, writeCode, errorCode))
   result.add(genProcessMessages(procMsgs, sendErr, writeCode))
   result.add(genProcessClient(procClientName, procMsgs, sendErr, readCode, afterReadCode, closeCode))
   
