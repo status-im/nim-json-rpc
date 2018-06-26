@@ -20,9 +20,9 @@ type
 defineRpcServerTransport(httpProcessClient):
   write:
     const contentType = "Content-Type: application/json-rpc"
-    let msg = &"Host: {$transport.localAddress} {contentType} Content-Length: {$value.len} {value}"
+    value = &"Host: {$transport.localAddress} {contentType} Content-Length: {$value.len} {value}"
     debug "HTTP server: write", msg = msg
-    transport.write(msg)
+    transport.write(value)
   afterRead:
     debug "HTTP server: read", msg = value
     value = "HTTP Server".extractJsonStr(value)
