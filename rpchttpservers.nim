@@ -21,7 +21,7 @@ defineRpcServerTransport(httpProcessClient):
   write:
     const contentType = "Content-Type: application/json-rpc"
     value = &"Host: {$transport.localAddress} {contentType} Content-Length: {$value.len} {value}"
-    debug "HTTP server: write", msg = msg
+    debug "HTTP server: write", msg = value
     transport.write(value)
   afterRead:
     debug "HTTP server: read", msg = value
