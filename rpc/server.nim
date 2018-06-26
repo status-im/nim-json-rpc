@@ -111,9 +111,9 @@ proc genErrorSending(name, writeCode: NimNode): NimNode =
       ## Send error message to client
       let error = %{"code": %(code), "id": id, "message": %msg, "data": data}
       debug "Error generated", error = error, id = id
-      var
-        value {.inject.} = wrapReply(id, newJNull(), error)
+
       template client: untyped = clientTrans
+      var value {.inject.} = wrapReply(id, newJNull(), error)
       `res` = `writeCode`
 
     proc `sendJsonErr`*(state: RpcJsonError, clientTrans: RpcClientTransport, id: JsonNode,
@@ -152,8 +152,8 @@ proc genProcessMessages(name, sendErrorName, writeCode: NimNode): NimNode =
                                   %(methodName & " is not a registered method."))
         else:
           let callRes = await server.procs[methodName](node["params"])
-          var value {.inject.} = wrapReply(id, callRes, newJNull())
           template client: untyped = clientTrans
+          var value {.inject.} = wrapReply(id, callRes, newJNull())
           asyncCheck `writeCode`
 
 proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afterReadCode, closeCode: NimNode): NimNode =
@@ -228,12 +228,21 @@ macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): u
 
       case verb.toLowerAscii
       of "write":
+        # `client`, the RpcClient
+        # `value`, the data returned from the invoked RPC        
         writeCode = code
       of "read":
+        # `client`, the RpcClient
+        # `maxRequestLength`, set to defaultMaxRequestLength
+        # Result of expression is awaited
         readCode = code
       of "close":
+        # `client`, the RpcClient
+        # Access to `value`, which contains the data read by `readCode`
         closeCode = code
       of "afterread":
+        # `client`, the RpcClient
+        # Access to `value`, which contains the data read by `readCode`
         afterReadCode = code
       else: error("Unknown RPC verb \"" & verb & "\"")
       
