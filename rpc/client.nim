@@ -150,6 +150,7 @@ macro defineRpcClientTransport*(transType, addrType: untyped, prefix: string = "
       of "write":
         # `client`, the RpcClient
         # `value`, the data to be sent to the server
+        # Note: Update `value` so it's length can be sent afterwards
         writeCode = code
       of "read":
         # `client`, the RpcClient
