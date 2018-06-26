@@ -112,7 +112,7 @@ proc genErrorSending(name, writeCode: NimNode): NimNode =
       let error = %{"code": %(code), "id": id, "message": %msg, "data": data}
       debug "Error generated", error = error, id = id
 
-      template client: untyped = clientTrans
+      template transport: untyped = clientTrans
       var value {.inject.} = wrapReply(id, newJNull(), error)
       `res` = `writeCode`
 
@@ -152,7 +152,7 @@ proc genProcessMessages(name, sendErrorName, writeCode: NimNode): NimNode =
                                   %(methodName & " is not a registered method."))
         else:
           let callRes = await server.procs[methodName](node["params"])
-          template client: untyped = clientTrans
+          template transport: untyped = clientTrans
           var value {.inject.} = wrapReply(id, callRes, newJNull())
           asyncCheck `writeCode`
 
@@ -166,9 +166,9 @@ proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afte
       var rpc = getUserData[RpcServer[S]](server)
       while true:
         var maxRequestLength {.inject.} = defaultMaxRequestLength
-        template client: untyped = clientTrans
+        template transport: untyped = clientTrans
 
-        let value {.inject.} = await `readCode`
+        var value {.inject.} = await `readCode`
         `afterReadCode`
         if value == "":
           `closeCode`
@@ -209,11 +209,11 @@ macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): u
   procClientName.expectKind nnkIdent
   var
     writeCode = quote do:
-      client.write(value)
+      transport.write(value)
     readCode = quote do:
-      client.readLine(defaultMaxRequestLength)
+      transport.readLine(defaultMaxRequestLength)
     closeCode = quote do:
-      client.close
+      transport.close
     afterReadCode = newStmtList()
 
   if body != nil:
@@ -228,21 +228,22 @@ macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): u
 
       case verb.toLowerAscii
       of "write":
-        # `client`, the RpcClient
+        # `transport`, the client transport
         # `value`, the data returned from the invoked RPC        
+        # Note: Update `value` so it's length can be sent afterwards
         writeCode = code
       of "read":
-        # `client`, the RpcClient
+        # `transport`, the client transport
         # `maxRequestLength`, set to defaultMaxRequestLength
-        # Result of expression is awaited
+        # Note: Result of expression is awaited
         readCode = code
       of "close":
-        # `client`, the RpcClient
-        # Access to `value`, which contains the data read by `readCode`
+        # `transport`, the client transport
+        # `value`, which contains the data read by `readCode`
         closeCode = code
       of "afterread":
-        # `client`, the RpcClient
-        # Access to `value`, which contains the data read by `readCode`
+        # `transport`, the client transport
+        # `value`, which contains the data read by `readCode`
         afterReadCode = code
       else: error("Unknown RPC verb \"" & verb & "\"")
       
