@@ -1,4 +1,4 @@
-include ../ rpc / client
+include ../ json_rpc / client
 
 proc nextId*(self: RpcClient): int64 = self.nextId
 
