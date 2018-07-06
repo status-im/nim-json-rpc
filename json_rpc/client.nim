@@ -6,8 +6,8 @@ export asyncdispatch2
 
 type
   RpcClient*[T, A] = ref object
-    transp*: T
     awaiting: Table[string, Future[Response]]
+    transport: T
     address: A
     nextId: int64
 
@@ -15,34 +15,30 @@ type
 
 const defaultMaxRequestLength* = 1024 * 128
 
-proc newRpcClient*[T, A](): RpcClient[T, A] =
+proc newRpcClient*[T, A]: RpcClient[T, A] =
   ## Creates a new ``RpcClient`` instance.
   result = RpcClient[T, A](awaiting: initTable[string, Future[Response]](), nextId: 1)
 
-proc genCall(rpcType, callName, writeCode: NimNode): NimNode =
-  let res = newIdentNode("result")
-  result = quote do:
-    proc `callName`*(self: `rpcType`, name: string,
-              params: JsonNode): Future[Response] {.async.} =
-      ## Remotely calls the specified RPC method.
-      let id = $self.nextId
-      self.nextId.inc
-      var
-        value {.inject.} =
-          $ %{"jsonrpc": %"2.0",
-            "method": %name,
-            "params": params,
-            "id": %id} & "\c\l"
-      template client: untyped = self
-      let res = await `writeCode`
-      # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-      assert(res == len(value))
+proc call*(self: RpcClient, name: string,
+          params: JsonNode): Future[Response] {.async.} =
+  ## Remotely calls the specified RPC method.
+  let id = $self.nextId
+  self.nextId.inc
+  var
+    value =
+      $ %{"jsonrpc": %"2.0",
+        "method": %name,
+        "params": params,
+        "id": %id} & "\c\l"
+  let res = await self.transport.write(value)
+  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
+  assert(res == len(value))
 
-      # completed by processMessage.
-      var newFut = newFuture[Response]()
-      # add to awaiting responses
-      self.awaiting[id] = newFut
-      `res` = await newFut
+  # completed by processMessage.
+  var newFut = newFuture[Response]()
+  # add to awaiting responses
+  self.awaiting[id] = newFut
+  result = await newFut
 
 template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
   fut.fail(newException(errType, msg))
@@ -66,12 +62,12 @@ macro checkGet(node: JsonNode, fieldName: string,
   of JObject: result.add(quote do: `n`.getObject)
   else: discard
 
-proc processMessage[T, A](self: RpcClient[T, A], line: string) =
+proc processMessage(self: RpcClient, line: string) =
   # Note: this doesn't use any transport code so doesn't need to be differentiated.
-  let node = parseJson(line)  # TODO: Check errors
+  let
+    node = parseJson(line)  # TODO: Check errors
+    id = checkGet(node, "id", JString)
 
-  # TODO: Use more appropriate exception objects
-  let id = checkGet(node, "id", JString)
   if not self.awaiting.hasKey(id):
     raise newException(ValueError,
       "Cannot find message id \"" & node["id"].str & "\"")
@@ -92,107 +88,25 @@ proc processMessage[T, A](self: RpcClient[T, A], line: string) =
     self.awaiting[id].fail(newException(ValueError, $errorNode))
     self.awaiting.del(id)
 
-proc genProcessData(rpcType, processDataName, readCode, afterReadCode, closeCode: NimNode): NimNode =
-  result = quote do:
-    proc `processDataName`(clientTransport: `rpcType`) {.async.} =
-      while true:
-        var maxRequestLength {.inject.} = defaultMaxRequestLength
-        template client: untyped = clientTransport
-        var value {.inject.} = await `readCode`
-        `afterReadCode`
-        if value == "":
-          # transmission ends
-          `closeCode`
-          break
+proc processData(client: RpcClient) {.async.} =
+  while true:
+    var value = await client.transport.readLine(defaultMaxRequestLength)
+    if value == "":
+      # transmission ends
+      client.transport.close
+      break
 
-        processMessage(clientTransport, value)
-      # async loop reconnection and waiting
-      clientTransport.transp = await connect(clientTransport.address)
-
-proc genConnect(rpcType, connectName, processDataName, connectCode: NimNode): NimNode =
-  result = quote do:
-    proc `connectName`*(clientTransport: `rpcType`, address: string, port: Port) {.async.} =
-      var
-        address {.inject.} = address
-        port {.inject.} = port
-      template client: untyped = clientTransport
-      `connectCode`
-      asyncCheck `processDataName`(clientTransport)
-
-macro defineRpcClientTransport*(transType, addrType: untyped, prefix: string = "", body: untyped = nil): untyped =
-  var
-    writeCode = quote do:
-      client.transp.write(value)
-    readCode = quote do:
-      client.transp.readLine(defaultMaxRequestLength)
-    closeCode = quote do:
-      client.transp.close
-    connectCode = quote do:
-      # TODO: `address` hostname can be resolved to many IP addresses, we are using
-      # first one, but maybe it would be better to iterate over all IP addresses
-      # and try to establish connection until it will not be established.
-      let addresses = resolveTAddress(address, port)
-      client.transp = await connect(addresses[0])
-      client.address = addresses[0]
-    afterReadCode = newStmtList()
-
-  if body != nil:
-    body.expectKind nnkStmtList
-    for item in body:
-      item.expectKind nnkCall
-      item[0].expectKind nnkIdent
-      item[1].expectKind nnkStmtList
-      let
-        verb = $item[0]
-        code = item[1]
-
-      case verb.toLowerAscii
-      of "write":
-        # `client`, the RpcClient
-        # `value`, the data to be sent to the server
-        # Note: Update `value` so it's length can be sent afterwards
-        writeCode = code
-      of "read":
-        # `client`, the RpcClient
-        # `maxRequestLength`, initially set to defaultMaxRequestLength
-        readCode = code
-      of "close":
-        # `client`, the RpcClient
-        # `value`, the data returned from the server
-        # `maxRequestLength`, initially set to defaultMaxRequestLength
-        closeCode = code
-      of "connect":
-        # `client`, the RpcClient
-        # `address`, server destination address string
-        # `port`, server destination port
-        connectCode = code
-      of "afterread":
-        # `client`, the RpcClient
-        # `value`, the data returned from the server           
-        # `maxRequestLength`, initially set to defaultMaxRequestLength
-        afterReadCode = code
-      else: error("Unknown RPC verb \"" & verb & "\"")
-      
-  result = newStmtList()
-  let
-    rpcType = quote: RpcClient[`transType`, `addrType`]
-    processDataName = newIdentNode(prefix.strVal & "processData")
-    connectName = newIdentNode(prefix.strVal & "connect")
-    callName = newIdentNode(prefix.strVal & "call")
-
-  result.add(genProcessData(rpcType, processDataName, readCode, afterReadCode, closeCode))
-  result.add(genConnect(rpcType, connectName, processDataName, connectCode))
-  result.add(genCall(rpcType, callName, writeCode))
-  
-  when defined(nimDumpRpcs):
-    echo "defineClient:\n", result.repr
-
-# Define default stream server
-# TODO: Move this into a separate unit so users can define 'connect', 'call' etc without requiring a prefix?
-
-defineRpcClientTransport(StreamTransport, TransportAddress)
+    client.processMessage(value)
+  # async loop reconnection and waiting
+  client.transport = await connect(client.address)
 
 type RpcStreamClient* = RpcClient[StreamTransport, TransportAddress]
+
+proc connect*(client: RpcStreamClient, address: string, port: Port) {.async.} =
+  let addresses = resolveTAddress(address, port)
+  client.transport = await connect(addresses[0])
+  client.address = addresses[0]
+  asyncCheck processData(client)
 
 proc newRpcStreamClient*(): RpcStreamClient = 
   ## Create new server and assign it to addresses ``addresses``.

@@ -1,5 +1,5 @@
 import unittest, json, tables, chronicles
-import ../rpcserver
+import ../rpcsockets
 
 type
   # some nested types to check object parsing
@@ -67,14 +67,14 @@ s.rpc("rpc.testreturns") do() -> int:
 suite "Server types":
 
   test "On macro registration":
-    check s.procs.hasKey("rpc.simplepath")
-    check s.procs.hasKey("rpc.differentparams")
-    check s.procs.hasKey("rpc.arrayparam")
-    check s.procs.hasKey("rpc.seqparam")
-    check s.procs.hasKey("rpc.objparam")
-    check s.procs.hasKey("rpc.returntypesimple")
-    check s.procs.hasKey("rpc.returntypecomplex")
-    check s.procs.hasKey("rpc.testreturns")
+    check s.hasMethod("rpc.simplepath")
+    check s.hasMethod("rpc.differentparams")
+    check s.hasMethod("rpc.arrayparam")
+    check s.hasMethod("rpc.seqparam")
+    check s.hasMethod("rpc.objparam")
+    check s.hasMethod("rpc.returntypesimple")
+    check s.hasMethod("rpc.returntypecomplex")
+    check s.hasMethod("rpc.testreturns")
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])

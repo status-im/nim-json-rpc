@@ -1,5 +1,5 @@
 import unittest, json, tables
-import ../rpcclient, ../rpcserver
+import ../rpcclient, ../rpcsockets
 import stint, ethtypes, ethprocs, stintjson, nimcrypto, ethhexstrings, chronicles
 
 from os import getCurrentDir, DirSep

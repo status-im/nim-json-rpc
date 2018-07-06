@@ -1,37 +1,20 @@
-import json, tables, strutils, options, macros, chronicles
-import asyncdispatch2
+import json, tables, options, macros, chronicles
+import asyncdispatch2, router
 import jsonmarshal
 
-export asyncdispatch2, json, jsonmarshal, options
+export asyncdispatch2, json, jsonmarshal, router
 
 logScope:
   topics = "RpcServer"
 
 type
-  RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId
+  RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams
 
   RpcJsonErrorContainer* = tuple[err: RpcJsonError, msg: string]
 
-  # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc (params: JsonNode): Future[JsonNode]
-
-  RpcClientTransport* = concept t
-    t.write(var string) is Future[int]
-    t.readLine(int) is Future[string]
-    t.close
-    t.remoteAddress() # Required for logging
-    t.localAddress()
-
-  RpcServerTransport* = concept t
-    t.start
-    t.stop
-    t.close
-
-  RpcProcessClient* = proc (server: RpcServerTransport, client: RpcClientTransport): Future[void] {.gcsafe.}
-
-  RpcServer*[S: RpcServerTransport] = ref object
+  RpcServer*[S] = ref object
     servers*: seq[S]
-    procs*: TableRef[string, RpcProc]
+    router*: RpcRouter
 
   RpcProcError* = ref object of Exception
     code*: int
@@ -49,23 +32,28 @@ const
   SERVER_ERROR* = -32000
 
   defaultMaxRequestLength* = 1024 * 128
-
   jsonErrorMessages*: array[RpcJsonError, (int, string)] =
     [
       (JSON_PARSE_ERROR, "Invalid JSON"),
       (INVALID_REQUEST, "JSON 2.0 required"),
       (INVALID_REQUEST, "No method requested"),
-      (INVALID_REQUEST, "No id specified")
+      (INVALID_REQUEST, "No id specified"),
+      (INVALID_PARAMS, "No parameters specified")
     ]
 
 proc newRpcServer*[S](): RpcServer[S] =
   new result
-  result.procs = newTable[string, RpcProc]()
+  result.router = newRpcRouter()
   result.servers = @[]
 
 # Utility functions
-# TODO: Move outside server
-func `%`*(p: Port): JsonNode = %(p.int)
+# TODO: Move outside server?
+#func `%`*(p: Port): JsonNode = %(p.int)
+
+template rpc*(server: RpcServer, path: string, body: untyped): untyped =
+  server.router.rpc(path, body)
+
+template hasMethod*(server: RpcServer, methodName: string): bool = server.router.hasMethod(methodName)
 
 # Json state checking
 
@@ -80,7 +68,7 @@ template jsonValid*(jsonString: string, node: var JsonNode): (bool, string) =
     debug "Cannot process json", json = jsonString, msg = msg
   (valid, msg)
 
-proc checkJsonErrors*(line: string,
+proc checkJsonState*(line: string,
                       node: var JsonNode): Option[RpcJsonErrorContainer] =
   ## Tries parsing line into node, if successful checks required fields
   ## Returns: error state or none
@@ -89,10 +77,13 @@ proc checkJsonErrors*(line: string,
     return some((rjeInvalidJson, res[1]))
   if not node.hasKey("id"):
     return some((rjeNoId, ""))
-  if node{"jsonrpc"} != %"2.0":
+  let jVer = node{"jsonrpc"}
+  if jVer != nil and jVer.kind != JNull and jVer != %"2.0":
     return some((rjeVersionError, ""))
   if not node.hasKey("method"):
     return some((rjeNoMethod, ""))
+  if not node.hasKey("params"):
+    return some((rjeNoParams, ""))
   return none(RpcJsonErrorContainer)
 
 # Json reply wrappers
@@ -101,170 +92,47 @@ proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): string =
   let node = %{"jsonrpc": %"2.0", "result": value, "error": error, "id": id}
   return $node & "\c\l"
 
-proc genErrorSending(name, writeCode, errorCode: NimNode): NimNode =
-  let
-    res = newIdentNode("result")
-    sendJsonErr = newIdentNode($name & "Json")
-  result = quote do:
-    proc `name`*[T: RpcClientTransport](clientTrans: T, code: int, msg: string, id: JsonNode,
-                    data: JsonNode = newJNull()) {.async.} =
-      ## Send error message to client
-      let error = %{"code": %(code), "id": id, "message": %msg, "data": data}
-      debug "Error generated", error = error, id = id
-
-      template transport: untyped = clientTrans
-      var value {.inject.} = wrapReply(id, newJNull(), error)
-      `errorCode`
-      `res` = `writeCode`
-
-    proc `sendJsonErr`*(state: RpcJsonError, clientTrans: RpcClientTransport, id: JsonNode,
-                        data = newJNull()) {.async.} =
-      ## Send client response for invalid json state
-      let errMsgs = jsonErrorMessages[state]
-      await clientTrans.`name`(errMsgs[0], errMsgs[1], id, data)
+proc wrapError*(code: int, msg: string, id: JsonNode,
+                data: JsonNode = newJNull()): JsonNode =
+  # Create standardised error json
+  result = %{"code": %(code), "id": id, "message": %msg, "data": data}
+  debug "Error generated", error = result, id = id
 
 # Server message processing
 
-proc genProcessMessages(name, sendErrorName, writeCode: NimNode): NimNode =
-  let idSendErrJson = newIdentNode($sendErrorName & "Json")
-  result = quote do:
-    proc `name`[T: RpcClientTransport](server: RpcServer, clientTrans: T,
-                        line: string) {.async.} =
-      var
-        node: JsonNode
-        # set up node and/or flag errors
-        jsonErrorState = checkJsonErrors(line, node)
-
-      if jsonErrorState.isSome:
-        let errState = jsonErrorState.get
-        var id =
-          if errState.err == rjeInvalidJson or errState.err == rjeNoId:
-            newJNull()
-          else:
-            node["id"]
-        await errState.err.`idSendErrJson`(clientTrans, id, %errState.msg)
-      else:
-        let
-          methodName = node["method"].str
-          id = node["id"]
-
-        if not server.procs.hasKey(methodName):
-          await clientTrans.`sendErrorName`(METHOD_NOT_FOUND, "Method not found", %id,
-                                  %(methodName & " is not a registered method."))
-        else:
-          let callRes = await server.procs[methodName](node["params"])
-          template transport: untyped = clientTrans
-          var value {.inject.} = wrapReply(id, callRes, newJNull())
-          asyncCheck `writeCode`
-
-proc genProcessClient(nameIdent, procMessagesIdent, sendErrIdent, readCode, afterReadCode, closeCode: NimNode): NimNode =
-  # This generates the processClient proc to match transport.
-  # processClient is compatible with createStreamServer and thus StreamCallback.
-  # However the constraints are conceptualised so you only need to match it's interface
-  # Note: https://github.com/nim-lang/Nim/issues/644
-  result = quote do:
-    proc `nameIdent`[S: RpcServerTransport, C: RpcClientTransport](server: S, clientTrans: C) {.async, gcsafe.} =
-      var rpc = getUserData[RpcServer[S]](server)
-      while true:
-        var maxRequestLength {.inject.} = defaultMaxRequestLength
-        template transport: untyped = clientTrans
-
-        var value {.inject.} = await `readCode`
-        `afterReadCode`
-        if value == "":
-          `closeCode`
-          break
-
-        debug "Processing message", address = clientTrans.remoteAddress(), line = value
-
-        let future = `procMessagesIdent`(rpc, clientTrans, value)
-        yield future
-        if future.failed:
-          if future.readError of RpcProcError:
-            let err = future.readError.RpcProcError
-            await clientTrans.`sendErrIdent`(err.code, err.msg, err.data)
-          elif future.readError of ValueError:
-            let err = future.readError[].ValueError
-            await clientTrans.`sendErrIdent`(INVALID_PARAMS, err.msg, %"")
-          else:
-            await clientTrans.`sendErrIdent`(SERVER_ERROR,
-                                  "Error: Unknown error occurred", %"")
-
-macro defineRpcServerTransport*(procClientName: untyped, body: untyped = nil): untyped =
-  ## Build an rpcServer type that inlines data access operations
-  #[
-    Injects:
-      client: RpcClientTransport type
-      maxRequestLength: optional bytes to read
-      value: Json string to be written to transport
-
-    Example:
-      defineRpcTransport(myServer):
-        write:
-          client.write(value)
-        read:
-          client.readLine(maxRequestLength)
-        close:
-          client.close
-  ]#
-  procClientName.expectKind nnkIdent
+proc processMessages*[T](server: RpcServer[T], line: string): Future[string] {.async, gcsafe.} =
   var
-    writeCode = quote do:
-      transport.write(value)
-    readCode = quote do:
-      transport.readLine(defaultMaxRequestLength)
-    closeCode = quote do:
-      transport.close
-    afterReadCode = newStmtList()
-    errorCode = newStmtList()
+    node: JsonNode
+    # parse json node and/or flag missing fields and errors
+    jsonErrorState = checkJsonState(line, node)
 
-  if body != nil:
-    body.expectKind nnkStmtList
-    for item in body:
-      item.expectKind nnkCall
-      item[0].expectKind nnkIdent
-      item[1].expectKind nnkStmtList
+  if jsonErrorState.isSome:
+    let errState = jsonErrorState.get
+    var id =
+      if errState.err == rjeInvalidJson or errState.err == rjeNoId:
+        newJNull()
+      else:
+        node["id"]
+    let errMsg = jsonErrorMessages[errState.err]
+    # return error state as json
+    result = $wrapError(
+      code = errMsg[0],
+      msg = errMsg[1],
+      id = id)
+  else:
+    let
+      methodName = node["method"].str
+      id = node["id"]
+    var callRes: Future[JsonNode]
+
+    if server.router.ifRoute(node, callRes):
+      let res = await callRes
+      result = $wrapReply(id, res, newJNull())
+    else:
       let
-        verb = $item[0]
-        code = item[1]
-
-      case verb.toLowerAscii
-      of "write":
-        # `transport`, the client transport
-        # `value`, the data returned from the invoked RPC        
-        # Note: Update `value` so it's length can be sent afterwards
-        writeCode = code
-      of "read":
-        # `transport`, the client transport
-        # `maxRequestLength`, set to defaultMaxRequestLength
-        # Note: Result of expression is awaited
-        readCode = code
-      of "close":
-        # `transport`, the client transport
-        # `value`, which contains the data read by `readCode`
-        closeCode = code
-      of "afterread":
-        # `transport`, the client transport
-        # `value`, which contains the data read by `readCode`
-        afterReadCode = code
-      of "error":
-        # `transport`, the client transport
-        # `value`, the data returned from the invoked RPC        
-        # Note: Update `value` so it's length can be sent afterwards
-        errorCode = code
-      else: error("Unknown RPC verb \"" & verb & "\"")
-      
-  result = newStmtList()
-
-  let
-    sendErr = newIdentNode($procClientName & "SendError")
-    procMsgs = newIdentNode($procClientName & "ProcessMessages")
-  result.add(genErrorSending(sendErr, writeCode, errorCode))
-  result.add(genProcessMessages(procMsgs, sendErr, writeCode))
-  result.add(genProcessClient(procClientName, procMsgs, sendErr, readCode, afterReadCode, closeCode))
-  
-  when defined(nimDumpRpcs):
-    echo "defineServer:\n", result.repr
+        methodNotFound = %(methodName & " is not a registered method.")
+        error = wrapError(METHOD_NOT_FOUND, "Method not found", id, methodNotFound)
+      result = $wrapReply(id, newJNull(), error)
 
 proc start*(server: RpcServer) =
   ## Start the RPC server.
@@ -281,201 +149,14 @@ proc close*(server: RpcServer) =
   for item in server.servers:
     item.close()
 
-# Server registration and RPC generation
+# Server registration
 
 proc register*(server: RpcServer, name: string, rpc: RpcProc) =
   ## Add a name/code pair to the RPC server.
-  server.procs[name] = rpc
+  server.router.addRoute(name, rpc)
 
 proc unRegisterAll*(server: RpcServer) =
   # Remove all remote procedure calls from this server.
-  server.procs.clear
-
-proc makeProcName(s: string): string =
-  result = ""
-  for c in s:
-    if c.isAlphaNumeric: result.add c
-
-proc hasReturnType(params: NimNode): bool =
-  if params != nil and params.len > 0 and params[0] != nil and
-     params[0].kind != nnkEmpty:
-    result = true
-
-macro rpc*(server: RpcServer, path: string, body: untyped): untyped =
-  ## Define a remote procedure call.
-  ## Input and return parameters are defined using the ``do`` notation.
-  ## For example:
-  ## .. code-block:: nim
-  ##    myServer.rpc("path") do(param1: int, param2: float) -> string:
-  ##      result = $param1 & " " & $param2
-  ##    ```
-  ## Input parameters are automatically marshalled from json to Nim types,
-  ## and output parameters are automatically marshalled to json for transport.
-  result = newStmtList()
-  let
-    parameters = body.findChild(it.kind == nnkFormalParams)
-    # all remote calls have a single parameter: `params: JsonNode`
-    paramsIdent = newIdentNode"params"
-    # procs are generated from the stripped path
-    pathStr = $path
-    # strip non alphanumeric
-    procNameStr = pathStr.makeProcName
-    # public rpc proc
-    procName = newIdentNode(procNameStr)
-    # when parameters present: proc that contains our rpc body
-    doMain = newIdentNode(procNameStr & "DoMain")
-    # async result
-    res = newIdentNode("result")
-  var
-    setup = jsonToNim(parameters, paramsIdent)
-    procBody = if body.kind == nnkStmtList: body else: body.body
-    errTrappedBody = quote do:
-      try:
-        `procBody`
-      except:
-        debug "Error occurred within RPC ", path = `path`, errorMessage = getCurrentExceptionMsg()
-  if parameters.hasReturnType:
-    let returnType = parameters[0]
-
-    # delegate async proc allows return and setting of result as native type
-    result.add(quote do:
-      proc `doMain`(`paramsIdent`: JsonNode): Future[`returnType`] {.async.} =
-        `setup`
-        `errTrappedBody`
-    )
-
-    if returnType == ident"JsonNode":
-      # `JsonNode` results don't need conversion
-      result.add( quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          `res` = await `doMain`(`paramsIdent`)
-      )
-    else:
-      result.add(quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          `res` = %await `doMain`(`paramsIdent`)
-      )
-  else:
-    # no return types, inline contents
-    result.add(quote do:
-      proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-        `setup`
-        `errTrappedBody`
-    )
-  result.add( quote do:
-    `server`.register(`path`, `procName`)
-  )
-
-  when defined(nimDumpRpcs):
-    echo "\n", pathStr, ": ", result.repr
-
-# Utility functions for setting up servers using stream transport addresses
-
-# Create a default transport that's suitable for createStreamServer
-defineRpcServerTransport(processStreamClient)
-
-proc addStreamServer*[S](server: RpcServer[S], address: TransportAddress, callBack: StreamCallback = processStreamClient) =
-  #makeProcessClient(processClient, StreamTransport)
-  try:
-    info "Creating server on ", address = $address
-    var transportServer = createStreamServer(address, callBack, {ReuseAddr}, udata = server)
-    server.servers.add(transportServer)
-  except:
-    error "Failed to create server", address = $address, message = getCurrentExceptionMsg()
-
-  if len(server.servers) == 0:
-    # Server was not bound, critical error.
-    raise newException(RpcBindError, "Unable to create server!")
-
-proc addStreamServers*[T: RpcServer](server: T, addresses: openarray[TransportAddress], callBack: StreamCallback = processStreamClient) =
-  for item in addresses:
-    server.addStreamServer(item, callBack)
-
-proc addStreamServer*[T: RpcServer](server: T, address: string, callBack: StreamCallback = processStreamClient) =
-  ## Create new server and assign it to addresses ``addresses``.  
-  var
-    tas4: seq[TransportAddress]
-    tas6: seq[TransportAddress]
-    added = 0
-
-  # Attempt to resolve `address` for IPv4 address space.
-  try:
-    tas4 = resolveTAddress(address, IpAddressFamily.IPv4)
-  except:
-    discard
-
-  # Attempt to resolve `address` for IPv6 address space.
-  try:
-    tas6 = resolveTAddress(address, IpAddressFamily.IPv6)
-  except:
-    discard
-
-  for r in tas4:
-    server.addStreamServer(r, callBack)
-    added.inc
-  for r in tas6:
-    server.addStreamServer(r, callBack)
-    added.inc
-
-  if added == 0:
-    # Addresses could not be resolved, critical error.
-    raise newException(RpcAddressUnresolvableError, "Unable to get address!")
-
-proc addStreamServers*[T: RpcServer](server: T, addresses: openarray[string], callBack: StreamCallback = processStreamClient) =
-  for address in addresses:
-    server.addStreamServer(address, callBack)
-
-proc addStreamServer*[T: RpcServer](server: T, address: string, port: Port, callBack: StreamCallback = processStreamClient) =
-  var
-    tas4: seq[TransportAddress]
-    tas6: seq[TransportAddress]
-    added = 0
-
-  # Attempt to resolve `address` for IPv4 address space.
-  try:
-    tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
-  except:
-    discard
-
-  # Attempt to resolve `address` for IPv6 address space.
-  try:
-    tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
-  except:
-    discard
-
-  if len(tas4) == 0 and len(tas6) == 0:
-    # Address was not resolved, critical error.
-    raise newException(RpcAddressUnresolvableError,
-                       "Address " & address & " could not be resolved!")
-
-  for r in tas4:
-    server.addStreamServer(r, callBack)
-    added.inc
-  for r in tas6:
-    server.addStreamServer(r, callBack)
-    added.inc
-
-  if len(server.servers) == 0:
-    # Server was not bound, critical error.
-    raise newException(RpcBindError,
-                      "Could not setup server on " & address & ":" & $int(port))
-
-type RpcStreamServer* = RpcServer[StreamServer]
-
-proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
-  ## Create new server and assign it to addresses ``addresses``.
-  result = newRpcServer[StreamServer]()
-  result.addStreamServers(addresses)
-
-proc newRpcStreamServer*(addresses: openarray[string]): RpcStreamServer =
-  ## Create new server and assign it to addresses ``addresses``.  
-  result = newRpcServer[StreamServer]()
-  result.addStreamServers(addresses)
-
-proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcStreamServer =
-  # Create server on specified port
-  result = newRpcServer[StreamServer]()
-  result.addStreamServer(address, port)
+  server.router.clear
 
 
-# TODO: Allow cross checking between client signatures and server calls
