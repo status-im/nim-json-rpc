@@ -38,10 +38,10 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
 
 # Utility functions for setting up servers using stream transport addresses
 
-proc addStreamServer*(server: RpcServer[StreamServer], address: TransportAddress, callBack: StreamCallback) =
+proc addStreamServer*(server: RpcServer[StreamServer], address: TransportAddress) =
   try:
     info "Creating server on ", address = $address
-    var transportServer = createStreamServer(address, callBack, {ReuseAddr}, udata = server)
+    var transportServer = createStreamServer(address, processClient, {ReuseAddr}, udata = server)
     server.servers.add(transportServer)
   except:
     error "Failed to create server", address = $address, message = getCurrentExceptionMsg()
@@ -50,11 +50,11 @@ proc addStreamServer*(server: RpcServer[StreamServer], address: TransportAddress
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
-proc addStreamServers*(server: RpcServer[StreamServer], addresses: openarray[TransportAddress], callBack: StreamCallback) =
+proc addStreamServers*(server: RpcServer[StreamServer], addresses: openarray[TransportAddress]) =
   for item in addresses:
-    server.addStreamServer(item, callBack)
+    server.addStreamServer(item)
 
-proc addStreamServer*(server: RpcServer[StreamServer], address: string, callBack: StreamCallback) =
+proc addStreamServer*(server: RpcServer[StreamServer], address: string) =
   ## Create new server and assign it to addresses ``addresses``.  
   var
     tas4: seq[TransportAddress]
@@ -74,21 +74,21 @@ proc addStreamServer*(server: RpcServer[StreamServer], address: string, callBack
     discard
 
   for r in tas4:
-    server.addStreamServer(r, callBack)
+    server.addStreamServer(r)
     added.inc
   for r in tas6:
-    server.addStreamServer(r, callBack)
+    server.addStreamServer(r)
     added.inc
 
   if added == 0:
     # Addresses could not be resolved, critical error.
     raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
-proc addStreamServers*(server: RpcServer[StreamServer], addresses: openarray[string], callBack: StreamCallback) =
+proc addStreamServers*(server: RpcServer[StreamServer], addresses: openarray[string]) =
   for address in addresses:
-    server.addStreamServer(address, callBack)
+    server.addStreamServer(address)
 
-proc addStreamServer*(server: RpcServer[StreamServer], address: string, port: Port, callBack: StreamCallback) =
+proc addStreamServer*(server: RpcServer[StreamServer], address: string, port: Port) =
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
@@ -112,10 +112,10 @@ proc addStreamServer*(server: RpcServer[StreamServer], address: string, port: Po
                        "Address " & address & " could not be resolved!")
 
   for r in tas4:
-    server.addStreamServer(r, callBack)
+    server.addStreamServer(r)
     added.inc
   for r in tas6:
-    server.addStreamServer(r, callBack)
+    server.addStreamServer(r)
     added.inc
 
   if len(server.servers) == 0:
@@ -128,15 +128,15 @@ type RpcStreamServer* = RpcServer[StreamServer]
 proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcServer[StreamServer]()
-  result.addStreamServers(addresses, processClient)
+  result.addStreamServers(addresses)
 
 proc newRpcStreamServer*(addresses: openarray[string]): RpcStreamServer =
   ## Create new server and assign it to addresses ``addresses``.  
   result = newRpcServer[StreamServer]()
-  result.addStreamServers(addresses, processClient)
+  result.addStreamServers(addresses)
 
 proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcStreamServer =
   # Create server on specified port
   result = newRpcServer[StreamServer]()
-  result.addStreamServer(address, port, processClient)
+  result.addStreamServer(address, port)
 
