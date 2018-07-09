@@ -17,7 +17,7 @@ proc encodeQuantity*(value: SomeUnsignedInt): string =
 
 template hasHexHeader*(value: string | HexDataStr | HexQuantityStr): bool =
   template strVal: untyped = value.string
-  if strVal[0] == '0' and strVal[1] in {'x', 'X'} and strVal.len > 2: true
+  if strVal != "" and strVal[0] == '0' and strVal[1] in {'x', 'X'} and strVal.len > 2: true
   else: false
 
 template isHexChar*(c: char): bool =
@@ -94,6 +94,12 @@ proc fromJson*(n: JsonNode, argName: string, result: var HexQuantityStr) =
 when isMainModule:
   import unittest
   suite "Hex quantity":
+    test "Empty string":
+      expect ValueError:
+        let
+          source = ""
+          x = hexQuantityStr source
+        check %x == %source
     test "Even length":
       let
         source = "0x123"
