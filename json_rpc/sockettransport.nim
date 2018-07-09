@@ -140,3 +140,17 @@ proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcStr
   result = newRpcServer[StreamServer]()
   result.addStreamServer(address, port)
 
+proc start*(server: RpcStreamServer) =
+  ## Start the RPC server.
+  for item in server.servers:
+    item.start()
+
+proc stop*(server: RpcStreamServer) =
+  ## Stop the RPC server.
+  for item in server.servers:
+    item.stop()
+
+proc close*(server: RpcStreamServer) =
+  ## Cleanup resources of RPC server.
+  for item in server.servers:
+    item.close()

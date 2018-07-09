@@ -134,21 +134,6 @@ proc processMessages*[T](server: RpcServer[T], line: string): Future[string] {.a
         error = wrapError(METHOD_NOT_FOUND, "Method not found", id, methodNotFound)
       result = $wrapReply(id, newJNull(), error)
 
-proc start*(server: RpcServer) =
-  ## Start the RPC server.
-  for item in server.servers:
-    item.start()
-
-proc stop*(server: RpcServer) =
-  ## Stop the RPC server.
-  for item in server.servers:
-    item.stop()
-
-proc close*(server: RpcServer) =
-  ## Cleanup resources of RPC server.
-  for item in server.servers:
-    item.close()
-
 # Server registration
 
 proc register*(server: RpcServer, name: string, rpc: RpcProc) =
