@@ -8,7 +8,7 @@ type
   RpcJsonErrorContainer* = tuple[err: RpcJsonError, msg: string]
 
   # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(input: JsonNode): Future[JsonNode]
+  RpcProc* = proc(input: JsonNode): Future[JsonNode] {.gcsafe.}
   
   RpcProcError* = ref object of Exception
     code*: int
@@ -95,8 +95,7 @@ proc checkJsonState*(line: string,
 # Json reply wrappers
 
 proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): JsonNode =
-  let node = %{jsonRpcField: %"2.0", resultField: value, errorField: error, idField: id}
-  return node
+  return %{jsonRpcField: %"2.0", resultField: value, errorField: error, idField: id}
 
 proc wrapError*(code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()): JsonNode =
@@ -104,8 +103,27 @@ proc wrapError*(code: int, msg: string, id: JsonNode,
   result = %{codeField: %(code), idField: id, messageField: %msg, dataField: data}
   debug "Error generated", error = result, id = id
 
+proc route*(router: RpcRouter, node: JsonNode): Future[JsonNode] {.async, gcsafe.} =
+  ## Assumes correct setup of node
+  let
+    methodName = node[methodField].str
+    id = node[idField]
+    rpcProc = router.procs.getOrDefault(methodName)
+
+  if rpcProc.isNil:
+    let
+      methodNotFound = %(methodName & " is not a registered RPC method.")
+      error = wrapError(METHOD_NOT_FOUND, "Method not found", id, methodNotFound)
+    result = wrapReply(id, newJNull(), error)
+  else:
+    let
+      jParams = node[paramsField]
+      res = await rpcProc(jParams)
+    result = wrapReply(id, res, newJNull())
+
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
-  ## Route to RPC, returns Json string of RPC result or error node
+  ## Route to RPC from string data. Data is expected to be able to be converted to Json.
+  ## Returns string of Json from RPC result/error node
   var
     node: JsonNode
     # parse json node and/or flag missing fields and errors
@@ -120,25 +138,12 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
         node["id"]
     let
       errMsg = jsonErrorMessages[errState.err]
-      res = $wrapError(code = errMsg[0], msg = errMsg[1], id = id) & messageTerminator
+      res = wrapError(code = errMsg[0], msg = errMsg[1], id = id)
     # return error state as json
-    result = res
+    result = $res & messageTerminator
   else:
-    let
-      methodName = node[methodField].str
-      id = node[idField]
-      rpcProc = router.procs.getOrDefault(methodName)
-
-    if rpcProc.isNil:
-      let
-        methodNotFound = %(methodName & " is not a registered RPC method.")
-        error = wrapError(METHOD_NOT_FOUND, "Method not found", id, methodNotFound)
-      result = $wrapReply(id, newJNull(), error) & messageTerminator
-    else:
-      let
-        jParams = node[paramsField]
-        res = await rpcProc(jParams)
-      result = $wrapReply(id, res, newJNull()) & messageTerminator
+    let res = await router.route(node)
+    result = $res & messageTerminator
 
 proc ifRoute*(router: RpcRouter, data: JsonNode, fut: var Future[JsonNode]): bool =
   ## Route to RPC, returns false if the method or params cannot be found.
