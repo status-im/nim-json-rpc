@@ -1,2 +1,2 @@
-import eth-rpc / server
+import json_rpc / server
 export server

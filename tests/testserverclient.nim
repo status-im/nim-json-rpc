@@ -1,8 +1,8 @@
-import unittest, json
-import  ../rpcclient, ../rpcserver
+import unittest, json, chronicles
+import  ../rpcclient, ../rpcsockets
 
-var srv = newRpcServer(["localhost:8545"])
-var client = newRpcClient()
+var srv = newRpcStreamServer(["localhost:8545"])
+var client = newRpcStreamClient()
 
 # Create RPC on server
 srv.rpc("myProc") do(input: string, data: array[0..3, int]):

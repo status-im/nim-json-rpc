@@ -1,31 +1,38 @@
 import tables, json, macros
 import asyncdispatch2
+from strutils import toLowerAscii
 import jsonmarshal
+export asyncdispatch2
 
 type
-  RpcClient* = ref object
-    transp: StreamTransport
+  RpcClient*[T, A] = ref object
     awaiting: Table[string, Future[Response]]
-    address: TransportAddress
+    transport: T
+    address: A
     nextId: int64
+
   Response* = tuple[error: bool, result: JsonNode]
 
-const maxRequestLength = 1024 * 128
+const defaultMaxRequestLength* = 1024 * 128
 
-proc newRpcClient*(): RpcClient =
+proc newRpcClient*[T, A]: RpcClient[T, A] =
   ## Creates a new ``RpcClient`` instance.
-  result = RpcClient(awaiting: initTable[string, Future[Response]](), nextId: 1)
+  result = RpcClient[T, A](awaiting: initTable[string, Future[Response]](), nextId: 1)
 
 proc call*(self: RpcClient, name: string,
-           params: JsonNode): Future[Response] {.async.} =
+          params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = $self.nextId
   self.nextId.inc
-  var msg = $ %{"jsonrpc": %"2.0", "method": %name, "params": params,
-                "id": %id} & "\c\l"
-  let res = await self.transp.write(msg)
+  var
+    value =
+      $ %{"jsonrpc": %"2.0",
+        "method": %name,
+        "params": params,
+        "id": %id} & "\c\l"
+  let res = await self.transport.write(value)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  assert(res == len(msg))
+  assert(res == len(value))
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
@@ -33,10 +40,8 @@ proc call*(self: RpcClient, name: string,
   self.awaiting[id] = newFut
   result = await newFut
 
-template handleRaise[T](fut: Future[T], errType: typedesc, msg: string) =
-  # complete future before raising
-  fut.complete((true, %msg))
-  raise newException(errType, msg)
+template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
+  fut.fail(newException(errType, msg))
 
 macro checkGet(node: JsonNode, fieldName: string,
                jKind: static[JsonNodeKind]): untyped =
@@ -58,17 +63,18 @@ macro checkGet(node: JsonNode, fieldName: string,
   else: discard
 
 proc processMessage(self: RpcClient, line: string) =
-  let node = parseJson(line)
+  # Note: this doesn't use any transport code so doesn't need to be differentiated.
+  let
+    node = parseJson(line)  # TODO: Check errors
+    id = checkGet(node, "id", JString)
 
-  # TODO: Use more appropriate exception objects
-  let id = checkGet(node, "id", JString)
   if not self.awaiting.hasKey(id):
     raise newException(ValueError,
       "Cannot find message id \"" & node["id"].str & "\"")
   
   let version = checkGet(node, "jsonrpc", JString)
   if version != "2.0":
-    self.awaiting[id].handleRaise(ValueError,
+    self.awaiting[id].asyncRaise(ValueError,
       "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
 
   let errorNode = node{"error"}
@@ -79,31 +85,34 @@ proc processMessage(self: RpcClient, line: string) =
     self.awaiting.del(id)
     # TODO: actions on unable find result node
   else:
-    self.awaiting[id].complete((true, errorNode))
+    self.awaiting[id].fail(newException(ValueError, $errorNode))
     self.awaiting.del(id)
 
-proc connect*(self: RpcClient, address: string, port: Port): Future[void]
-
-proc processData(self: RpcClient) {.async.} =
+proc processData(client: RpcClient) {.async.} =
   while true:
-    let line = await self.transp.readLine(maxRequestLength)
-    if line == "":
+    var value = await client.transport.readLine(defaultMaxRequestLength)
+    if value == "":
       # transmission ends
-      self.transp.close()
+      client.transport.close
       break
 
-    processMessage(self, line)
+    client.processMessage(value)
   # async loop reconnection and waiting
-  self.transp = await connect(self.address)
+  client.transport = await connect(client.address)
 
-proc connect*(self: RpcClient, address: string, port: Port) {.async.} =
-  # TODO: `address` hostname can be resolved to many IP addresses, we are using
-  # first one, but maybe it would be better to iterate over all IP addresses
-  # and try to establish connection until it will not be established.
+type RpcStreamClient* = RpcClient[StreamTransport, TransportAddress]
+
+proc connect*(client: RpcStreamClient, address: string, port: Port) {.async.} =
   let addresses = resolveTAddress(address, port)
-  self.transp = await connect(addresses[0])
-  self.address = addresses[0]
-  asyncCheck processData(self)
+  client.transport = await connect(addresses[0])
+  client.address = addresses[0]
+  asyncCheck processData(client)
+
+proc newRpcStreamClient*(): RpcStreamClient = 
+  ## Create new server and assign it to addresses ``addresses``.
+  result = newRpcClient[StreamTransport, TransportAddress]()
+
+# Signature processing
 
 proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree

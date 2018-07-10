@@ -3,17 +3,21 @@
   allow unchecked and unformatted calls.
 ]#
 
-import unittest, debugclient, ../rpcserver
+import unittest, debugclient, ../rpcsockets
 import strformat, chronicles
 
-var server = newRpcServer("localhost", 8547.Port)
-var client = newRpcClient()
+var server = newRpcStreamServer("localhost", 8547.Port)
+var client = newRpcStreamClient()
 
 server.start()
 waitFor client.connect("localhost", Port(8547))
 
 server.rpc("rpc") do(a: int, b: int):
   result = %(&"a: {a}, b: {b}")
+
+server.rpc("makeError"):
+  if true:
+    raise newException(ValueError, "Test")  
 
 proc testMissingRpc: Future[Response] {.async.} =
   var fut = client.call("phantomRpc", %[])
@@ -33,22 +37,44 @@ proc testMalformed: Future[Response] {.async.} =
   if fut.finished: result = fut.read()
   else: result = (true, %"Timeout")
 
+proc testRaise: Future[Response] {.async.} =
+  var fut = client.call("rpcMakeError", %[])
+  result = await fut
+
 suite "RPC Errors":
   # Note: We don't expect a exceptions for most of the tests,
   # because the server should respond with the error in json
   test "Missing RPC":
-    let res = waitFor testMissingRpc()
-    check res.error == true and
-      res.result["message"] == %"Method not found" and
-      res.result["data"] == %"phantomRpc is not a registered method."
+    #expect ValueError:
+    try:
+      let res = waitFor testMissingRpc()
+      check res.error == true and
+        res.result["message"] == %"Method not found" and
+        res.result["data"] == %"phantomRpc is not a registered method."
+    except:
+      echo "Error ", getCurrentExceptionMsg()
 
   test "Incorrect json version":
-    let res = waitFor testInvalidJsonVer()
-    check res.error == true and res.result["message"] == %"JSON 2.0 required"
+    #expect ValueError:
+    try:
+      let res = waitFor testInvalidJsonVer()
+      check res.error == true and res.result["message"] == %"JSON 2.0 required"
+    except:
+      echo "Error ", getCurrentExceptionMsg()
+
+  test "Raising exceptions":
+    #expect ValueError:
+    try:
+      let res = waitFor testRaise()
+    except:
+      echo "Error ", getCurrentExceptionMsg()
 
   test "Malformed json":
     # TODO: We time out here because the server won't be able to
     # find an id to return to us, so we cannot complete the future.
-    let res = waitFor testMalformed()
-    check res.error == true and res.result == %"Timeout"
+    try:
+      let res = waitFor testMalformed()
+      check res.error == true and res.result == %"Timeout"
+    except:
+      echo "Error ", getCurrentExceptionMsg()
   

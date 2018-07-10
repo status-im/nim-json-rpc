@@ -1,3 +1,3 @@
-import eth-rpc / client
+import json_rpc / client
 export client
 

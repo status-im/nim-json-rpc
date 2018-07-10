@@ -14,3 +14,7 @@
 # Ignore the nimcache folders
 nimcache/
 
+# Ignore editor settings
+.vscode
+
+
