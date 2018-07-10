@@ -145,7 +145,7 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
     let res = await router.route(node)
     result = $res & messageTerminator
 
-proc ifRoute*(router: RpcRouter, data: JsonNode, fut: var Future[JsonNode]): bool =
+proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[JsonNode]): bool =
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
   let
