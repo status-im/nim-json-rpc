@@ -4,7 +4,7 @@ proc sendError*[T](transport: T, code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()) {.async.} =
   ## Send error message to client
   let error = wrapError(code, msg, id, data)
-  var value = wrapReply(id, newJNull(), error)
+  var value = $wrapReply(id, newJNull(), error)
   result = transport.write(value)
 
 proc processClient(server: StreamServer, transport: StreamTransport) {.async, gcsafe.} =
@@ -20,7 +20,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
 
     debug "Processing message", address = transport.remoteAddress(), line = value
 
-    let future = processMessages(rpc, value)
+    let future = rpc.route(value)
     yield future
     if future.failed:
       if future.readError of RpcProcError:

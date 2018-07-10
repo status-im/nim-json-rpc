@@ -1,16 +1,53 @@
-import json, tables, asyncdispatch2, jsonmarshal, strutils, macros
+import
+  json, tables, asyncdispatch2, jsonmarshal, strutils, macros,  
+  chronicles, options
 export asyncdispatch2, json, jsonmarshal
 
 type
+  RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams
+  RpcJsonErrorContainer* = tuple[err: RpcJsonError, msg: string]
+
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(input: JsonNode): Future[JsonNode]
+  
+  RpcProcError* = ref object of Exception
+    code*: int
+    data*: JsonNode
+
+  RpcBindError* = object of Exception
+  RpcAddressUnresolvableError* = object of Exception
 
   RpcRouter* = object
     procs*: TableRef[string, RpcProc]
-  
+
 const
   methodField = "method"
   paramsField = "params"
+  jsonRpcField = "jsonrpc"
+  idField = "id"
+  resultField = "result"
+  errorField = "error"
+  codeField = "code"
+  messageField = "message"
+  dataField = "data"
+  messageTerminator = "\c\l"
+
+  JSON_PARSE_ERROR* = -32700
+  INVALID_REQUEST* = -32600
+  METHOD_NOT_FOUND* = -32601
+  INVALID_PARAMS* = -32602
+  INTERNAL_ERROR* = -32603
+  SERVER_ERROR* = -32000
+
+  defaultMaxRequestLength* = 1024 * 128
+  jsonErrorMessages*: array[RpcJsonError, (int, string)] =
+    [
+      (JSON_PARSE_ERROR, "Invalid JSON"),
+      (INVALID_REQUEST, "JSON 2.0 required"),
+      (INVALID_REQUEST, "No method requested"),
+      (INVALID_REQUEST, "No id specified"),
+      (INVALID_PARAMS, "No parameters specified")
+    ]
 
 proc newRpcRouter*: RpcRouter =
   result.procs = newTable[string, RpcProc]()
@@ -24,28 +61,88 @@ proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasK
 
 template isEmpty(node: JsonNode): bool = node.isNil or node.kind == JNull
 
-proc route*(router: RpcRouter, data: JsonNode): Future[JsonNode] {.async, gcsafe.} =
-  ## Route to RPC, raises exceptions on missing data
-  let jPath = data{methodField}
-  if jPath.isEmpty:
-    raise newException(ValueError, "No " & methodField & " field found")
+# Json state checking
 
-  let jParams = data{paramsField}
-  if jParams.isEmpty:
-    raise newException(ValueError, "No " & paramsField & " field found")
+template jsonValid*(jsonString: string, node: var JsonNode): (bool, string) =
+  var
+    valid = true
+    msg = ""
+  try: node = parseJson(line)
+  except:
+    valid = false
+    msg = getCurrentExceptionMsg()
+    debug "Cannot process json", json = jsonString, msg = msg
+  (valid, msg)
 
-  let
-    path = jPath.getStr
-    rpc = router.procs.getOrDefault(path)
-  # TODO: not GC-safe as it accesses 'rpc' which is a global using GC'ed memory!
-  if rpc != nil:
-    result = await rpc(jParams)
+proc checkJsonState*(line: string,
+                      node: var JsonNode): Option[RpcJsonErrorContainer] =
+  ## Tries parsing line into node, if successful checks required fields
+  ## Returns: error state or none
+  let res = jsonValid(line, node)
+  if not res[0]:
+    return some((rjeInvalidJson, res[1]))
+  if not node.hasKey(idField):
+    return some((rjeNoId, ""))
+  let jVer = node{jsonRpcField}
+  if jVer != nil and jVer.kind != JNull and jVer != %"2.0":
+    return some((rjeVersionError, ""))
+  if not node.hasKey(methodField):
+    return some((rjeNoMethod, ""))
+  if not node.hasKey(paramsField):
+    return some((rjeNoParams, ""))
+  return none(RpcJsonErrorContainer)
+
+# Json reply wrappers
+
+proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): JsonNode =
+  let node = %{jsonRpcField: %"2.0", resultField: value, errorField: error, idField: id}
+  return node
+
+proc wrapError*(code: int, msg: string, id: JsonNode,
+                data: JsonNode = newJNull()): JsonNode =
+  # Create standardised error json
+  result = %{codeField: %(code), idField: id, messageField: %msg, dataField: data}
+  debug "Error generated", error = result, id = id
+
+proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
+  ## Route to RPC, returns Json string of RPC result or error node
+  var
+    node: JsonNode
+    # parse json node and/or flag missing fields and errors
+    jsonErrorState = checkJsonState(data, node)
+
+  if jsonErrorState.isSome:
+    let errState = jsonErrorState.get
+    var id =
+      if errState.err == rjeInvalidJson or errState.err == rjeNoId:
+        newJNull()
+      else:
+        node["id"]
+    let
+      errMsg = jsonErrorMessages[errState.err]
+      res = $wrapError(code = errMsg[0], msg = errMsg[1], id = id) & messageTerminator
+    # return error state as json
+    result = res
   else:
-    raise newException(ValueError, "Method \"" & path & "\" not found")
+    let
+      methodName = node[methodField].str
+      id = node[idField]
+      rpcProc = router.procs.getOrDefault(methodName)
+
+    if rpcProc.isNil:
+      let
+        methodNotFound = %(methodName & " is not a registered RPC method.")
+        error = wrapError(METHOD_NOT_FOUND, "Method not found", id, methodNotFound)
+      result = $wrapReply(id, newJNull(), error) & messageTerminator
+    else:
+      let
+        jParams = node[paramsField]
+        res = await rpcProc(jParams)
+      result = $wrapReply(id, res, newJNull()) & messageTerminator
 
 proc ifRoute*(router: RpcRouter, data: JsonNode, fut: var Future[JsonNode]): bool =
-  ## Route to RPC, returns false if the method or params cannot be found
-  # TODO: This is already checked in processMessages, but allows safer use externally
+  ## Route to RPC, returns false if the method or params cannot be found.
+  ## Expects json input and returns json output.
   let
     jPath = data{methodField}
     jParams = data{paramsField}
