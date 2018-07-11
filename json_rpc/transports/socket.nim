@@ -1,4 +1,8 @@
-import server, json, chronicles
+import ../ server, json, chronicles
+
+type
+  RpcSocketServer* = ref object of RpcServer
+    servers: seq[StreamServer]
 
 proc sendError*[T](transport: T, code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()) {.async.} =
@@ -9,7 +13,7 @@ proc sendError*[T](transport: T, code: int, msg: string, id: JsonNode,
 
 proc processClient(server: StreamServer, transport: StreamTransport) {.async, gcsafe.} =
   ## Process transport data to the RPC server
-  var rpc = getUserData[RpcServer[StreamTransport]](server)
+  var rpc = getUserData[RpcSocketServer](server)
   while true:
     var
       maxRequestLength = defaultMaxRequestLength
@@ -38,7 +42,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
 
 # Utility functions for setting up servers using stream transport addresses
 
-proc addStreamServer*(server: RpcServer[StreamServer], address: TransportAddress) =
+proc addStreamServer*(server: RpcSocketServer, address: TransportAddress) =
   try:
     info "Creating server on ", address = $address
     var transportServer = createStreamServer(address, processClient, {ReuseAddr}, udata = server)
@@ -50,11 +54,11 @@ proc addStreamServer*(server: RpcServer[StreamServer], address: TransportAddress
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
-proc addStreamServers*(server: RpcServer[StreamServer], addresses: openarray[TransportAddress]) =
+proc addStreamServers*(server: RpcSocketServer, addresses: openarray[TransportAddress]) =
   for item in addresses:
     server.addStreamServer(item)
 
-proc addStreamServer*(server: RpcServer[StreamServer], address: string) =
+proc addStreamServer*(server: RpcSocketServer, address: string) =
   ## Create new server and assign it to addresses ``addresses``.  
   var
     tas4: seq[TransportAddress]
@@ -84,11 +88,11 @@ proc addStreamServer*(server: RpcServer[StreamServer], address: string) =
     # Addresses could not be resolved, critical error.
     raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
-proc addStreamServers*(server: RpcServer[StreamServer], addresses: openarray[string]) =
+proc addStreamServers*(server: RpcSocketServer, addresses: openarray[string]) =
   for address in addresses:
     server.addStreamServer(address)
 
-proc addStreamServer*(server: RpcServer[StreamServer], address: string, port: Port) =
+proc addStreamServer*(server: RpcSocketServer, address: string, port: Port) =
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
@@ -123,34 +127,35 @@ proc addStreamServer*(server: RpcServer[StreamServer], address: string, port: Po
     raise newException(RpcBindError,
                       "Could not setup server on " & address & ":" & $int(port))
 
-type RpcStreamServer* = RpcServer[StreamServer]
+proc newRpcSocketServer*: RpcSocketServer =
+  RpcSocketServer(router: newRpcRouter(), servers: @[])
 
-proc newRpcStreamServer*(addresses: openarray[TransportAddress]): RpcStreamServer = 
+proc newRpcSocketServer*(addresses: openarray[TransportAddress]): RpcSocketServer = 
   ## Create new server and assign it to addresses ``addresses``.
-  result = newRpcServer[StreamServer]()
+  result = newRpcSocketServer()
   result.addStreamServers(addresses)
 
-proc newRpcStreamServer*(addresses: openarray[string]): RpcStreamServer =
+proc newRpcSocketServer*(addresses: openarray[string]): RpcSocketServer =
   ## Create new server and assign it to addresses ``addresses``.  
-  result = newRpcServer[StreamServer]()
+  result = newRpcSocketServer()
   result.addStreamServers(addresses)
 
-proc newRpcStreamServer*(address = "localhost", port: Port = Port(8545)): RpcStreamServer =
+proc newRpcSocketServer*(address: string, port: Port = Port(8545)): RpcSocketServer =
   # Create server on specified port
-  result = newRpcServer[StreamServer]()
+  result = newRpcSocketServer()
   result.addStreamServer(address, port)
 
-proc start*(server: RpcStreamServer) =
+proc start*(server: RpcSocketServer) =
   ## Start the RPC server.
   for item in server.servers:
     item.start()
 
-proc stop*(server: RpcStreamServer) =
+proc stop*(server: RpcSocketServer) =
   ## Stop the RPC server.
   for item in server.servers:
     item.stop()
 
-proc close*(server: RpcStreamServer) =
+proc close*(server: RpcSocketServer) =
   ## Cleanup resources of RPC server.
   for item in server.servers:
     item.close()

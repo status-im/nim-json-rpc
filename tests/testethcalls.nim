@@ -1,5 +1,5 @@
 import unittest, json, tables
-import ../rpcclient, ../rpcsockets
+import ../rpcclient, ../rpcsocket
 import stint, ethtypes, ethprocs, stintjson, nimcrypto, ethhexstrings, chronicles
 
 from os import getCurrentDir, DirSep
@@ -7,7 +7,7 @@ from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 var
-  server = newRpcStreamServer("localhost", Port(8546))
+  server = newRpcSocketServer("localhost", Port(8546))
   client = newRpcStreamClient()
 
 ## Generate Ethereum server RPCs
