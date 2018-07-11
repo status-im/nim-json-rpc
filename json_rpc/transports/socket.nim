@@ -1,4 +1,5 @@
-import ../ server, json, chronicles
+import ../ server, json
+export server
 
 type
   RpcSocketServer* = ref object of RpcServer
@@ -24,21 +25,8 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
 
     debug "Processing message", address = transport.remoteAddress(), line = value
 
-    let future = rpc.route(value)
-    yield future
-    if future.failed:
-      if future.readError of RpcProcError:
-        let err = future.readError.RpcProcError
-        await transport.sendError(err.code, err.msg, err.data)
-      elif future.readError of ValueError:
-        let err = future.readError[].ValueError
-        await transport.sendError(INVALID_PARAMS, err.msg, %"")
-      else:
-        await transport.sendError(SERVER_ERROR,
-                              "Error: Unknown error occurred", %"")
-    else:
-      let res = await future
-      result = transport.write(res)
+    let res = await rpc.route(value)
+    result = transport.write(res)
 
 # Utility functions for setting up servers using stream transport addresses
 
