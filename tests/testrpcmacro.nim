@@ -1,5 +1,5 @@
 import unittest, json, tables, chronicles
-import ../rpcsockets
+import ../rpcsocket
 
 type
   # some nested types to check object parsing

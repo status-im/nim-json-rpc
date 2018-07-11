@@ -1,5 +1,5 @@
 import unittest, json, chronicles
-import  ../rpcclient, ../rpcsockets
+import  ../rpcclient, ../rpcsocket
 
 var srv = newRpcSocketServer(["localhost:8545"])
 var client = newRpcStreamClient()
