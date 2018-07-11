@@ -1,7 +1,7 @@
 import unittest, json, chronicles
 import  ../rpcclient, ../rpcsockets
 
-var srv = newRpcStreamServer(["localhost:8545"])
+var srv = newRpcSocketServer(["localhost:8545"])
 var client = newRpcStreamClient()
 
 # Create RPC on server

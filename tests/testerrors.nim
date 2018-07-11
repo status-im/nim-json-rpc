@@ -6,7 +6,7 @@
 import unittest, debugclient, ../rpcsockets
 import strformat, chronicles
 
-var server = newRpcStreamServer("localhost", 8547.Port)
+var server = newRpcSocketServer("localhost", 8547.Port)
 var client = newRpcStreamClient()
 
 server.start()

@@ -27,7 +27,7 @@ let
     },
     "c": %1.23}
 
-var s = newRpcStreamServer(["localhost:8545"])
+var s = newRpcSocketServer(["localhost:8545"])
 
 # RPC definitions
 
