@@ -1,4 +1,4 @@
-import server, json, chronicles
+import ../ server, json, chronicles
 
 type
   RpcSocketServer* = ref object of RpcServer

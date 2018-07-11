@@ -1,2 +1,2 @@
-import json_rpc / [server, sockettransport]
-export server, sockettransport
+import json_rpc / server, json_rpc / transports / sockets
+export server, sockets
