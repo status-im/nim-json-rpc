@@ -95,7 +95,7 @@ proc checkJsonState*(line: string,
 # Json reply wrappers
 
 proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): JsonNode =
-  return %{jsonRpcField: %"2.0", resultField: value, errorField: error, idField: id}
+  return %{jsonRpcField: %"2.0", idField: id, resultField: value, errorField: error}
 
 proc wrapError*(code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()): JsonNode =
@@ -119,7 +119,14 @@ proc route*(router: RpcRouter, node: JsonNode): Future[JsonNode] {.async, gcsafe
     let
       jParams = node[paramsField]
       res = await rpcProc(jParams)
-    result = wrapReply(id, res, newJNull())
+      errCode = res.getOrDefault(codeField)
+      errMsg = res.getOrDefault(messageField)
+    if errCode != nil and errCode.kind == JInt and
+      errMsg != nil and errMsg.kind == JString:
+      let error = wrapError(errCode.getInt, methodName & " raised an exception", id, errMsg)
+      result = wrapReply(id, newJNull(), error)
+    else:
+      result = wrapReply(id, res, newJNull())
 
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
@@ -137,8 +144,11 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
       else:
         node["id"]
     let
-      errMsg = jsonErrorMessages[errState.err]
-      res = wrapError(code = errMsg[0], msg = errMsg[1], id = id)
+      # fixed error code and message
+      errKind = jsonErrorMessages[errState.err]
+      # pass on the actual error message
+      fullMsg = errKind[1] & " " & errState[1] 
+      res = wrapError(code = errKind[0], msg = fullMsg, id = id)
     # return error state as json
     result = $res & messageTerminator
   else:
@@ -203,7 +213,10 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
       try:
         `procBody`
       except:
-        debug "Error occurred within RPC ", path = `path`, errorMessage = getCurrentExceptionMsg()
+        let msg = getCurrentExceptionMsg()
+        debug "Error occurred within RPC ", path = `path`, errorMessage = msg
+        `res` = %*{codeField: SERVER_ERROR, messageField: %msg}
+        
   if parameters.hasReturnType:
     let returnType = parameters[0]
 

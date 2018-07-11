@@ -38,7 +38,7 @@ proc testMalformed: Future[Response] {.async.} =
   else: result = (true, %"Timeout")
 
 proc testRaise: Future[Response] {.async.} =
-  var fut = client.call("rpcMakeError", %[])
+  var fut = client.call("makeError", %[])
   result = await fut
 
 suite "RPC Errors":
@@ -54,14 +54,14 @@ suite "RPC Errors":
     except:
       echo "Error ", getCurrentExceptionMsg()
 
-  test "Incorrect json version":
+  #[test "Incorrect json version":
     #expect ValueError:
     try:
       let res = waitFor testInvalidJsonVer()
       check res.error == true and res.result["message"] == %"JSON 2.0 required"
     except:
       echo "Error ", getCurrentExceptionMsg()
-
+  ]#
   test "Raising exceptions":
     #expect ValueError:
     try:
