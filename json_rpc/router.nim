@@ -144,7 +144,7 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
       else:
         node["id"]
     let
-      # fixed error code and message
+      # const error code and message
       errKind = jsonErrorMessages[errState.err]
       # pass on the actual error message
       fullMsg = errKind[1] & " " & errState[1] 
@@ -181,6 +181,14 @@ proc hasReturnType(params: NimNode): bool =
      params[0].kind != nnkEmpty:
     result = true
 
+template trap(path: string, body: untyped): untyped =
+  try:
+    body
+  except:
+    let msg = getCurrentExceptionMsg()
+    debug "Error occurred within RPC ", path = path, errorMessage = msg
+    result = %*{codeField: %SERVER_ERROR, messageField: %msg}
+
 macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   ## Define a remote procedure call.
   ## Input and return parameters are defined using the ``do`` notation.
@@ -210,47 +218,37 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   var
     setup = jsonToNim(parameters, paramsIdent)
     procBody = if body.kind == nnkStmtList: body else: body.body
-    errTrappedBody = quote do:
-      try:
-        `procBody`
-      except:
-        let msg = getCurrentExceptionMsg()
-        debug "Error occurred within RPC ", path = `path`, errorMessage = msg
-        `errJson` = %*{codeField: %SERVER_ERROR, messageField: %msg}
-        
+
   if parameters.hasReturnType:
     let returnType = parameters[0]
 
     # delegate async proc allows return and setting of result as native type
     result.add(quote do:
-      proc `doMain`(`paramsIdent`: JsonNode, `errJson`: var JsonNode): `returnType` =
+      proc `doMain`(`paramsIdent`: JsonNode): `returnType` =
         `setup`
-        `errTrappedBody`
+        `procBody`
     )
 
     if returnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
       result.add( quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          var `errJson`: JsonNode
-          `res` = `doMain`(`paramsIdent`, `errJson`)
-          if `errJson` != nil: `res` = `errJson`
+          trap(`pathStr`):
+            `res` = `doMain`(`paramsIdent`)
       )
     else:
       result.add(quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          var `errJson`: JsonNode
-          `res` = %`doMain`(`paramsIdent`, `errJson`)
-          if `errJson` != nil: `res` = `errJson`
+          trap(`pathStr`):
+            `res` = %`doMain`(`paramsIdent`)
       )
   else:
     # no return types, inline contents
     result.add(quote do:
       proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
         `setup`
-        var `errJson`: JsonNode
-        `errTrappedBody`
-        if `errJson` != nil: `res` = `errJson`
+        trap(`pathStr`):
+          `procBody`
     )
   result.add( quote do:
     `server`.register(`path`, `procName`)
