@@ -206,6 +206,7 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     doMain = newIdentNode(procNameStr & "DoMain")
     # async result
     res = newIdentNode("result")
+    errJson = newIdentNode("errJson")
   var
     setup = jsonToNim(parameters, paramsIdent)
     procBody = if body.kind == nnkStmtList: body else: body.body
@@ -215,14 +216,14 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
       except:
         let msg = getCurrentExceptionMsg()
         debug "Error occurred within RPC ", path = `path`, errorMessage = msg
-        `res` = %*{codeField: SERVER_ERROR, messageField: %msg}
+        `errJson` = %*{codeField: %SERVER_ERROR, messageField: %msg}
         
   if parameters.hasReturnType:
     let returnType = parameters[0]
 
     # delegate async proc allows return and setting of result as native type
     result.add(quote do:
-      proc `doMain`(`paramsIdent`: JsonNode): Future[`returnType`] {.async.} =
+      proc `doMain`(`paramsIdent`: JsonNode, `errJson`: var JsonNode): `returnType` =
         `setup`
         `errTrappedBody`
     )
@@ -231,19 +232,25 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
       # `JsonNode` results don't need conversion
       result.add( quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          `res` = await `doMain`(`paramsIdent`)
+          var `errJson`: JsonNode
+          `res` = `doMain`(`paramsIdent`, `errJson`)
+          if `errJson` != nil: `res` = `errJson`
       )
     else:
       result.add(quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
-          `res` = %await `doMain`(`paramsIdent`)
+          var `errJson`: JsonNode
+          `res` = %`doMain`(`paramsIdent`, `errJson`)
+          if `errJson` != nil: `res` = `errJson`
       )
   else:
     # no return types, inline contents
     result.add(quote do:
       proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
         `setup`
+        var `errJson`: JsonNode
         `errTrappedBody`
+        if `errJson` != nil: `res` = `errJson`
     )
   result.add( quote do:
     `server`.register(`path`, `procName`)
