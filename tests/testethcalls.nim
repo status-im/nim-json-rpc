@@ -14,7 +14,7 @@ var
 server.addEthRpcs()
 
 ## Generate client convenience marshalling wrappers from forward declarations
-createRpcSigs(sourceDir & DirSep & "ethcallsigs.nim")
+createRpcSigs(RpcSocketClient, sourceDir & DirSep & "ethcallsigs.nim")
 
 ## Create custom RPC with StUint input parameter
 server.rpc("rpc.uint256param") do(i: UInt256):
