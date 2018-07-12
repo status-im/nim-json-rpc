@@ -3,7 +3,7 @@
   allow unchecked and unformatted calls.
 ]#
 
-import unittest, debugclient, ../rpcsocket
+import unittest, debugclient, ../rpcserver
 import strformat, chronicles
 
 var server = newRpcSocketServer("localhost", 8547.Port)
