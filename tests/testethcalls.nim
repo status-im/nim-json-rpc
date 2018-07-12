@@ -1,5 +1,5 @@
 import unittest, json, tables
-import ../rpcclient, ../rpcsocket
+import ../rpcclient, ../rpcserver
 import stint, ethtypes, ethprocs, stintjson, nimcrypto, ethhexstrings, chronicles
 
 from os import getCurrentDir, DirSep
@@ -8,13 +8,13 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 var
   server = newRpcSocketServer("localhost", Port(8546))
-  client = newRpcStreamClient()
+  client = newRpcSocketClient()
 
 ## Generate Ethereum server RPCs
 server.addEthRpcs()
 
 ## Generate client convenience marshalling wrappers from forward declarations
-createRpcSigs(sourceDir & DirSep & "ethcallsigs.nim")
+createRpcSigs(RpcSocketClient, sourceDir & DirSep & "ethcallsigs.nim")
 
 ## Create custom RPC with StUint input parameter
 server.rpc("rpc.uint256param") do(i: UInt256):

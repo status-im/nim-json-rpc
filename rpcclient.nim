@@ -1,3 +1,5 @@
-import json_rpc / client
-export client
+import
+  json_rpc / client,
+  json_rpc / clients / socketclient
+export client, socketclient
 
