@@ -2,7 +2,7 @@ import unittest, json, chronicles
 import  ../rpcclient, ../rpcserver
 
 var srv = newRpcSocketServer(["localhost:8545"])
-var client = newRpcStreamClient()
+var client = newRpcSocketClient()
 
 # Create RPC on server
 srv.rpc("myProc") do(input: string, data: array[0..3, int]):
