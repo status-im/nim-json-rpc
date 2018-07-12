@@ -30,6 +30,9 @@ proc call*(self: RpcClient, name: string,
         "method": %name,
         "params": params,
         "id": %id} & "\c\l"
+  if self.transport.isNil:
+    var connectStr = ""
+    raise newException(ValueError, "Transport is not initialised (missing a call to connect?)")
   let res = await self.transport.write(value)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
   assert(res == len(value))
@@ -100,15 +103,15 @@ proc processData(client: RpcClient) {.async.} =
   # async loop reconnection and waiting
   client.transport = await connect(client.address)
 
-type RpcStreamClient* = RpcClient[StreamTransport, TransportAddress]
+type RpcSocketClient* = RpcClient[StreamTransport, TransportAddress]
 
-proc connect*(client: RpcStreamClient, address: string, port: Port) {.async.} =
+proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   let addresses = resolveTAddress(address, port)
   client.transport = await connect(addresses[0])
   client.address = addresses[0]
   asyncCheck processData(client)
 
-proc newRpcStreamClient*(): RpcStreamClient = 
+proc newRpcSocketClient*(): RpcSocketClient = 
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcClient[StreamTransport, TransportAddress]()
 
