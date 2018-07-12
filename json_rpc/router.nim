@@ -159,8 +159,8 @@ proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[JsonNode]): bo
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
   let
-    jPath = data{methodField}
-    jParams = data{paramsField}
+    jPath = data.getOrDefault(methodField)
+    jParams = data.getOrDefault(paramsField)
   if jPath.isEmpty or jParams.isEmpty:
     return false
 
@@ -232,20 +232,20 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     if returnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
       result.add( quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
           trap(`pathStr`):
             `res` = `doMain`(`paramsIdent`)
       )
     else:
       result.add(quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
           trap(`pathStr`):
             `res` = %`doMain`(`paramsIdent`)
       )
   else:
     # no return types, inline contents
     result.add(quote do:
-      proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async.} =
+      proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
         `setup`
         trap(`pathStr`):
           `procBody`
