@@ -29,7 +29,7 @@ Routing is then performed by the `route` procedure.
 
 When an error occurs, the `error` is populated, otherwise `result` will be populated.
 
-### `route` Parameters
+### `rpc` Parameters
 
 `path`: The string to match for the `method`.
 
@@ -94,6 +94,66 @@ At runtime, the json is checked to ensure that it contains the correct number an
 
 Compiling with `-d:nimDumpRpcs` will show the output code for the RPC call. To see the output of the `async` generation, add `-d:nimDumpAsync`.
 
+## Marshalling
+
+Note that `array` parameters are explicitly checked for length, and will return an error node if the length differs from their declaration size.
+
+If you wish to support custom types in a particular way, you can provide matching `fromJson` and `%` procedures.
+
+### `fromJson`
+
+This takes a Json type and returns the Nim type.
+
+#### Parameters
+
+`n: JsonNode`: The current node being processed
+
+`argName: string`: The name of the field in `n`
+
+`result`: The type of this must be `var X` where `X` is the Nim type you wish to handle
+
+#### Example
+
+```nim
+proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
+  n.kind.expect(JArray, argName)
+  result = newSeq[T](n.len)
+  for i in 0 ..< n.len:
+    fromJson(n[i], argName, result[i])
+```
+
+### `%`
+
+This is the standard way to provide translations from a Nim type to a `JsonNode`.
+
+#### Parameters
+
+`n`: The type you wish to convert
+
+Returns
+
+`JsonNode`: The newly encoded `JsonNode` type from the parameter type.
+
+### `expect`
+
+This is a simple procedure to state your expected type.
+
+If the actual type doesn't match the expected type, an exception is thrown mentioning which field caused the failure.
+
+#### Parameters
+
+`actual: JsonNodeKind`: The actual type of the `JsonNode`.
+
+`expected: JsonNodeKind`: The desired type.
+
+`argName: string`: The current field name.
+
+#### Example
+
+```nim
+myNode.kind.expect(JArray, argName)
+```
+
 ## JSON Format
 
 The router expects either a string or `JsonNode` with the following structure:
@@ -120,7 +180,7 @@ Return values use the following node structure:
 
 ## Performing a route
 
-To call the router, use the `route` procedure.
+To call and RPC through the router, use the `route` procedure.
 
 There are three variants of `route`.
 
@@ -140,7 +200,6 @@ This `route` variant will handle all the conversion of `string` to `JsonNode` an
 
 `Future[string]`: This will be the stringified JSON response, which can be the JSON RPC result or a JSON wrapped error.
   
-
 ### `route` by `JsonNode`
 
 This variant allows simplified processing if you already have a `JsonNode`. However if the required fields are not present within `node`, exceptions will be raised.
@@ -149,13 +208,12 @@ This variant allows simplified processing if you already have a `JsonNode`. Howe
 
 `router: RpcRouter`: The router object that contains the RPCs.
 
-`node: JsonNode`: A pre-processed JsonNode that matches the expected format as defined above.
+`node: JsonNode`: A pre-processed `JsonNode` that matches the expected format as defined above.
 
 #### Returns
 
 `Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
   
-
 ### `tryRoute`
 
 This `route` variant allows you to invoke a call if possible, without raising an exception.
@@ -164,7 +222,7 @@ This `route` variant allows you to invoke a call if possible, without raising an
 
 `router: RpcRouter`: The router object that contains the RPCs.
 
-`node: JsonNode`: A pre-processed JsonNode that matches the expected format as defined above.
+`node: JsonNode`: A pre-processed `JsonNode` that matches the expected format as defined above.
 
 `fut: var Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
 
