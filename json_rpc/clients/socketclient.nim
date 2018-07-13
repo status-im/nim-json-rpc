@@ -16,10 +16,8 @@ proc call*(self: RpcSocketClient, name: string,
           params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
+  var value = $rpcCallNode(name, params, id) & "\c\l"
 
-  var
-    value =
-      $rpcCallNode(name, params, id) & "\c\l"
   if self.transport.isNil:
     var connectStr = ""
     raise newException(ValueError, "Transport is not initialised (missing a call to connect?)")
