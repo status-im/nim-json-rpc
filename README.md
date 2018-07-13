@@ -130,7 +130,7 @@ This is the standard way to provide translations from a Nim type to a `JsonNode`
 
 `n`: The type you wish to convert
 
-Returns
+#### Returns
 
 `JsonNode`: The newly encoded `JsonNode` type from the parameter type.
 
