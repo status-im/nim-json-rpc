@@ -29,11 +29,11 @@ Routing is then performed by the `route` procedure.
 
 When an error occurs, the `error` is populated, otherwise `result` will be populated.
 
-### Parameters
+### `route` Parameters
 
-`route`
-  `path`: The string to match for the `method`.
-  `body`: The parameters and code to execute for this call.
+`path`: The string to match for the `method`.
+
+`body`: The parameters and code to execute for this call.
 
 ### Example
 
@@ -94,7 +94,7 @@ At runtime, the json is checked to ensure that it contains the correct number an
 
 Compiling with `-d:nimDumpRpcs` will show the output code for the RPC call. To see the output of the `async` generation, add `-d:nimDumpAsync`.
 
-## Format
+## JSON Format
 
 The router expects either a string or `JsonNode` with the following structure:
 
@@ -126,30 +126,52 @@ There are three variants of `route`.
 
 Note that once invoked all RPC calls are error trapped and any exceptions raised are passed back with the error message encoded as a `JsonNode`.
 
-  `route`
-    `router: RpcRouter`: The router object that contains the RPCs.
-    `data: string`: A string ready to be processed into a `JsonNode`.
-    Returns
-    `Future[string]`: This will be the stringified JSON response, which can be the JSON RPC result or a JSON wrapped error.
-  
-  This `route` variant will handle all the conversion of `string` to `JsonNode` and check the format and type of the input data.
+### `route` by string
 
-  `route`
-    `router: RpcRouter`: The router object that contains the RPCs.
-    `node: JsonNode`: A pre-processed JsonNode that matches the expected format as defined above.
-    Returns
-    `Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
-  
-  This variant allows simplified processing if you already have a `JsonNode`. However if the required fields are not present within `node`, exceptions will be raised.
+This `route` variant will handle all the conversion of `string` to `JsonNode` and check the format and type of the input data.
 
-  `tryRoute`
-    `router: RpcRouter`: The router object that contains the RPCs.
-    `node: JsonNode`: A pre-processed JsonNode that matches the expected format as defined above.
-    `fut: var Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
-    Returns
-    `bool`: Returns `true` if the `method` field provided in `node` matches an available route. Returns `false` when the `method` cannot be found, or if `method` or `params` field cannot be found within `node`.
+#### Parameters
+
+`router: RpcRouter`: The router object that contains the RPCs.
+
+`data: string`: A string ready to be processed into a `JsonNode`.
+
+#### Returns
+
+`Future[string]`: This will be the stringified JSON response, which can be the JSON RPC result or a JSON wrapped error.
   
-  This `route` variant allows you to invoke a call if possible, without raising an exception.
+
+### `route` by `JsonNode`
+
+This variant allows simplified processing if you already have a `JsonNode`. However if the required fields are not present within `node`, exceptions will be raised.
+
+#### Parameters
+
+`router: RpcRouter`: The router object that contains the RPCs.
+
+`node: JsonNode`: A pre-processed JsonNode that matches the expected format as defined above.
+
+#### Returns
+
+`Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
+  
+
+### `tryRoute`
+
+This `route` variant allows you to invoke a call if possible, without raising an exception.
+
+#### Parameters
+
+`router: RpcRouter`: The router object that contains the RPCs.
+
+`node: JsonNode`: A pre-processed JsonNode that matches the expected format as defined above.
+
+`fut: var Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
+
+#### Returns
+
+`bool`: `true` if the `method` field provided in `node` matches an available route. Returns `false` when the `method` cannot be found, or if `method` or `params` field cannot be found within `node`.
+  
 
 To see the result of a call, we need to provide Json in the expected format.
 Here's an example of how that looks by manually creating the JSON. Later we will see the helper utilities that make this easier.
@@ -237,7 +259,7 @@ let response = waitFor client.call("hello", %[%"Daisy"])
 echo response.result
 ```
 
-## `createRpcSigs`
+### `createRpcSigs`
 
 To make things more readable and allow better static checking client side, Json-Rpc supports generating wrappers for client RPCs using `createRpcSigs`.
 
@@ -245,12 +267,13 @@ This macro takes a type name and the path of a file containing forward declarati
 
 Because the signatures are parsed at compile time, the file will be error checked and you can use import to share common types between your client and server.
 
-### Parameters
+#### Parameters
 
-  `clientType`: This is the type you want to pass to your generated calls. Usually this would be a transport specific descendant from `RpcClient`.
-  `path`: The path to the Nim module that contains the RPC header signatures.
+`clientType`: This is the type you want to pass to your generated calls. Usually this would be a transport specific descendant from `RpcClient`.
 
-### Example
+`path`: The path to the Nim module that contains the RPC header signatures.
+
+#### Example
 
 For example, to support this remote call:
 
@@ -287,6 +310,7 @@ Transport clients should provide a type that is inherited from `RpcClient` where
 Additionally, the following two procedures are useful:
 
 * `Call`
+
   `self`: a descendant of `RpcClient`
   `name: string`: the method to be called
   `params: JsonNode`: The parameters to the RPC call
@@ -296,19 +320,23 @@ Additionally, the following two procedures are useful:
 Note: Although `call` isn't necessary for a client to function, it allows RPC signatures to be used by the `createRpcSigs`.
 
 * `Connect`
+
   `client`: a descendant of `RpcClient`
   Returning
     `FutureBase`: The base future returned when a procedure is annoted with `{.async.}`
 
 ### `processMessage`
 
-To simplify and unify processing within the client, the `processMessage` procedure can be used to perform conversion and error checking from the received string originating from the transport to `JsonNode`.
+To simplify and unify processing within the client, the `processMessage` procedure can be used to perform conversion and error checking from the received string originating from the transport to the `JsonNode` representation that is passed to the RPC.
 
-`processMessages`
-  `self`: a client type descended from `RpcClient`
-  `line: string`: a string that contains the JSON to be processed
+After a RPC returns, this procedure then completes the futures set by `call` invocations using the `id` field of the processed `JsonNode` from `line`.
 
-This procedure then completes the futures set by `call` invocations using the `id` field of the processed `JsonNode` from `line`.
+#### Parameters
+
+`self`: a client type descended from `RpcClient`
+
+`line: string`: a string that contains the JSON to be processed
+
 
 # Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
