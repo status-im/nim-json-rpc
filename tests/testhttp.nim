@@ -152,7 +152,7 @@ httpsrv.rpc("myProc") do(input: string, data: array[0..3, int]):
 
 httpsrv.start()
 
-suite "Server/Client RPC":
+suite "HTTP Server/HTTP Client RPC test suite":
   test "Continuous RPC calls (" & $TestsCount & " messages)":
     check waitFor(continuousTest("localhost", Port(8545))) == TestsCount
   test "Wrong [Content-Type] test":
