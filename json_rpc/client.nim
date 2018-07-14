@@ -6,7 +6,7 @@ export asyncdispatch2
 
 type
   ClientId* = int64
-  RpcClient* = ref object of RootRef#
+  RpcClient* = ref object of RootRef
     awaiting*: Table[ClientId, Future[Response]]
     nextId: ClientId
 
@@ -21,10 +21,7 @@ proc getNextId*(client: RpcClient): ClientId =
   client.nextId.inc
 
 proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
-  %{"jsonrpc": %"2.0",
-    "method": %path,
-    "params": params,
-    "id": %id}
+  %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
 
 template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
   fut.fail(newException(errType, msg))
@@ -49,7 +46,8 @@ macro checkGet(node: JsonNode, fieldName: string,
   else: discard
 
 proc processMessage*[T: RpcClient](self: T, line: string) =
-  # Note: this doesn't use any transport code so doesn't need to be differentiated.
+  # Note: this doesn't use any transport code so doesn't need to be
+  # differentiated.
   let
     node = parseJson(line)
     id = checkGet(node, "id", JInt)
