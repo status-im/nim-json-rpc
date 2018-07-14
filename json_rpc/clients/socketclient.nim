@@ -16,13 +16,10 @@ proc call*(self: RpcSocketClient, name: string,
           params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
-
-  var
-    value =
-      $rpcCallNode(name, params, id) & "\c\l"
+  var value = $rpcCallNode(name, params, id) & "\c\l"
   if self.transport.isNil:
-    var connectStr = ""
-    raise newException(ValueError, "Transport is not initialised (missing a call to connect?)")
+    raise newException(ValueError,
+                    "Transport is not initialised (missing a call to connect?)")
   let res = await self.transport.write(value)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
   assert(res == len(value))
