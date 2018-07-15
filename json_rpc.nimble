@@ -11,8 +11,7 @@ requires "nim >= 0.17.3",
          "stint",
          "https://github.com/status-im/nim-asyncdispatch2",
          "https://github.com/status-im/nim-http-utils",
-         "chronicles",
-         "httputils"
+         "chronicles"
 
 proc configForTests() =
   --hints: off
