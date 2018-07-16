@@ -1,3 +1,2 @@
 import
-  testrpcmacro, testserverclient, testethcalls #, testerrors
-
+  testrpcmacro, testserverclient, testethcalls, testhttp #, testerrors

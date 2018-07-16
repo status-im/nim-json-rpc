@@ -10,6 +10,7 @@ requires "nim >= 0.17.3",
          "nimcrypto",
          "stint",
          "https://github.com/status-im/nim-asyncdispatch2",
+         "https://github.com/status-im/nim-http-utils",
          "chronicles"
 
 proc configForTests() =
