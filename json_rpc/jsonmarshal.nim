@@ -116,25 +116,34 @@ proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string
     `assignIdent` = `unpackArg`(`jsonIdent`, `paramNameStr`, type(`paramType`))
   )
 
+proc calcActualParamCount*(parameters: NimNode): int =
+  for i in 1 ..< parameters.len:
+    inc(result, parameters[i].len-2)
+
 proc jsonToNim*(parameters, jsonIdent: NimNode): NimNode =
   # Add code to verify input and load parameters into Nim types
   result = newStmtList()
   if not parameters.isNil:
     # initial parameter array length check
-    result.expectArrayLen(jsonIdent, parameters.len - 1)
+    result.expectArrayLen(jsonIdent, calcActualParamCount(parameters))
+
     # unpack each parameter and provide assignments
+    var pos = 0
     for i in 1 ..< parameters.len:
       let
-        pos = i - 1
-        paramIdent = parameters[i][0]
-        paramName = $paramIdent
-        paramType = parameters[i][1]
-        jsonElement = quote do:
-          `jsonIdent`.elems[`pos`]
-      # declare variable before assignment
-      result.add(quote do:
-        var `paramIdent`: `paramType`
-      )
-      # unpack Nim type and assign from json
-      result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)
+        param = parameters[i]
+        paramType = param[^2]
 
+      for j in 0 ..< param.len-2:
+        let
+          paramIdent = param[j]
+          paramName = $paramIdent
+          jsonElement = quote do:
+            `jsonIdent`.elems[`pos`]
+        inc pos
+        # declare variable before assignment
+        result.add(quote do:
+          var `paramIdent`: `paramType`
+        )
+        # unpack Nim type and assign from json
+        result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)

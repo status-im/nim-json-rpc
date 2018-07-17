@@ -63,6 +63,9 @@ s.rpc("rpc.returntypecomplex") do(i: int) -> Test2:
 s.rpc("rpc.testreturns") do() -> int:
   return 1234
 
+s.rpc("rpc.multivarsofonetype") do(a, b: string) -> string:
+  result = a & " " & b
+
 # Tests
 suite "Server types":
 
@@ -75,6 +78,7 @@ suite "Server types":
     check s.hasMethod("rpc.returntypesimple")
     check s.hasMethod("rpc.returntypecomplex")
     check s.hasMethod("rpc.testreturns")
+    check s.hasMethod("rpc.multivarsofonetype")
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])
@@ -132,6 +136,10 @@ suite "Server types":
       # wrong param type
       let res = waitFor rpcDifferentParams(%[%"abc", %1])
       # TODO: When errors are proper return values, check error for param name
+
+  test "Multiple variables of one type":
+    let r = waitfor rpcMultiVarsOfOneType(%[%"hello", %"world"])
+    check r == %"hello world"
 
 s.stop()
 s.close()
