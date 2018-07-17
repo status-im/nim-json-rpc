@@ -116,7 +116,10 @@ proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string
     `assignIdent` = `unpackArg`(`jsonIdent`, `paramNameStr`, type(`paramType`))
   )
 
-proc calcActualParamCount*(parameters: NimNode): int =
+proc calcActualParamCount(parameters: NimNode): int =
+  # this proc is needed to calculate the actual parameter count
+  # not matter what is the declaration form
+  # e.g. (a: U, b: V) vs. (a, b: T)
   for i in 1 ..< parameters.len:
     inc(result, parameters[i].len-2)
 
@@ -134,6 +137,8 @@ proc jsonToNim*(parameters, jsonIdent: NimNode): NimNode =
         param = parameters[i]
         paramType = param[^2]
 
+      # processing multiple variables of one type
+      # e.g. (a, b: T), including common (a: U, b: V) form
       for j in 0 ..< param.len-2:
         let
           paramIdent = param[j]
