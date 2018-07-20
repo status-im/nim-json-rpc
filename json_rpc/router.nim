@@ -1,5 +1,5 @@
 import
-  json, tables, asyncdispatch2, jsonmarshal, strutils, macros,  
+  json, tables, asyncdispatch2, jsonmarshal, strutils, macros,
   chronicles, options
 export asyncdispatch2, json, jsonmarshal
 

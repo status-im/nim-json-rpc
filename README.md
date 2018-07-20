@@ -40,7 +40,7 @@ When an error occurs, the `error` is populated, otherwise `result` will be popul
 Here's a simple example:
 
 ```nim
-import rpcserver
+import json_rpc/rpcserver
 
 var router = newRpcRouter()
 
@@ -272,7 +272,7 @@ This example uses the socket transport defined in `socket.nim`.
 Once executed, the "hello" RPC will be available to a socket based client.
 
 ```nim
-import rpcserver
+import json_rpc/rpcserver
 
 # Create a socket server for transport
 var srv = newRpcSocketServer("localhost", Port(8585))
@@ -298,7 +298,7 @@ The `call` procedure takes care of the basic format of the JSON to send to the s
 However you still need to provide `params` as a `JsonNode`, which must exactly match the parameters defined in the equivalent `rpc` definition.
 
 ```nim
-import rpcclient, rpcserver, asyncdispatch, json
+import json_rpc/[rpcclient, rpcserver], asyncdispatch, json
 
 var
   server = newRpcSocketServer("localhost", Port(8545))

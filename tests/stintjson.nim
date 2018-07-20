@@ -1,5 +1,5 @@
 import json, stint
-from ../rpcserver import expect
+from ../json_rpc/rpcserver import expect
 
 template stintStr(n: UInt256|Int256): JsonNode =
   var s = n.toHex

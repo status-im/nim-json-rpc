@@ -58,8 +58,8 @@ template hexQuantityStr*(value: string): HexQuantityStr = value.HexQuantityStr
 
 # Converters
 
-import json 
-from ../rpcserver import expect
+import json
+from ../json_rpc/rpcserver import expect
 
 proc `%`*(value: HexDataStr): JsonNode =
   if not value.validate:
