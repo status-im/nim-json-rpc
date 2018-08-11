@@ -298,7 +298,7 @@ The `call` procedure takes care of the basic format of the JSON to send to the s
 However you still need to provide `params` as a `JsonNode`, which must exactly match the parameters defined in the equivalent `rpc` definition.
 
 ```nim
-import json_rpc/[rpcclient, rpcserver], asyncdispatch, json
+import json_rpc/[rpcclient, rpcserver], asyncdispatch2, json
 
 var
   server = newRpcSocketServer("localhost", Port(8545))
