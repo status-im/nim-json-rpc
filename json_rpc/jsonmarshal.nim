@@ -9,8 +9,11 @@ proc `%`*(n: byte{not lit}): JsonNode =
 proc `%`*(n: uint64{not lit}): JsonNode =
   result = newJInt(int(n))
 
-proc `%`*(n: ref int|ref int64): JsonNode =
-  result = newJInt(int(n[]))
+proc `%`*(n: ref int | ref int64): JsonNode =
+  if n.isNil:
+    result = newJNull()
+  else:
+    result = newJInt(n[])
 
 # Compiler requires forward decl when processing out of module
 proc fromJson(n: JsonNode, argName: string, result: var bool)
