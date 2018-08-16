@@ -9,7 +9,7 @@ proc `%`*(n: byte{not lit}): JsonNode =
 proc `%`*(n: uint64{not lit}): JsonNode =
   result = newJInt(int(n))
 
-proc `%`*(n: ref int | ref int64): JsonNode =
+proc `%`*(n: ref SomeInteger): JsonNode =
   if n.isNil:
     result = newJNull()
   else:
