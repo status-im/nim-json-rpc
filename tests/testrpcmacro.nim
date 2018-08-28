@@ -1,4 +1,4 @@
-import unittest, json, tables, chronicles
+import unittest, json, tables, chronicles, options
 import ../json_rpc/rpcserver
 
 type
@@ -11,10 +11,14 @@ type
     a: array[0..1, int]
     b: Test2
 
-  MyObject* = object
+  MyObject = object
     a: int
     b: Test
     c: float
+
+  MyOptional = object
+    maybeInt: Option[int]
+
 let
   testObj = %*{
     "a": %1,
@@ -52,7 +56,6 @@ s.rpc("rpc.seqparam") do(a: string, s: seq[int]):
 s.rpc("rpc.objparam") do(a: string, obj: MyObject):
   result = %obj
 
-
 s.rpc("rpc.returntypesimple") do(i: int) -> int:
   result = i
 
@@ -65,6 +68,9 @@ s.rpc("rpc.testreturns") do() -> int:
 
 s.rpc("rpc.multivarsofonetype") do(a, b: string) -> string:
   result = a & " " & b
+
+s.rpc("rpc.optional") do(obj: MyOptional) -> MyOptional:
+  result = obj
 
 # Tests
 suite "Server types":
@@ -117,6 +123,15 @@ suite "Server types":
       inp = 99
       r1 = waitfor rpcReturnTypeComplex(%[%inp])
     check r1 == %*{"x": %[1, inp, 3], "y": "test"}
+
+  test "Option types":
+    let
+      inp1 = MyOptional(maybeInt: some(75))
+      inp2 = MyOptional()
+      r1 = waitfor rpcOptional(%[%inp1])
+      r2 = waitfor rpcOptional(%[%inp2])
+    check r1 == %inp1
+    check r2 == %inp2
 
   test "Return statement":
     let r = waitFor rpcTestReturns(%[])
