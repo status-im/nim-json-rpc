@@ -3,7 +3,7 @@ import macros, json, options, typetraits
 template expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 
-template expectType*(actual: JsonNodeKind, expected: typedesc, argName: string) =
+template expectType*(actual: JsonNodeKind, expected: typedesc, argName: string, allowNull = false) =
   var expType: JsonNodeKind
   when expected is array:
     expType = JArray
@@ -21,7 +21,8 @@ template expectType*(actual: JsonNodeKind, expected: typedesc, argName: string) 
     const eStr = "Unable to convert " & expected.name & " to JSON for expectType" 
     {.fatal: eStr}
   if actual != expType:
-    raise newException(ValueError, "Parameter [" & argName & "] expected " & expected.name & " but got " & $actual)
+    if allowNull == false or (allowNull and actual != JNull):
+      raise newException(ValueError, "Parameter [" & argName & "] expected " & expected.name & " but got " & $actual)
 
 proc `%`*(n: byte{not lit}): JsonNode =
   result = newJInt(int(n))
@@ -55,7 +56,7 @@ proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
 
 proc fromJson[T](n: JsonNode, argName: string, result: var Option[T]) =
-  n.kind.expectType(T, argName)
+  n.kind.expectType(T, argName, true) # Allow JNull
   if n.kind != JNull:
     var val: T
     fromJson(n, argName, val)
