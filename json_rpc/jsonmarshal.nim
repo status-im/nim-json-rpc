@@ -1,7 +1,27 @@
-import macros, json
+import macros, json, options, typetraits
 
 template expect*(actual, expected: JsonNodeKind, argName: string) =
-  if actual != expected: raise newException(ValueError, "Parameter \"" & argName & "\" expected " & $expected & " but got " & $actual)
+  if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
+
+template expectType*(actual: JsonNodeKind, expected: typedesc, argName: string) =
+  var expType: JsonNodeKind
+  when expected is array:
+    expType = JArray
+  elif expected is object:
+    expType = JObject
+  elif expected is int:
+    expType = JInt
+  elif expected is float:
+    expType = JFloat
+  elif expected is bool:
+    expType = JBool
+  elif expected is string:
+    expType = JString
+  else:
+    const eStr = "Unable to convert " & expected.name & " to JSON for expectType" 
+    {.fatal: eStr}
+  if actual != expType:
+    raise newException(ValueError, "Parameter [" & argName & "] expected " & expected.name & " but got " & $actual)
 
 proc `%`*(n: byte{not lit}): JsonNode =
   result = newJInt(int(n))
@@ -15,6 +35,12 @@ proc `%`*(n: ref SomeInteger): JsonNode =
   else:
     result = newJInt(n[])
 
+proc `%`*[T](option: Option[T]): JsonNode =
+  if option.isSome:
+    result = `%`(option.get)
+  else:
+    result = newJNull()
+
 # Compiler requires forward decl when processing out of module
 proc fromJson(n: JsonNode, argName: string, result: var bool)
 proc fromJson(n: JsonNode, argName: string, result: var int)
@@ -27,6 +53,13 @@ proc fromJson(n: JsonNode, argName: string, result: var int64)
 proc fromJson(n: JsonNode, argName: string, result: var uint64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
+
+proc fromJson[T](n: JsonNode, argName: string, result: var Option[T]) =
+  n.kind.expectType(T, argName)
+  if n.kind != JNull:
+    var val: T
+    fromJson(n, argName, val)
+    result = some(val)
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
