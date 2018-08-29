@@ -1,9 +1,9 @@
 import macros, json, options, typetraits
 
-template expect*(actual, expected: JsonNodeKind, argName: string) =
+proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 
-template expectType*(actual: JsonNodeKind, expected: typedesc, argName: string, allowNull = false) =
+proc expectType*(actual: JsonNodeKind, expected: typedesc, argName: string, allowNull = false) =
   var expType: JsonNodeKind
   when expected is array:
     expType = JArray

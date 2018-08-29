@@ -59,7 +59,7 @@ proc clear*(router: var RpcRouter) = router.procs.clear
 
 proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasKey(methodName)
 
-template isEmpty(node: JsonNode): bool = node.isNil or node.kind == JNull
+func isEmpty(node: JsonNode): bool = node.isNil or node.kind == JNull
 
 # Json state checking
 
