@@ -15,12 +15,14 @@ proc encodeQuantity*(value: SomeUnsignedInt): string =
   var hValue = value.toHex.stripLeadingZeros
   result = "0x" & hValue
 
-template hasHexHeader*(value: string | HexDataStr | HexQuantityStr): bool =
-  template strVal: untyped = value.string
+func hasHexHeader*(value: string): bool =
   if strVal != "" and strVal[0] == '0' and strVal[1] in {'x', 'X'} and strVal.len > 2: true
   else: false
 
-template isHexChar*(c: char): bool =
+template hasHexHeader*(value: HexDataStr|HexQuantityStr): bool =
+  value.string.hasHexHeader
+
+func isHexChar*(c: char): bool =
   if  c notin {'0'..'9'} and
       c notin {'a'..'f'} and
       c notin {'A'..'F'}: false
