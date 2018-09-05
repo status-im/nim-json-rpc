@@ -1,13 +1,16 @@
-**Json-rpc**
+# json-rpc
 
-[![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-eth-rpc/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-eth-rpc)
-[![Windows build status (Appveyor)](https://img.shields.io/appveyor/ci/jarradh/nim-eth-rpc/master.svg?label=Windows "Windows build status (Appveyor)")](https://ci.appveyor.com/project/jarradh/nim-eth-rpc)
+[![Build Status (Travis)](https://img.shields.io/travis/status-im/nim-json-rpc/master.svg?label=Linux%20/%20macOS "Linux/macOS build status (Travis)")](https://travis-ci.org/status-im/nim-json-rpc)
+[![Windows build status (Appveyor)](https://img.shields.io/appveyor/ci/nimbus/nim-json-rpc/master.svg?label=Windows "Windows build status (Appveyor)")](https://ci.appveyor.com/project/nimbus/nim-json-rpc)
+[![License: Apache](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 
 Json-Rpc is a library designed to provide an easier interface for working with remote procedure calls.
 
 # Installation
 
-`git clone https://github.com/status-im/nim-eth-rpc`
+`git clone https://github.com/status-im/nim-json-rpc`
 
 
 ### Requirements
@@ -401,7 +404,9 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 Please make sure to update tests as appropriate.
 
-# License
-[MIT](https://choosealicense.com/licenses/mit/)
-or
-Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+## License
+
+Licensed under both of the following:
+
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license: [LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT
