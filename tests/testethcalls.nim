@@ -74,4 +74,4 @@ suite "Generated from signatures":
     check sigResults[1] == "0x47173285A8D7341E5E972FC677286384F802F8EF42A5EC5F03BBFA254CB01FAD"
 
 server.stop()
-server.close()
+waitFor server.closeWait()
