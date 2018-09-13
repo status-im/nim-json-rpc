@@ -319,3 +319,8 @@ proc close*(server: RpcHttpServer) =
   ## Cleanup resources of RPC server.
   for item in server.servers:
     item.close()
+
+proc closeWait*(server: RpcHttpServer) {.async.} =
+  ## Cleanup resources of RPC server.
+  for item in server.servers:
+    await item.closeWait()
