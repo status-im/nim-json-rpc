@@ -1,7 +1,7 @@
 import unittest, json, chronicles
 import  ../json_rpc/[rpcclient, rpcserver]
 
-var srv = newRpcSocketServer(["localhost:8546"])
+var srv = newRpcSocketServer(["localhost:8545"])
 var client = newRpcSocketClient()
 
 # Create RPC on server
@@ -9,7 +9,7 @@ srv.rpc("myProc") do(input: string, data: array[0..3, int]):
   result = %("Hello " & input & " data: " & $data)
 
 srv.start()
-waitFor client.connect("localhost", Port(8546))
+waitFor client.connect("localhost", Port(8545))
 
 # TODO: When an error occurs during a test, stop the server
 suite "Server/Client RPC":

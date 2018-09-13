@@ -7,7 +7,7 @@ from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 var
-  server = newRpcSocketServer("localhost", Port(8546))
+  server = newRpcSocketServer("localhost", Port(8545))
   client = newRpcSocketClient()
 
 ## Generate Ethereum server RPCs
@@ -49,7 +49,7 @@ proc testSigCalls: Future[seq[string]] =
   result = all(version, sha3)
 
 server.start()
-waitFor client.connect("localhost", Port(8546))
+waitFor client.connect("localhost", Port(8545))
 
 
 suite "Local calls":
