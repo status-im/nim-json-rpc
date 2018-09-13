@@ -157,4 +157,4 @@ suite "Server types":
     check r == %"hello world"
 
 s.stop()
-s.close()
+waitFor s.closeWait()

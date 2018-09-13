@@ -7,7 +7,7 @@ from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 var
-  server = newRpcSocketServer("localhost", Port(8546))
+  server = newRpcSocketServer("localhost", Port(8545))
   client = newRpcSocketClient()
 
 ## Generate Ethereum server RPCs
@@ -49,7 +49,7 @@ proc testSigCalls: Future[seq[string]] =
   result = all(version, sha3)
 
 server.start()
-waitFor client.connect("localhost", Port(8546))
+waitFor client.connect("localhost", Port(8545))
 
 
 suite "Local calls":
@@ -74,4 +74,4 @@ suite "Generated from signatures":
     check sigResults[1] == "0x47173285A8D7341E5E972FC677286384F802F8EF42A5EC5F03BBFA254CB01FAD"
 
 server.stop()
-server.close()
+waitFor server.closeWait()

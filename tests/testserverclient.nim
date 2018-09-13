@@ -18,4 +18,4 @@ suite "Server/Client RPC":
     check r.result.getStr == "Hello abc data: [1, 2, 3, 4]"
 
 srv.stop()
-srv.close()
+waitFor srv.closeWait()

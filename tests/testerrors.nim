@@ -6,11 +6,11 @@
 import unittest, debugclient, ../json_rpc/rpcserver
 import strformat, chronicles
 
-var server = newRpcSocketServer("localhost", 8547.Port)
+var server = newRpcSocketServer("localhost", Port(8545))
 var client = newRpcSocketClient()
 
 server.start()
-waitFor client.connect("localhost", Port(8547))
+waitFor client.connect("localhost", Port(8545))
 
 server.rpc("rpc") do(a: int, b: int):
   result = %(&"a: {a}, b: {b}")

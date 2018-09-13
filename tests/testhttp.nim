@@ -177,4 +177,4 @@ suite "HTTP Server/HTTP Client RPC test suite":
     check waitFor(disconTest("localhost", Port(8545), 7, 200)) == true
 
 httpsrv.stop()
-httpsrv.close()
+waitFor httpsrv.closeWait()
