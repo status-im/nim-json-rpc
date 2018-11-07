@@ -23,6 +23,7 @@ proc sendRequest(transp: StreamTransport,
   request.add($HttpVersion11)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
+  request.add("Host: " & $transp.remoteAddress & "\r\n")
   request.add("Content-Type: application/json\r\n")
   request.add("Content-Length: " & $len(data) & "\r\n")
   request.add("Connection: keep-alive\r\n")
