@@ -6,6 +6,10 @@ logScope:
   topic = "JSONRPC-HTTP-CLIENT"
 
 type
+  TransferMode = enum
+    tmFixedLength
+    tmChunked
+
   RpcHttpClient* = ref object of RpcClient
     transp*: StreamTransport
     addresses: seq[TransportAddress]
@@ -26,8 +30,10 @@ proc sendRequest(transp: StreamTransport,
   request.add("Host: " & $transp.remoteAddress & "\r\n")
   request.add("Content-Type: application/json\r\n")
   request.add("Content-Length: " & $len(data) & "\r\n")
+  request.add("Accept: */*\r\n")
   request.add("Connection: keep-alive\r\n")
   request.add("\r\n")
+
   if len(data) > 0:
     request.add(data)
   try:
@@ -39,7 +45,8 @@ proc sendRequest(transp: StreamTransport,
     result = false
 
 proc validateResponse*(transp: StreamTransport,
-                       header: HttpResponseHeader): bool =
+                       header: HttpResponseHeader,
+                       transferMode: var TransferMode): bool =
   if header.code != 200:
     debug "Server returns error",
            httpcode = header.code,
@@ -56,6 +63,30 @@ proc validateResponse*(transp: StreamTransport,
     result = false
     return
 
+  if header.code >= 100 and header.code <= 199:
+    debug "unsupported response code", code = header.code,
+          address = transp.remoteAddress()
+    result = false
+    return
+
+  if header.code == 204:
+    debug "no content response", code = header.code,
+          address = transp.remoteAddress()
+    result = false
+    return
+
+  if header.contains("Transfer-Encoding"):
+    var tmode = header["Transfer-Encoding"]
+    if tmode.toLowerAscii() == "identity":
+      debug "unsupported transfer mode", mode = tmode,
+            address = transp.remoteAddress()
+      result = false
+      return
+
+    transferMode = tmChunked
+    result = true
+    return
+
   let length = header.contentLength()
   if length <= 0:
     # request length could not be calculated.
@@ -63,6 +94,7 @@ proc validateResponse*(transp: StreamTransport,
     result = false
     return
 
+  transferMode = tmFixedLength
   result = true
 
 proc recvData(transp: StreamTransport): Future[string] {.async.} =
@@ -101,33 +133,72 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
           error = getCurrentExceptionMsg()
     error = true
 
-  if error or not transp.validateResponse(header):
+  var transferMode: TransferMode
+  if error or not transp.validateResponse(header, transferMode):
     transp.close()
     result = ""
     return
 
-  let length = header.contentLength()
-  buffer.setLen(length)
-  try:
-    let blenfut = transp.readExactly(addr buffer[0], length)
-    let ores = await withTimeout(blenfut, HttpBodyTimeout)
-    if not ores:
-      # Timeout
-      debug "Timeout expired while receiving request body",
-            address = transp.remoteAddress()
+  if transferMode == tmFixedLength:
+    let length = header.contentLength()
+    buffer.setLen(length)
+    try:
+      let blenfut = transp.readExactly(addr buffer[0], length)
+      let ores = await withTimeout(blenfut, HttpBodyTimeout)
+      if not ores:
+        # Timeout
+        debug "Timeout expired while receiving request body",
+              address = transp.remoteAddress()
+        error = true
+      else:
+        blenfut.read()
+    except TransportIncompleteError:
+      # remote peer disconnected
+      debug "Remote peer disconnected", address = transp.remoteAddress()
       error = true
-    else:
-      blenfut.read()
+    except TransportOsError:
+      debug "Problems with networking", address = transp.remoteAddress(),
+            error = getCurrentExceptionMsg()
+      error = true
+  else:
+    try:
+      # combining chunks
+      buffer.setLen(0)
+      while true:
+        let line = await transp.readLine()
+        if line.len == 0: break
+        let hasExt = line.find(';')
+        let length = if hasExt == -1: line.parseHexInt()
+                     else: line.substr(0, hasExt-1).parseHexInt()
+        if length == 0: break
 
-  except TransportIncompleteError:
-    # remote peer disconnected
-    debug "Remote peer disconnected", address = transp.remoteAddress()
-    error = true
-  except TransportOsError:
-    debug "Problems with networking", address = transp.remoteAddress(),
-          error = getCurrentExceptionMsg()
-    error = true
+        let prevLen = buffer.len
+        buffer.setLen(prevLen + length)
 
+        let blenfut = transp.readExactly(addr buffer[prevLen], length)
+        let ores = await withTimeout(blenfut, HttpBodyTimeout)
+        if not ores:
+          # Timeout
+          debug "Timeout expired while receiving request body",
+                address = transp.remoteAddress()
+          error = true
+        else:
+          blenfut.read()
+
+      # additional HTTP header at the end of
+      # message
+      while true:
+        let line = await transp.readLine()
+        if line.len == 0: break
+
+    except TransportIncompleteError:
+      # remote peer disconnected
+      debug "Remote peer disconnected", address = transp.remoteAddress()
+      error = true
+    except TransportOsError:
+      debug "Problems with networking", address = transp.remoteAddress(),
+            error = getCurrentExceptionMsg()
+      error = true
   if error:
     transp.close()
     result = ""
