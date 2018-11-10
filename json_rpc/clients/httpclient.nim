@@ -7,7 +7,7 @@ logScope:
 
 type
   TransferMode = enum
-    tmFixedLength
+    tmContentLength
     tmChunked
 
   RpcHttpClient* = ref object of RpcClient
@@ -94,7 +94,7 @@ proc validateResponse*(transp: StreamTransport,
     result = false
     return
 
-  transferMode = tmFixedLength
+  transferMode = tmContentLength
   result = true
 
 proc recvData(transp: StreamTransport): Future[string] {.async.} =
@@ -139,7 +139,7 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     result = ""
     return
 
-  if transferMode == tmFixedLength:
+  if transferMode == tmContentLength:
     let length = header.contentLength()
     buffer.setLen(length)
     try:
@@ -163,7 +163,7 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
   else:
     try:
       # combining chunks
-      buffer.setLen(0)
+      var prevLen = 0
       while true:
         let line = await transp.readLine()
         if line.len == 0: break
@@ -172,10 +172,12 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
                      else: line.substr(0, hasExt-1).parseHexInt()
         if length == 0: break
 
-        let prevLen = buffer.len
-        buffer.setLen(prevLen + length)
+        if buffer.len < prevLen + length:
+          buffer.setLen(prevLen + length)
 
         let blenfut = transp.readExactly(addr buffer[prevLen], length)
+        inc(prevLen, length)
+
         let ores = await withTimeout(blenfut, HttpBodyTimeout)
         if not ores:
           # Timeout
@@ -185,6 +187,7 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
         else:
           blenfut.read()
 
+      buffer.setLen(prevLen)
       # additional HTTP header at the end of
       # message
       while true:
