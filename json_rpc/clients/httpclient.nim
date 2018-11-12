@@ -6,10 +6,6 @@ logScope:
   topic = "JSONRPC-HTTP-CLIENT"
 
 type
-  HttpMethod* {.pure.} = enum
-    GET
-    POST
-
   HttpClientOptions* = object
     httpMethod: HttpMethod
 
@@ -143,7 +139,7 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     result = cast[string](buffer)
 
 proc init(opts: var HttpClientOptions) =
-  opts.httpMethod = HttpMethod.GET
+  opts.httpMethod = MethodGet
 
 proc newRpcHttpClient*(): RpcHttpClient =
   ## Creates a new HTTP client instance.
