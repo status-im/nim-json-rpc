@@ -6,9 +6,17 @@ logScope:
   topic = "JSONRPC-HTTP-CLIENT"
 
 type
+  HttpMethod* {.pure.} = enum
+    GET
+    POST
+
+  HttpClientOptions* = object
+    httpMethod: HttpMethod
+
   RpcHttpClient* = ref object of RpcClient
     transp*: StreamTransport
     addresses: seq[TransportAddress]
+    options: HttpClientOptions
 
 const
   MaxHttpHeadersSize = 8192       # maximum size of HTTP headers in octets
@@ -18,8 +26,8 @@ const
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 proc sendRequest(transp: StreamTransport,
-                 data: string): Future[bool] {.async.} =
-  var request = "GET / "
+                 data: string, options: HttpClientOptions): Future[bool] {.async.} =
+  var request = $options.httpMethod & " / "
   request.add($HttpVersion11)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
@@ -134,10 +142,20 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
   else:
     result = cast[string](buffer)
 
+proc init(opts: var HttpClientOptions) =
+  opts.httpMethod = HttpMethod.GET
+
 proc newRpcHttpClient*(): RpcHttpClient =
   ## Creates a new HTTP client instance.
   new result
   result.initRpcClient()
+  result.options.init()
+
+proc httpMethod*(client: RpcHttpClient): HttpMethod =
+  client.options.httpMethod
+
+proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
+  client.options.httpMethod = m
 
 proc call*(client: RpcHttpClient, name: string,
            params: JsonNode): Future[Response] {.async.} =
@@ -148,7 +166,7 @@ proc call*(client: RpcHttpClient, name: string,
   if isNil(client.transp) or client.transp.closed():
     raise newException(ValueError,
       "Transport is not initialised or already closed")
-  let res = await client.transp.sendRequest(value)
+  let res = await client.transp.sendRequest(value, client.options)
   if not res:
     debug "Failed to send message to RPC server",
           address = client.transp.remoteAddress(), msg_len = res
