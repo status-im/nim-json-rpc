@@ -34,7 +34,6 @@ let
 var s = newRpcSocketServer(["localhost:8545"])
 
 # RPC definitions
-
 s.rpc("rpc.simplepath"):
   result = %1
 
@@ -72,9 +71,14 @@ s.rpc("rpc.multivarsofonetype") do(a, b: string) -> string:
 s.rpc("rpc.optional") do(obj: MyOptional) -> MyOptional:
   result = obj
 
+s.rpc("rpc.optionalArg") do(val: int, obj: Option[MyOptional]) -> MyOptional:
+  if obj.isSome():
+    result = obj.get()
+  else:
+    result = MyOptional(maybeInt: some(val))
+
 # Tests
 suite "Server types":
-
   test "On macro registration":
     check s.hasMethod("rpc.simplepath")
     check s.hasMethod("rpc.differentparams")
@@ -85,6 +89,7 @@ suite "Server types":
     check s.hasMethod("rpc.returntypecomplex")
     check s.hasMethod("rpc.testreturns")
     check s.hasMethod("rpc.multivarsofonetype")
+    check s.hasMethod("rpc.optionalArg")
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])
@@ -155,6 +160,15 @@ suite "Server types":
   test "Multiple variables of one type":
     let r = waitfor rpcMultiVarsOfOneType(%[%"hello", %"world"])
     check r == %"hello world"
+
+  test "Optional arg":
+    let
+      int1 = MyOptional(maybeInt: some(75))
+      int2 = MyOptional(maybeInt: some(117))
+      r1 = waitFor rpcOptionalArg(%[%117, %int1])
+      r2 = waitFor rpcOptionalArg(%[%117])
+    check r1 == %int1
+    check r2 == %int2
 
 s.stop()
 waitFor s.closeWait()

@@ -18,7 +18,7 @@ template expectType*(actual: JsonNodeKind, expected: typedesc, argName: string, 
   elif expected is string:
     expType = JString
   else:
-    const eStr = "Unable to convert " & expected.name & " to JSON for expectType" 
+    const eStr = "Unable to convert " & expected.name & " to JSON for expectType"
     {.fatal: eStr}
   if actual != expType:
     if allowNull == false or (allowNull and actual != JNull):
@@ -144,48 +144,108 @@ proc expectArrayLen(node: NimNode, jsonIdent: untyped, length: int) =
       raise newException(ValueError, `expectedStr` & $`jsonIdent`.len)
   )
 
-proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string): NimNode =
+iterator paramsIter(params: NimNode): tuple[name, ntype: NimNode] =
+  for i in 1 ..< params.len:
+    let arg = params[i]
+    let argType = arg[^2]
+    for j in 0 ..< arg.len-2:
+      yield (arg[j], argType)
+
+proc isOptionalArg(typeNode: NimNode): bool =
+  if typeNode.kind != nnkBracketExpr:
+    result = false
+    return
+
+  result = typeNode[0].kind == nnkIdent and
+           typeNode[0].strVal == "Option"
+
+proc expectOptionalArrayLen(node, parameters: NimNode, jsonIdent: untyped, maxLength: int) =
+  var
+    meetOptional = false
+    minLength = 0
+    idx = 0
+
+  for arg, typ in paramsIter(parameters):
+    if typ.isOptionalArg:
+      if not meetOptional: minLength = idx
+      meetOptional = true
+    else:
+      if meetOptional:
+        macros.error("cannot have regular parameters: `" & $arg & "` after optional one", arg)
+    inc idx
+
+  let
+    identStr = jsonIdent.repr
+    expectedStr = "Expected at least " & $minLength & " and maximum " & $maxLength & " Json parameter(s) but got "
+
+  node.add(quote do:
+    `jsonIdent`.kind.expect(JArray, `identStr`)
+    if `jsonIdent`.len < `minLength`:
+      raise newException(ValueError, `expectedStr` & $`jsonIdent`.len)
+  )
+
+proc containsOptionalArg(params: NimNode): bool =
+  for n, t in paramsIter(params):
+    if t.isOptionalArg:
+      result = true
+      break
+
+proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string, optional = false): NimNode =
   # verify input and load a Nim type from json data
   # note: does not create `assignIdent`, so can be used for `result` variables
   result = newStmtList()
   # unpack each parameter and provide assignments
-  result.add(quote do:
-    `assignIdent` = `unpackArg`(`jsonIdent`, `paramNameStr`, type(`paramType`))
-  )
+  let unpackNode = quote do:
+    `unpackArg`(`jsonIdent`, `paramNameStr`, type(`paramType`))
 
-proc calcActualParamCount(parameters: NimNode): int =
+  if optional:
+    result.add(quote do: `assignIdent` = `some`(`unpackNode`))
+  else:
+    result.add(quote do: `assignIdent` = `unpackNode`)
+
+proc calcActualParamCount(params: NimNode): int =
   # this proc is needed to calculate the actual parameter count
   # not matter what is the declaration form
   # e.g. (a: U, b: V) vs. (a, b: T)
-  for i in 1 ..< parameters.len:
-    inc(result, parameters[i].len-2)
+  for n, t in paramsIter(params):
+    inc result
 
-proc jsonToNim*(parameters, jsonIdent: NimNode): NimNode =
-  # Add code to verify input and load parameters into Nim types
+proc jsonToNim*(params, jsonIdent: NimNode): NimNode =
+  # Add code to verify input and load params into Nim types
   result = newStmtList()
-  if not parameters.isNil:
-    # initial parameter array length check
-    result.expectArrayLen(jsonIdent, calcActualParamCount(parameters))
+  if not params.isNil:
+    let paramsWithOptionalArg = params.containsOptionalArg()
+    if paramsWithOptionalArg:
+      # more elaborate parameters array check
+      result.expectOptionalArrayLen(params, jsonIdent,
+        calcActualParamCount(params))
+    else:
+      # simple parameters array length check
+      result.expectArrayLen(jsonIdent, calcActualParamCount(params))
 
     # unpack each parameter and provide assignments
     var pos = 0
-    for i in 1 ..< parameters.len:
-      let
-        param = parameters[i]
-        paramType = param[^2]
-
+    for paramIdent, paramType in paramsIter(params):
       # processing multiple variables of one type
       # e.g. (a, b: T), including common (a: U, b: V) form
-      for j in 0 ..< param.len-2:
+      let
+        paramName = $paramIdent
+        jsonElement = quote do:
+          `jsonIdent`.elems[`pos`]
+
+      inc pos
+      # declare variable before assignment
+      result.add(quote do:
+        var `paramIdent`: `paramType`
+      )
+
+      if paramType.isOptionalArg:
         let
-          paramIdent = param[j]
-          paramName = $paramIdent
-          jsonElement = quote do:
-            `jsonIdent`.elems[`pos`]
-        inc pos
-        # declare variable before assignment
+          innerType = paramType[1]
+          innerNode = jsonToNim(paramIdent, innerType, jsonElement, paramName, true)
         result.add(quote do:
-          var `paramIdent`: `paramType`
+          if `jsonIdent`.len >= `pos`: `innerNode`
         )
+      else:
         # unpack Nim type and assign from json
         result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)
