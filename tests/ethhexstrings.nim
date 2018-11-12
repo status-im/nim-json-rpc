@@ -16,7 +16,7 @@ proc encodeQuantity*(value: SomeUnsignedInt): string =
   result = "0x" & hValue
 
 func hasHexHeader*(value: string): bool =
-  if strVal != "" and strVal[0] == '0' and strVal[1] in {'x', 'X'} and strVal.len > 2: true
+  if value != "" and value[0] == '0' and value[1] in {'x', 'X'} and value.len > 2: true
   else: false
 
 template hasHexHeader*(value: HexDataStr|HexQuantityStr): bool =
