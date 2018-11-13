@@ -22,8 +22,8 @@ const
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 proc sendRequest(transp: StreamTransport,
-                 data: string, options: HttpClientOptions): Future[bool] {.async.} =
-  var request = $options.httpMethod & " / "
+                 data: string, httpMethod: HttpMethod): Future[bool] {.async.} =
+  var request = $httpMethod & " / "
   request.add($HttpVersion11)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
@@ -154,7 +154,7 @@ proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
   client.options.httpMethod = m
 
 proc call*(client: RpcHttpClient, name: string,
-           params: JsonNode): Future[Response] {.async.} =
+           params: JsonNode, httpMethod: HttpMethod): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
@@ -162,7 +162,7 @@ proc call*(client: RpcHttpClient, name: string,
   if isNil(client.transp) or client.transp.closed():
     raise newException(ValueError,
       "Transport is not initialised or already closed")
-  let res = await client.transp.sendRequest(value, client.options)
+  let res = await client.transp.sendRequest(value, httpMethod)
   if not res:
     debug "Failed to send message to RPC server",
           address = client.transp.remoteAddress(), msg_len = res
@@ -177,6 +177,10 @@ proc call*(client: RpcHttpClient, name: string,
   # add to awaiting responses
   client.awaiting[id] = newFut
   result = await newFut
+
+template call*(client: RpcHttpClient, name: string,
+               params: JsonNode): untyped =
+  client.call(name, params, client.httpMethod)
 
 proc processData(client: RpcHttpClient) {.async.} =
   while true:
