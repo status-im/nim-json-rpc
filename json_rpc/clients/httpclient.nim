@@ -10,9 +10,13 @@ type
     tmContentLength
     tmChunked
 
+  HttpClientOptions* = object
+    httpMethod: HttpMethod
+
   RpcHttpClient* = ref object of RpcClient
     transp*: StreamTransport
     addresses: seq[TransportAddress]
+    options: HttpClientOptions
 
 const
   MaxHttpHeadersSize = 8192       # maximum size of HTTP headers in octets
@@ -22,8 +26,8 @@ const
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 proc sendRequest(transp: StreamTransport,
-                 data: string): Future[bool] {.async.} =
-  var request = "GET / "
+                 data: string, httpMethod: HttpMethod): Future[bool] {.async.} =
+  var request = $httpMethod & " / "
   request.add($HttpVersion11)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
@@ -208,13 +212,23 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
   else:
     result = cast[string](buffer)
 
+proc init(opts: var HttpClientOptions) =
+  opts.httpMethod = MethodGet
+
 proc newRpcHttpClient*(): RpcHttpClient =
   ## Creates a new HTTP client instance.
   new result
   result.initRpcClient()
+  result.options.init()
+
+proc httpMethod*(client: RpcHttpClient): HttpMethod =
+  client.options.httpMethod
+
+proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
+  client.options.httpMethod = m
 
 proc call*(client: RpcHttpClient, name: string,
-           params: JsonNode): Future[Response] {.async.} =
+           params: JsonNode, httpMethod: HttpMethod): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
@@ -222,7 +236,7 @@ proc call*(client: RpcHttpClient, name: string,
   if isNil(client.transp) or client.transp.closed():
     raise newException(ValueError,
       "Transport is not initialised or already closed")
-  let res = await client.transp.sendRequest(value)
+  let res = await client.transp.sendRequest(value, httpMethod)
   if not res:
     debug "Failed to send message to RPC server",
           address = client.transp.remoteAddress(), msg_len = res
@@ -237,6 +251,10 @@ proc call*(client: RpcHttpClient, name: string,
   # add to awaiting responses
   client.awaiting[id] = newFut
   result = await newFut
+
+template call*(client: RpcHttpClient, name: string,
+               params: JsonNode): untyped =
+  client.call(name, params, client.httpMethod)
 
 proc processData(client: RpcHttpClient) {.async.} =
   while true:
