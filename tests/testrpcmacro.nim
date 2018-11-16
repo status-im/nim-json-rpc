@@ -77,6 +77,23 @@ s.rpc("rpc.optionalArg") do(val: int, obj: Option[MyOptional]) -> MyOptional:
   else:
     result = MyOptional(maybeInt: some(val))
 
+type
+  OptionalFields = object
+    a: int
+    b: Option[int]
+    c: string
+    d: Option[int]
+    e: Option[string]
+
+s.rpc("rpc.mixedOptionalArg") do(a: int, b: Option[int], c: string,
+  d: Option[int], e: Option[string]) -> OptionalFields:
+
+  result.a = a
+  result.b = b
+  result.c = c
+  result.d = d
+  result.e = e
+
 # Tests
 suite "Server types":
   test "On macro registration":
@@ -170,5 +187,12 @@ suite "Server types":
     check r1 == %int1
     check r2 == %int2
 
+  test "mixed optional arg":
+    var ax = waitFor rpcMixedOptionalArg(%[%10, %11, %"hello", %12, %"world"])
+    check ax == %OptionalFields(a: 10, b: some(11), c: "hello", d: some(12), e: some("world"))
+    var bx = waitFor rpcMixedOptionalArg(%[%10, newJNull(), %"hello"])
+    check bx == %OptionalFields(a: 10, c: "hello")
+
 s.stop()
 waitFor s.closeWait()
+

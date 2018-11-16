@@ -74,7 +74,7 @@ Here is a more complex parameter example:
 ```nim
 type
   HeaderKind = enum hkOne, hkTwo, hkThree
-  
+
   Header = ref object
     kind: HeaderKind
     size: int64
@@ -88,7 +88,7 @@ type
     name: string
 
 router.rpc("updateData") do(myObj: MyObject, newData: DataBlob) -> DataBlob:
-  result = myObj.data  
+  result = myObj.data
   myObj.data = newData
 ```
 
@@ -96,6 +96,37 @@ Behind the scenes, all RPC calls take a single json parameter `param` that must 
 At runtime, the json is checked to ensure that it contains the correct number and type of your parameters to match the `rpc` definition.
 
 Compiling with `-d:nimDumpRpcs` will show the output code for the RPC call. To see the output of the `async` generation, add `-d:nimDumpAsync`.
+
+### Special type :  `Option[T] `
+
+Option[T] is a special type indicating that parameter may have value or not.
+* If optional parameters located in the middle of parameters list, you set it to `null` to tell the server that it has no value.
+* If optional parameters located at the end of parameter list and there are no more mandatory parameters after that, those optional parameters can be omitted altogether.
+
+```Nim
+# d can be omitted, b should use null to indicate it has no value
+router.rpc("updateData") do(a: int, b: Option[int], c: string, d: Option[T]):
+  if b.isSome:
+    # do something
+  else:
+    # do something else
+```
+
+* If Option[T] used as return type, it also denotes the returned value might not available.
+
+```Nim
+router.rpc("getData") do(name: string) -> Option[int]:
+  if name == "monkey":
+    result = some(4)
+```
+
+* If Option[T] used as field type of an object, it also tell us that field might be present or not, and the rpc mechanism will automatically set it to some value if it available.
+
+```Nim
+type
+  MyOptional = object
+    maybeInt: Option[int]
+```
 
 ## Marshalling
 
@@ -202,7 +233,7 @@ This `route` variant will handle all the conversion of `string` to `JsonNode` an
 #### Returns
 
 `Future[string]`: This will be the stringified JSON response, which can be the JSON RPC result or a JSON wrapped error.
-  
+
 ### `route` by `JsonNode`
 
 This variant allows simplified processing if you already have a `JsonNode`. However if the required fields are not present within `node`, exceptions will be raised.
@@ -216,7 +247,7 @@ This variant allows simplified processing if you already have a `JsonNode`. Howe
 #### Returns
 
 `Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
-  
+
 ### `tryRoute`
 
 This `route` variant allows you to invoke a call if possible, without raising an exception.
@@ -232,7 +263,7 @@ This `route` variant allows you to invoke a call if possible, without raising an
 #### Returns
 
 `bool`: `true` if the `method` field provided in `node` matches an available route. Returns `false` when the `method` cannot be found, or if `method` or `params` field cannot be found within `node`.
-  
+
 
 To see the result of a call, we need to provide Json in the expected format.
 Here's an example of how that looks by manually creating the JSON. Later we will see the helper utilities that make this easier.
@@ -280,7 +311,7 @@ import json_rpc/rpcserver
 # Create a socket server for transport
 var srv = newRpcSocketServer("localhost", Port(8585))
 
-# srv.rpc is a shortcut for srv.router.rpc 
+# srv.rpc is a shortcut for srv.router.rpc
 srv.rpc("hello") do(input: string) -> string:
   result = "Hello " & input
 
@@ -412,4 +443,5 @@ Licensed and distributed under either of
 * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or http://www.apache.org/licenses/LICENSE-2.0)
 
 at your option. This file may not be copied, modified, or distributed except according to those terms.
+
 

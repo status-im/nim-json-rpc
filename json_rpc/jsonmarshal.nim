@@ -151,6 +151,13 @@ iterator paramsIter(params: NimNode): tuple[name, ntype: NimNode] =
     for j in 0 ..< arg.len-2:
       yield (arg[j], argType)
 
+iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
+  for i in countDown(params.len-1,0):
+    let arg = params[i]
+    let argType = arg[^2]
+    for j in 0 ..< arg.len-2:
+      yield (arg[j], argType)
+
 proc isOptionalArg(typeNode: NimNode): bool =
   if typeNode.kind != nnkBracketExpr:
     result = false
@@ -159,20 +166,12 @@ proc isOptionalArg(typeNode: NimNode): bool =
   result = typeNode[0].kind == nnkIdent and
            typeNode[0].strVal == "Option"
 
-proc expectOptionalArrayLen(node, parameters: NimNode, jsonIdent: untyped, maxLength: int) =
-  var
-    meetOptional = false
-    minLength = 0
-    idx = 0
+proc expectOptionalArrayLen(node, parameters: NimNode, jsonIdent: untyped, maxLength: int): int =
+  var minLength = maxLength
 
-  for arg, typ in paramsIter(parameters):
-    if typ.isOptionalArg:
-      if not meetOptional: minLength = idx
-      meetOptional = true
-    else:
-      if meetOptional:
-        macros.error("cannot have regular parameters: `" & $arg & "` after optional one", arg)
-    inc idx
+  for arg, typ in paramsRevIter(parameters):
+    if not typ.isOptionalArg: break
+    dec minLength
 
   let
     identStr = jsonIdent.repr
@@ -183,6 +182,8 @@ proc expectOptionalArrayLen(node, parameters: NimNode, jsonIdent: untyped, maxLe
     if `jsonIdent`.len < `minLength`:
       raise newException(ValueError, `expectedStr` & $`jsonIdent`.len)
   )
+
+  result = minLength
 
 proc containsOptionalArg(params: NimNode): bool =
   for n, t in paramsIter(params):
@@ -214,10 +215,10 @@ proc jsonToNim*(params, jsonIdent: NimNode): NimNode =
   # Add code to verify input and load params into Nim types
   result = newStmtList()
   if not params.isNil:
-    let paramsWithOptionalArg = params.containsOptionalArg()
-    if paramsWithOptionalArg:
+    var minLength = 0
+    if params.containsOptionalArg():
       # more elaborate parameters array check
-      result.expectOptionalArrayLen(params, jsonIdent,
+      minLength = result.expectOptionalArrayLen(params, jsonIdent,
         calcActualParamCount(params))
     else:
       # simple parameters array length check
@@ -241,11 +242,18 @@ proc jsonToNim*(params, jsonIdent: NimNode): NimNode =
 
       if paramType.isOptionalArg:
         let
+          nullAble  = pos < minLength
           innerType = paramType[1]
           innerNode = jsonToNim(paramIdent, innerType, jsonElement, paramName, true)
-        result.add(quote do:
-          if `jsonIdent`.len >= `pos`: `innerNode`
-        )
+
+        if nullAble:
+          result.add(quote do:
+            if `jsonElement`.kind != JNull: `innerNode`
+          )
+        else:
+          result.add(quote do:
+            if `jsonIdent`.len >= `pos`: `innerNode`
+          )
       else:
         # unpack Nim type and assign from json
         result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)
