@@ -6,12 +6,9 @@ logScope:
   topic = "JSONRPC-HTTP-CLIENT"
 
 type
-  TransferMode = enum
-    tmContentLength
-    tmChunked
-
   HttpClientOptions* = object
     httpMethod: HttpMethod
+    httpVersion: HttpVersion
 
   RpcHttpClient* = ref object of RpcClient
     transp*: StreamTransport
@@ -21,25 +18,29 @@ type
 const
   MaxHttpHeadersSize = 8192       # maximum size of HTTP headers in octets
   MaxHttpRequestSize = 128 * 1024 # maximum size of HTTP body in octets
+  HttpBlockLength    = 4 * 1024   # size of block when reading HTTP body in octets
   HttpHeadersTimeout = 120000     # timeout for receiving headers (120 sec)
   HttpBodyTimeout = 12000         # timeout for receiving body (12 sec)
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 proc sendRequest(transp: StreamTransport,
-                 data: string, httpMethod: HttpMethod): Future[bool] {.async.} =
+                 data: string, httpMethod: HttpMethod,
+                 httpVersion: HttpVersion): Future[bool] {.async.} =
   var request = $httpMethod & " / "
-  request.add($HttpVersion11)
+  request.add($httpVersion)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
-  request.add("Host: " & $transp.remoteAddress & "\r\n")
   request.add("Content-Type: application/json\r\n")
   request.add("Content-Length: " & $len(data) & "\r\n")
-  request.add("Accept: */*\r\n")
-  request.add("Connection: keep-alive\r\n")
-  request.add("\r\n")
 
+  if httpVersion == HttpVersion11:
+    request.add("Host: " & $transp.remoteAddress & "\r\n")
+    request.add("Connection: keep-alive\r\n")
+
+  request.add("\r\n")
   if len(data) > 0:
     request.add(data)
+
   try:
     let res = await transp.write(cast[seq[char]](request))
     if res != len(request):
@@ -49,8 +50,7 @@ proc sendRequest(transp: StreamTransport,
     result = false
 
 proc validateResponse*(transp: StreamTransport,
-                       header: HttpResponseHeader,
-                       transferMode: var TransferMode): bool =
+                       header: HttpResponseHeader): bool =
   if header.code != 200:
     debug "Server returns error",
            httpcode = header.code,
@@ -67,38 +67,13 @@ proc validateResponse*(transp: StreamTransport,
     result = false
     return
 
-  if header.code >= 100 and header.code <= 199:
-    debug "unsupported response code", code = header.code,
-          address = transp.remoteAddress()
-    result = false
-    return
-
-  if header.code == 204:
-    debug "no content response", code = header.code,
-          address = transp.remoteAddress()
-    result = false
-    return
-
-  if header.contains("Transfer-Encoding"):
-    var tmode = header["Transfer-Encoding"]
-    if tmode.toLowerAscii() == "identity":
-      debug "unsupported transfer mode", mode = tmode,
-            address = transp.remoteAddress()
-      result = false
-      return
-
-    transferMode = tmChunked
-    result = true
-    return
-
   let length = header.contentLength()
-  if length <= 0:
+  if length < 0:
     # request length could not be calculated.
-    debug "Content-Length is missing or 0", address = transp.remoteAddress()
+    debug "invalid Content-Length", address = transp.remoteAddress()
     result = false
     return
 
-  transferMode = tmContentLength
   result = true
 
 proc recvData(transp: StreamTransport): Future[string] {.async.} =
@@ -137,89 +112,66 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
           error = getCurrentExceptionMsg()
     error = true
 
-  var transferMode: TransferMode
-  if error or not transp.validateResponse(header, transferMode):
+  if error or not transp.validateResponse(header):
     transp.close()
     result = ""
     return
 
-  if transferMode == tmContentLength:
-    let length = header.contentLength()
-    buffer.setLen(length)
-    try:
-      let blenfut = transp.readExactly(addr buffer[0], length)
-      let ores = await withTimeout(blenfut, HttpBodyTimeout)
+  try:
+    var length = header.contentLength()
+    # HTTP/1.0 can have `Content-Length` optionally
+    let readLength = if length == 0: HttpBlockLength
+                     else: length
+    # read the body until eof
+    var currLen = 0
+    while not transp.atEof():
+      if currLen + readLength > buffer.len:
+        buffer.setLen(currLen + readLength)
+
+      let bytesReadFut = transp.readOnce(addr buffer[currLen], readLength)
+      let ores = await withTimeout(bytesReadFut, HttpBodyTimeout)
       if not ores:
         # Timeout
         debug "Timeout expired while receiving request body",
               address = transp.remoteAddress()
         error = true
+        break
       else:
-        blenfut.read()
-    except TransportIncompleteError:
-      # remote peer disconnected
-      debug "Remote peer disconnected", address = transp.remoteAddress()
-      error = true
-    except TransportOsError:
-      debug "Problems with networking", address = transp.remoteAddress(),
-            error = getCurrentExceptionMsg()
-      error = true
-  else:
-    try:
-      # combining chunks
-      var prevLen = 0
-      while true:
-        let line = await transp.readLine()
-        if line.len == 0: break
-        let hasExt = line.find(';')
-        let length = if hasExt == -1: line.parseHexInt()
-                     else: line.substr(0, hasExt-1).parseHexInt()
-        if length == 0: break
+        var bytesRead = bytesReadFut.read()
+        inc(currLen, bytesRead)
 
-        if buffer.len < prevLen + length:
-          buffer.setLen(prevLen + length)
+    if not error:
+      buffer.setLen(currLen)
+  except TransportIncompleteError:
+    # remote peer disconnected
+    debug "Remote peer disconnected", address = transp.remoteAddress()
+    error = true
+  except TransportOsError:
+    debug "Problems with networking", address = transp.remoteAddress(),
+          error = getCurrentExceptionMsg()
+    error = true
 
-        let blenfut = transp.readExactly(addr buffer[prevLen], length)
-        inc(prevLen, length)
-
-        let ores = await withTimeout(blenfut, HttpBodyTimeout)
-        if not ores:
-          # Timeout
-          debug "Timeout expired while receiving request body",
-                address = transp.remoteAddress()
-          error = true
-        else:
-          blenfut.read()
-
-      buffer.setLen(prevLen)
-      # additional HTTP header at the end of
-      # message
-      while true:
-        let line = await transp.readLine()
-        if line.len == 0: break
-
-    except TransportIncompleteError:
-      # remote peer disconnected
-      debug "Remote peer disconnected", address = transp.remoteAddress()
-      error = true
-    except TransportOsError:
-      debug "Problems with networking", address = transp.remoteAddress(),
-            error = getCurrentExceptionMsg()
-      error = true
   if error:
     transp.close()
     result = ""
   else:
     result = cast[string](buffer)
 
-proc init(opts: var HttpClientOptions) =
+proc init(opts: var HttpClientOptions, httpVersion: HttpVersion) =
   opts.httpMethod = MethodGet
+  opts.httpVersion = httpVersion
 
-proc newRpcHttpClient*(): RpcHttpClient =
+proc newRpcHttpClient*(httpVersion = HttpVersion10): RpcHttpClient =
   ## Creates a new HTTP client instance.
   new result
   result.initRpcClient()
-  result.options.init()
+  # currently it only support HTTP version 1.0
+  # but it we can expand it later
+  var httpVersion = httpVersion
+  if httpVersion notin {HttpVersion10}:
+    debug "unsupported HTTP version", version=httpVersion
+    httpVersion = HttpVersion10 # fallback to HTTP/1.0
+  result.options.init(httpVersion)
 
 proc httpMethod*(client: RpcHttpClient): HttpMethod =
   client.options.httpMethod
@@ -227,8 +179,25 @@ proc httpMethod*(client: RpcHttpClient): HttpMethod =
 proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
   client.options.httpMethod = m
 
+proc processData(client: RpcHttpClient) {.async.} =
+  var value = await client.transp.recvData()
+  if value == "": return
+  debug "Received response from RPC server",
+        address = client.transp.remoteAddress(),
+        msg_len = len(value)
+  client.processMessage(value)
+
 proc call*(client: RpcHttpClient, name: string,
            params: JsonNode, httpMethod: HttpMethod): Future[Response] {.async.} =
+
+  if client.options.httpVersion == HttpVersion10:
+    client.transp = await connect(client.addresses[0])
+    asyncCheck processData(client)
+  else:
+    if client.transp.closed():
+      client.transp = await connect(client.addresses[0])
+      asyncCheck processData(client)
+
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
@@ -236,7 +205,8 @@ proc call*(client: RpcHttpClient, name: string,
   if isNil(client.transp) or client.transp.closed():
     raise newException(ValueError,
       "Transport is not initialised or already closed")
-  let res = await client.transp.sendRequest(value, httpMethod)
+  let res = await client.transp.sendRequest(value, httpMethod,
+    client.options.httpVersion)
   if not res:
     debug "Failed to send message to RPC server",
           address = client.transp.remoteAddress(), msg_len = res
@@ -252,24 +222,16 @@ proc call*(client: RpcHttpClient, name: string,
   client.awaiting[id] = newFut
   result = await newFut
 
+  if client.options.httpVersion == HttpVersion10:
+    if not client.transp.closed(): client.transp.close()
+
 template call*(client: RpcHttpClient, name: string,
                params: JsonNode): untyped =
   client.call(name, params, client.httpMethod)
 
-proc processData(client: RpcHttpClient) {.async.} =
-  while true:
-    var value = await client.transp.recvData()
-    if value == "":
-      break
-    debug "Received response from RPC server",
-          address = client.transp.remoteAddress(),
-          msg_len = len(value)
-    client.processMessage(value)
-
-  # async loop reconnection and waiting
-  client.transp = await connect(client.addresses[0])
-
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)
-  client.transp = await connect(client.addresses[0])
-  asyncCheck processData(client)
+
+  if client.options.httpVersion != HttpVersion10:
+    client.transp = await connect(client.addresses[0])
+    asyncCheck processData(client)

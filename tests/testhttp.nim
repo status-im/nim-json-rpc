@@ -144,15 +144,71 @@ proc simpleTest(address: string, port: Port,
   var a = resolveTAddress(address, port)
   result = await customMessage(a[0], Requests[number], expect)
 
-var httpsrv = newRpcHttpServer(["localhost:8545"])
+proc serveClient(server: StreamServer, transp: StreamTransport) {.async.} =
+  const
+    MaxHttpHeadersSize = 8192
+    HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
-# Create RPC on server
-httpsrv.rpc("myProc") do(input: string, data: array[0..3, int]):
-  result = %("Hello " & input & " data: " & $data)
+  var buffer = newSeq[byte](MaxHttpHeadersSize)
+  var readBytes = await transp.readUntil(addr buffer[0], MaxHttpHeadersSize, HeadersMark)
 
-httpsrv.start()
+  buffer.setLen(readBytes)
+  var header = buffer.parseRequest()
+
+  let length = header.contentLength()
+  buffer.setLen(length)
+  await transp.readExactly(addr buffer[0], length)
+
+  let n = parseJson(cast[string](buffer))
+  let id = n["id"].getInt()
+  let content = "{\"jsonrpc\":\"2.0\",\"id\":" & $id & ",\"result\":{\"name\":\"server123\"}}"
+
+  var response = "HTTP/1.0 200 OK\r\n"
+  response.add("Content-Type: application/json\r\n")
+  response.add("Date: " & httpDate() & "\r\n")
+
+  if id mod 2 == 0:
+    # alternatingly send Content-Length
+    response.add("Content-Length: " & $content.len & "\r\n")
+
+  response.add("\r\n")
+  response.add(content)
+
+  var res = await transp.write(response)
+  doAssert(res == response.len)
+  transp.close()
+  await transp.join()
+
+proc testHttp10ReadUntilEof(addrStr: string, port: Port): Future[bool] {.async.} =
+  var address = initTAddress(addrStr, port)
+  var server = createStreamServer(address, serveClient, {ReuseAddr})
+  server.start()
+
+  var client = newRpcHttpClient(HttpVersion10)
+  waitFor client.connect(addrStr, port)
+
+  var
+    a = waitFor client.call("getServerName", %[])
+    resa = a.result["name"].getStr() == "server123"
+
+    # once again to test HTTP/1.0 reconnection
+    b = waitFor client.call("getServerName", %[])
+    resb = b.result["name"].getStr() == "server123"
+
+  result = resa
+  server.stop()
+  server.close()
+  await server.join()
 
 suite "HTTP Server/HTTP Client RPC test suite":
+  var httpsrv = newRpcHttpServer(["localhost:8545"])
+
+  # Create RPC on server
+  httpsrv.rpc("myProc") do(input: string, data: array[0..3, int]):
+    result = %("Hello " & input & " data: " & $data)
+
+  httpsrv.start()
+
   test "Continuous RPC calls (" & $TestsCount & " messages)":
     check waitFor(continuousTest("localhost", Port(8545))) == TestsCount
   test "Wrong [Content-Type] test":
@@ -176,5 +232,8 @@ suite "HTTP Server/HTTP Client RPC test suite":
   test "[Connection]: close test":
     check waitFor(disconTest("localhost", Port(8545), 7, 200)) == true
 
-httpsrv.stop()
-waitFor httpsrv.closeWait()
+  httpsrv.stop()
+  waitFor httpsrv.closeWait()
+
+  test "HTTP client read HTTP/1.0":
+    check waitFor(testHttp10ReadUntilEof("127.0.0.1", Port(8545)))
