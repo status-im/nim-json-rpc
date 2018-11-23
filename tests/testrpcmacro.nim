@@ -19,6 +19,9 @@ type
   MyOptional = object
     maybeInt: Option[int]
 
+  MyOptionalNotBuiltin = object
+    val: Option[Test2]
+
 let
   testObj = %*{
     "a": %1,
@@ -93,6 +96,9 @@ s.rpc("rpc.mixedOptionalArg") do(a: int, b: Option[int], c: string,
   result.c = c
   result.d = d
   result.e = e
+
+s.rpc("rpc.optionalArgNotBuiltin") do(obj: Option[MyOptionalNotBuiltin]) -> string:
+  result = obj.get.val.get.y
 
 # Tests
 suite "Server types":
@@ -187,11 +193,22 @@ suite "Server types":
     check r1 == %int1
     check r2 == %int2
 
-  test "mixed optional arg":
+  test "Mixed optional arg":
     var ax = waitFor rpcMixedOptionalArg(%[%10, %11, %"hello", %12, %"world"])
     check ax == %OptionalFields(a: 10, b: some(11), c: "hello", d: some(12), e: some("world"))
     var bx = waitFor rpcMixedOptionalArg(%[%10, newJNull(), %"hello"])
     check bx == %OptionalFields(a: 10, c: "hello")
+
+  test "Non-built-in optional types":
+    let
+      testOptionalNonBuiltin = %*{
+        "val": %*{
+          "x": %[1, 2],
+          "y": %"Hello"
+          }
+      }
+    var r = waitFor rpcOptionalArgNotBuiltin(%[testOptionalNonBuiltin])
+    check r == %"Hello"
 
 s.stop()
 waitFor s.closeWait()
