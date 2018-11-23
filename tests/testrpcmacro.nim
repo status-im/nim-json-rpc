@@ -98,7 +98,12 @@ s.rpc("rpc.mixedOptionalArg") do(a: int, b: Option[int], c: string,
   result.e = e
 
 s.rpc("rpc.optionalArgNotBuiltin") do(obj: Option[MyOptionalNotBuiltin]) -> string:
-  result = obj.get.val.get.y
+  result = "Empty1"
+  if obj.isSome:
+    let val = obj.get.val
+    result = "Empty2"
+    if val.isSome:
+      result = obj.get.val.get.y
 
 # Tests
 suite "Server types":
@@ -201,14 +206,15 @@ suite "Server types":
 
   test "Non-built-in optional types":
     let
-      testOptionalNonBuiltin = %*{
-        "val": %*{
-          "x": %[1, 2],
-          "y": %"Hello"
-          }
-      }
-    var r = waitFor rpcOptionalArgNotBuiltin(%[testOptionalNonBuiltin])
-    check r == %"Hello"
+      t2 = Test2(x: [1, 2, 3], y: "Hello")
+      testOpts1 = MyOptionalNotBuiltin(val: some(t2))
+      testOpts2 = MyOptionalNotBuiltin()
+    var r = waitFor rpcOptionalArgNotBuiltin(%[%testOpts1])
+    check r == %t2.y
+    var r2 = waitFor rpcOptionalArgNotBuiltin(%[])
+    check r2 == %"Empty1"
+    var r3 = waitFor rpcOptionalArgNotBuiltin(%[%testOpts2])
+    check r3 == %"Empty2"
 
 s.stop()
 waitFor s.closeWait()
