@@ -152,7 +152,7 @@ iterator paramsIter(params: NimNode): tuple[name, ntype: NimNode] =
       yield (arg[j], argType)
 
 iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
-  for i in countDown(params.len-1,0):
+  for i in countDown(params.len-1,1):
     let arg = params[i]
     let argType = arg[^2]
     for j in 0 ..< arg.len-2:
