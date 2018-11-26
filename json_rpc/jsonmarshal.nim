@@ -44,7 +44,10 @@ proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
 proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   for k, v in fieldPairs(result):
-    fromJson(n[k], k, v)
+    if v is Option and not n.hasKey(k):
+      fromJson(newJNull(), k, v)
+    else:
+      fromJson(n[k], k, v)
 
 proc fromJson[T](n: JsonNode, argName: string, result: var Option[T]) =
   # Allow JNull for options

@@ -105,6 +105,19 @@ s.rpc("rpc.optionalArgNotBuiltin") do(obj: Option[MyOptionalNotBuiltin]) -> stri
     if val.isSome:
       result = obj.get.val.get.y
 
+type
+  MaybeOptions = object
+    o1: Option[bool]
+    o2: Option[bool]
+    o3: Option[bool]
+
+s.rpc("rpc.optInObj") do(data: string, options: Option[MaybeOptions]) -> int:
+  if options.isSome:
+    let o = options.get
+    if o.o1.isSome: result += 1
+    if o.o2.isSome: result += 2
+    if o.o3.isSome: result += 4
+  
 # Tests
 suite "Server types":
   test "On macro registration":
@@ -118,6 +131,9 @@ suite "Server types":
     check s.hasMethod("rpc.testreturns")
     check s.hasMethod("rpc.multivarsofonetype")
     check s.hasMethod("rpc.optionalArg")
+    check s.hasMethod("rpc.mixedOptionalArg")
+    check s.hasMethod("rpc.optionalArgNotBuiltin")
+    check s.hasMethod("rpc.traceTransaction")
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])
@@ -215,6 +231,12 @@ suite "Server types":
     check r2 == %"Empty1"
     var r3 = waitFor rpcOptionalArgNotBuiltin(%[%testOpts2])
     check r3 == %"Empty2"
+
+  test "Manually set up JSON for optionals":
+    # Check manual set up json with optionals
+    let opts = parseJson("""{"o2": true}""")
+    var r = waitFor rpcOptInObj(%[%"0x31ded", opts])
+    check r == %2
 
 s.stop()
 waitFor s.closeWait()
