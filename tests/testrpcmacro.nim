@@ -234,9 +234,25 @@ suite "Server types":
 
   test "Manually set up JSON for optionals":
     # Check manual set up json with optionals
-    let opts = parseJson("""{"o2": true}""")
-    var r = waitFor rpcOptInObj(%[%"0x31ded", opts])
-    check r == %2
+    let opts1 = parseJson("""{"o1": true}""")
+    var r1 = waitFor rpcOptInObj(%[%"0x31ded", opts1])
+    check r1 == %1
+    let opts2 = parseJson("""{"o2": true}""")
+    var r2 = waitFor rpcOptInObj(%[%"0x31ded", opts2])
+    check r2 == %2
+    let opts3 = parseJson("""{"o3": true}""")
+    var r3 = waitFor rpcOptInObj(%[%"0x31ded", opts3])
+    check r3 == %4
+    # Combinations
+    let opts4 = parseJson("""{"o1": true, "o3": true}""")
+    var r4 = waitFor rpcOptInObj(%[%"0x31ded", opts4])
+    check r4 == %5
+    let opts5 = parseJson("""{"o2": true, "o3": true}""")
+    var r5 = waitFor rpcOptInObj(%[%"0x31ded", opts5])
+    check r5 == %6
+    let opts6 = parseJson("""{"o1": true, "o2": true}""")
+    var r6 = waitFor rpcOptInObj(%[%"0x31ded", opts6])
+    check r6 == %3
 
 s.stop()
 waitFor s.closeWait()
