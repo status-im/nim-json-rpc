@@ -133,7 +133,7 @@ suite "Server types":
     check s.hasMethod("rpc.optionalArg")
     check s.hasMethod("rpc.mixedOptionalArg")
     check s.hasMethod("rpc.optionalArgNotBuiltin")
-    check s.hasMethod("rpc.traceTransaction")
+    check s.hasMethod("rpc.optInObj")
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])
