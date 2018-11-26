@@ -3,27 +3,6 @@ import macros, json, options, typetraits
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 
-proc expectType*(actual: JsonNodeKind, expected: typedesc, argName: string, allowNull = false) =
-  var expType: JsonNodeKind
-  when expected is array:
-    expType = JArray
-  elif expected is object:
-    expType = JObject
-  elif expected is int:
-    expType = JInt
-  elif expected is float:
-    expType = JFloat
-  elif expected is bool:
-    expType = JBool
-  elif expected is string:
-    expType = JString
-  else:
-    const eStr = "Unable to convert " & expected.name & " to JSON for expectType"
-    {.fatal: eStr}
-  if actual != expType:
-    if allowNull == false or (allowNull and actual != JNull):
-      raise newException(ValueError, "Parameter [" & argName & "] expected " & expected.name & " but got " & $actual)
-
 proc `%`*(n: byte{not lit}): JsonNode =
   result = newJInt(int(n))
 
@@ -54,13 +33,7 @@ proc fromJson(n: JsonNode, argName: string, result: var int64)
 proc fromJson(n: JsonNode, argName: string, result: var uint64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
-
-proc fromJson[T](n: JsonNode, argName: string, result: var Option[T]) =
-  n.kind.expectType(T, argName, true) # Allow JNull
-  if n.kind != JNull:
-    var val: T
-    fromJson(n, argName, val)
-    result = some(val)
+proc fromJson[T](n: JsonNode, argName: string, result: var Option[T])
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
@@ -71,7 +44,17 @@ proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
 proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   for k, v in fieldPairs(result):
-    fromJson(n[k], k, v)
+    if v is Option and not n.hasKey(k):
+      fromJson(newJNull(), k, v)
+    else:
+      fromJson(n[k], k, v)
+
+proc fromJson[T](n: JsonNode, argName: string, result: var Option[T]) =
+  # Allow JNull for options
+  if n.kind != JNull:
+    var val: T
+    fromJson(n, argName, val)
+    result = some(val)
 
 proc fromJson(n: JsonNode, argName: string, result: var bool) =
   n.kind.expect(JBool, argName)
@@ -152,7 +135,7 @@ iterator paramsIter(params: NimNode): tuple[name, ntype: NimNode] =
       yield (arg[j], argType)
 
 iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
-  for i in countDown(params.len-1,0):
+  for i in countDown(params.len-1,1):
     let arg = params[i]
     let argType = arg[^2]
     for j in 0 ..< arg.len-2:
