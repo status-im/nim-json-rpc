@@ -8,7 +8,6 @@ logScope:
 type
   HttpClientOptions* = object
     httpMethod: HttpMethod
-    httpVersion: HttpVersion
 
   RpcHttpClient* = ref object of RpcClient
     transp*: StreamTransport
@@ -24,18 +23,13 @@ const
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 proc sendRequest(transp: StreamTransport,
-                 data: string, httpMethod: HttpMethod,
-                 httpVersion: HttpVersion): Future[bool] {.async.} =
+                 data: string, httpMethod: HttpMethod): Future[bool] {.async.} =
   var request = $httpMethod & " / "
-  request.add($httpVersion)
+  request.add($HttpVersion10)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
   request.add("Content-Type: application/json\r\n")
   request.add("Content-Length: " & $len(data) & "\r\n")
-
-  if httpVersion == HttpVersion11:
-    request.add("Host: " & $transp.remoteAddress & "\r\n")
-    request.add("Connection: keep-alive\r\n")
 
   request.add("\r\n")
   if len(data) > 0:
@@ -157,21 +151,14 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
   else:
     result = cast[string](buffer)
 
-proc init(opts: var HttpClientOptions, httpVersion: HttpVersion) =
+proc init(opts: var HttpClientOptions) =
   opts.httpMethod = MethodGet
-  opts.httpVersion = httpVersion
 
-proc newRpcHttpClient*(httpVersion = HttpVersion10): RpcHttpClient =
+proc newRpcHttpClient*(): RpcHttpClient =
   ## Creates a new HTTP client instance.
   new result
   result.initRpcClient()
-  # currently it only support HTTP version 1.0
-  # but it we can expand it later
-  var httpVersion = httpVersion
-  if httpVersion notin {HttpVersion10}:
-    debug "unsupported HTTP version", version=httpVersion
-    httpVersion = HttpVersion10 # fallback to HTTP/1.0
-  result.options.init(httpVersion)
+  result.options.init()
 
 proc httpMethod*(client: RpcHttpClient): HttpMethod =
   client.options.httpMethod
@@ -190,13 +177,8 @@ proc processData(client: RpcHttpClient) {.async.} =
 proc call*(client: RpcHttpClient, name: string,
            params: JsonNode, httpMethod: HttpMethod): Future[Response] {.async.} =
 
-  if client.options.httpVersion == HttpVersion10:
-    client.transp = await connect(client.addresses[0])
-    asyncCheck processData(client)
-  else:
-    if client.transp.closed():
-      client.transp = await connect(client.addresses[0])
-      asyncCheck processData(client)
+  client.transp = await connect(client.addresses[0])
+  asyncCheck processData(client)
 
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
@@ -205,8 +187,7 @@ proc call*(client: RpcHttpClient, name: string,
   if isNil(client.transp) or client.transp.closed():
     raise newException(ValueError,
       "Transport is not initialised or already closed")
-  let res = await client.transp.sendRequest(value, httpMethod,
-    client.options.httpVersion)
+  let res = await client.transp.sendRequest(value, httpMethod)
   if not res:
     debug "Failed to send message to RPC server",
           address = client.transp.remoteAddress(), msg_len = res
@@ -222,8 +203,7 @@ proc call*(client: RpcHttpClient, name: string,
   client.awaiting[id] = newFut
   result = await newFut
 
-  if client.options.httpVersion == HttpVersion10:
-    if not client.transp.closed(): client.transp.close()
+  if not client.transp.closed(): client.transp.close()
 
 template call*(client: RpcHttpClient, name: string,
                params: JsonNode): untyped =
@@ -231,7 +211,3 @@ template call*(client: RpcHttpClient, name: string,
 
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)
-
-  if client.options.httpVersion != HttpVersion10:
-    client.transp = await connect(client.addresses[0])
-    asyncCheck processData(client)

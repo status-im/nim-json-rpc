@@ -184,7 +184,7 @@ proc testHttp10ReadUntilEof(addrStr: string, port: Port): Future[bool] {.async.}
   var server = createStreamServer(address, serveClient, {ReuseAddr})
   server.start()
 
-  var client = newRpcHttpClient(HttpVersion10)
+  var client = newRpcHttpClient()
   waitFor client.connect(addrStr, port)
 
   var
