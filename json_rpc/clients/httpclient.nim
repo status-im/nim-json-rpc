@@ -62,10 +62,19 @@ proc validateResponse*(transp: StreamTransport,
 
   let length = header.contentLength()
   if length <= 0:
-    # request length could not be calculated.
-    debug "Content-Length is missing or 0", address = transp.remoteAddress()
-    result = false
-    return
+    if header.version == HttpVersion11:
+      if header["Connection"].toLowerAscii() != "close":
+        # Response body length could not be calculated.
+        if header["Transfer-Encoding"].toLowerAscii() == "chunked":
+          debug "Chunked encoding is not supported",
+                address = transp.remoteAddress()
+          result = false
+          return
+        else:
+          debug "Content body size could not be calculated",
+                address = transp.remoteAddress()
+          result = false
+          return
 
   result = true
 
@@ -111,18 +120,31 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     return
 
   let length = header.contentLength()
-  buffer.setLen(length)
   try:
-    let blenfut = transp.readExactly(addr buffer[0], length)
-    let ores = await withTimeout(blenfut, HttpBodyTimeout)
-    if not ores:
-      # Timeout
-      debug "Timeout expired while receiving request body",
-            address = transp.remoteAddress()
-      error = true
+    if length > 0:
+      # `Content-Length` is present in response header.
+      buffer.setLen(length)
+      let blenfut = transp.readExactly(addr buffer[0], length)
+      let ores = await withTimeout(blenfut, HttpBodyTimeout)
+      if not ores:
+        # Timeout
+        debug "Timeout expired while receiving request body",
+              address = transp.remoteAddress()
+        error = true
+      else:
+        blenfut.read()
     else:
-      blenfut.read()
-
+      # `Content-Length` is not present in response header, so we are reading
+      # everything until connection will be closed.
+      var blenfut = transp.read()
+      let ores = await withTimeout(blenfut, HttpBodyTimeout)
+      if not ores:
+        # Timeout
+        debug "Timeout expired while receiving request body",
+              address = transp.remoteAddress()
+        error = true
+      else:
+        buffer = blenfut.read()
   except TransportIncompleteError:
     # remote peer disconnected
     debug "Remote peer disconnected", address = transp.remoteAddress()
