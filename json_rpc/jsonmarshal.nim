@@ -117,7 +117,7 @@ proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
 proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
   fromJson(args, argName, result)
 
-proc expectArrayLen(node: NimNode, jsonIdent: untyped, length: int) =
+proc expectArrayLen(node, jsonIdent: NimNode, length: int) =
   let
     identStr = jsonIdent.repr
     expectedStr = "Expected " & $length & " Json parameter(s) but got "
