@@ -149,7 +149,7 @@ proc isOptionalArg(typeNode: NimNode): bool =
   result = typeNode[0].kind == nnkIdent and
            typeNode[0].strVal == "Option"
 
-proc expectOptionalArrayLen(node, parameters: NimNode, jsonIdent: untyped, maxLength: int): int =
+proc expectOptionalArrayLen(node, parameters, jsonIdent: NimNode, maxLength: int): int =
   var minLength = maxLength
 
   for arg, typ in paramsRevIter(parameters):
