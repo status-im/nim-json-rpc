@@ -19,6 +19,7 @@ proc configForTests() =
   --path: "."
   --run
   --forceBuild
+  --threads: on
 
 task test, "run tests":
   configForTests()
