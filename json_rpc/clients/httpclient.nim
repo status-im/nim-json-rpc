@@ -24,13 +24,12 @@ const
 proc sendRequest(transp: StreamTransport,
                  data: string, httpMethod: HttpMethod): Future[bool] {.async.} =
   var request = $httpMethod & " / "
-  request.add($HttpVersion11)
+  request.add($HttpVersion10)
   request.add("\r\n")
   request.add("Date: " & httpDate() & "\r\n")
   request.add("Host: " & $transp.remoteAddress & "\r\n")
   request.add("Content-Type: application/json\r\n")
   request.add("Content-Length: " & $len(data) & "\r\n")
-  request.add("Connection: keep-alive\r\n")
   request.add("\r\n")
   if len(data) > 0:
     request.add(data)
