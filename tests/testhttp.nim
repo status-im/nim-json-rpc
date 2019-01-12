@@ -60,12 +60,13 @@ const
 
 proc continuousTest(address: string, port: Port): Future[int] {.async.} =
   var client = newRpcHttpClient()
-  await client.connect(address, port)
   result = 0
   for i in 0..<TestsCount:
+    await client.connect(address, port)
     var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
     if r.result.getStr == "Hello abc data: [1, 2, 3, " & $i & "]":
       result += 1
+    client.transp.close()
 
 proc customMessage(address: TransportAddress,
                    data: string,
