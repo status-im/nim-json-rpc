@@ -98,7 +98,7 @@ proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): JsonNode =
   return %{jsonRpcField: %"2.0", idField: id, resultField: value, errorField: error}
 
 proc wrapError*(code: int, msg: string, id: JsonNode,
-                data: JsonNode = newJNull()): JsonNode =
+                data: JsonNode = newJNull()): JsonNode {.gcsafe.} =
   # Create standardised error json
   result = %{codeField: %(code), idField: id, messageField: %msg, dataField: data}
   debug "Error generated", error = result, id = id
