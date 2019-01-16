@@ -3,7 +3,7 @@ import chronicles, httputils, asyncdispatch2
 import ../client
 
 logScope:
-  topic = "JSONRPC-HTTP-CLIENT"
+  topics = "JSONRPC-HTTP-CLIENT"
 
 type
   HttpClientOptions* = object
