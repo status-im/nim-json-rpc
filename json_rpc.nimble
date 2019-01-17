@@ -20,6 +20,8 @@ proc configForTests() =
   --run
   --forceBuild
   --threads: on
+  if hostOS == "windows":
+    --define: "chronicles_colors=NoColors"
 
 task test, "run tests":
   configForTests()
