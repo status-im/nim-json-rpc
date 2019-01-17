@@ -20,6 +20,7 @@ proc configForTests() =
   --run
   --forceBuild
   --threads: on
+  # https://github.com/nim-lang/Nim/issues/8294#issuecomment-454556051
   if hostOS == "windows":
     --define: "chronicles_colors=NoColors"
 
