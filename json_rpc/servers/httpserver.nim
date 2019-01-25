@@ -72,7 +72,8 @@ proc validateRequest(transp: StreamTransport,
     return
 
   var ctype = header["Content-Type"]
-  if ctype.toLowerAscii() != "application/json":
+  # might be "application/json; charset=utf-8"
+  if "application/json" notin ctype.toLowerAscii():
     # Content-Type header is not "application/json"
     debug "Content type must be application/json",
           address = transp.remoteAddress()

@@ -52,7 +52,8 @@ proc validateResponse*(transp: StreamTransport,
     return
 
   var ctype = header["Content-Type"]
-  if ctype.toLowerAscii() != "application/json":
+  # might be "application/json; charset=utf-8"
+  if "application/json" notin ctype.toLowerAscii():
     # Content-Type header is not "application/json"
     debug "Content type must be application/json",
           address = transp.remoteAddress()
@@ -186,12 +187,13 @@ proc call*(client: RpcHttpClient, name: string,
   let res = await client.transp.sendRequest(value, httpMethod)
   if not res:
     debug "Failed to send message to RPC server",
-          address = client.transp.remoteAddress(), msg_len = res
+          address = client.transp.remoteAddress(), msg_len = len(value)
     client.transp.close()
     raise newException(ValueError, "Transport error")
   else:
     debug "Message sent to RPC server", address = client.transp.remoteAddress(),
-          msg_len = res
+          msg_len = len(value)
+    trace "Message", msg = value
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
@@ -211,6 +213,7 @@ proc processData(client: RpcHttpClient) {.async.} =
     debug "Received response from RPC server",
           address = client.transp.remoteAddress(),
           msg_len = len(value)
+    trace "Message", msg = value
     client.processMessage(value)
 
   # async loop reconnection and waiting
