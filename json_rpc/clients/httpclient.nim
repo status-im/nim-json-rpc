@@ -1,5 +1,5 @@
 import json, strutils, tables
-import chronicles, httputils, asyncdispatch2
+import chronicles, httputils, chronos
 import ../client
 
 logScope:

@@ -1,7 +1,7 @@
 import
-  json, tables, asyncdispatch2, jsonmarshal, strutils, macros,
+  json, tables, chronos, jsonmarshal, strutils, macros,
   chronicles, options
-export asyncdispatch2, json, jsonmarshal
+export chronos, json, jsonmarshal
 
 type
   RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams
@@ -9,7 +9,7 @@ type
 
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(input: JsonNode): Future[JsonNode] {.gcsafe.}
-  
+
   RpcProcError* = ref object of Exception
     code*: int
     data*: JsonNode
@@ -147,7 +147,7 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
       # const error code and message
       errKind = jsonErrorMessages[errState.err]
       # pass on the actual error message
-      fullMsg = errKind[1] & " " & errState[1] 
+      fullMsg = errKind[1] & " " & errState[1]
       res = wrapError(code = errKind[0], msg = fullMsg, id = id)
     # return error state as json
     result = $res & messageTerminator

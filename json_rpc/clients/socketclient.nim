@@ -1,4 +1,4 @@
-import ../client, asyncdispatch2, tables, json
+import ../client, chronos, tables, json
 
 type
   RpcSocketClient* = ref object of RpcClient

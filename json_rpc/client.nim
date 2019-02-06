@@ -1,8 +1,8 @@
 import tables, json, macros
-import asyncdispatch2
+import chronos
 from strutils import toLowerAscii
 import jsonmarshal
-export asyncdispatch2
+export chronos
 
 type
   ClientId* = int64
@@ -55,7 +55,7 @@ proc processMessage*[T: RpcClient](self: T, line: string) =
   if not self.awaiting.hasKey(id):
     raise newException(ValueError,
       "Cannot find message id \"" & node["id"].str & "\"")
-  
+
   let version = checkGet(node, "jsonrpc", JString)
   if version != "2.0":
     self.awaiting[id].asyncRaise(ValueError,

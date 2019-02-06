@@ -1,8 +1,8 @@
 import json, tables, options, macros
-import asyncdispatch2, router, chronicles
+import chronos, router, chronicles
 import jsonmarshal
 
-export asyncdispatch2, json, jsonmarshal, router, chronicles
+export chronos, json, jsonmarshal, router, chronicles
 
 type
   RpcServer* = ref object of RootRef
