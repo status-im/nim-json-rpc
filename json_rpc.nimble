@@ -9,7 +9,7 @@ skipDirs      = @["tests"]
 requires "nim >= 0.17.3",
          "nimcrypto",
          "stint",
-         "asyncdispatch2",
+         "chronos",
          "httputils",
          "chronicles"
 
