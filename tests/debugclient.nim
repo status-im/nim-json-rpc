@@ -10,7 +10,7 @@ proc rawCall*(self: RpcClient, name: string,
 
   var s = msg & "\c\l"  
   let res = await self.transport.write(s)
-  assert res == len(s)
+  doAssert res == len(s)
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
