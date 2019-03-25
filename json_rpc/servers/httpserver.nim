@@ -6,10 +6,10 @@ logScope:
   topic = "JSONRPC-HTTP-SERVER"
 
 const
-  MaxHttpHeadersSize = 8192       # maximum size of HTTP headers in octets
-  MaxHttpRequestSize = 128 * 1024 # maximum size of HTTP body in octets
-  HttpHeadersTimeout = 120000     # timeout for receiving headers (120 sec)
-  HttpBodyTimeout = 12000         # timeout for receiving body (12 sec)
+  MaxHttpHeadersSize = 8192        # maximum size of HTTP headers in octets
+  MaxHttpRequestSize = 128 * 1024  # maximum size of HTTP body in octets
+  HttpHeadersTimeout = 120.seconds # timeout for receiving headers (120 sec)
+  HttpBodyTimeout = 12.seconds     # timeout for receiving body (12 sec)
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 type
@@ -231,13 +231,13 @@ proc addStreamServer*(server: RpcHttpServer, address: string) =
 
   # Attempt to resolve `address` for IPv4 address space.
   try:
-    tas4 = resolveTAddress(address, IpAddressFamily.IPv4)
+    tas4 = resolveTAddress(address, AddressFamily.IPv4)
   except:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
-    tas6 = resolveTAddress(address, IpAddressFamily.IPv6)
+    tas6 = resolveTAddress(address, AddressFamily.IPv6)
   except:
     discard
 
@@ -264,13 +264,13 @@ proc addStreamServer*(server: RpcHttpServer, address: string, port: Port) =
 
   # Attempt to resolve `address` for IPv4 address space.
   try:
-    tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
+    tas4 = resolveTAddress(address, port, AddressFamily.IPv4)
   except:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
-    tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
+    tas6 = resolveTAddress(address, port, AddressFamily.IPv6)
   except:
     discard
 

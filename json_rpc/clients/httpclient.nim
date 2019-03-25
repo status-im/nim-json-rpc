@@ -15,10 +15,10 @@ type
     options: HttpClientOptions
 
 const
-  MaxHttpHeadersSize = 8192       # maximum size of HTTP headers in octets
-  MaxHttpRequestSize = 128 * 1024 # maximum size of HTTP body in octets
-  HttpHeadersTimeout = 120000     # timeout for receiving headers (120 sec)
-  HttpBodyTimeout = 12000         # timeout for receiving body (12 sec)
+  MaxHttpHeadersSize = 8192        # maximum size of HTTP headers in octets
+  MaxHttpRequestSize = 128 * 1024  # maximum size of HTTP body in octets
+  HttpHeadersTimeout = 120.seconds # timeout for receiving headers (120 sec)
+  HttpBodyTimeout = 12.seconds     # timeout for receiving body (12 sec)
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
 proc sendRequest(transp: StreamTransport,

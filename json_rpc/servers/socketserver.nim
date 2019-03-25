@@ -47,7 +47,7 @@ proc addStreamServers*(server: RpcSocketServer, addresses: openarray[TransportAd
     server.addStreamServer(item)
 
 proc addStreamServer*(server: RpcSocketServer, address: string) =
-  ## Create new server and assign it to addresses ``addresses``.  
+  ## Create new server and assign it to addresses ``addresses``.
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
@@ -55,13 +55,13 @@ proc addStreamServer*(server: RpcSocketServer, address: string) =
 
   # Attempt to resolve `address` for IPv4 address space.
   try:
-    tas4 = resolveTAddress(address, IpAddressFamily.IPv4)
+    tas4 = resolveTAddress(address, AddressFamily.IPv4)
   except:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
-    tas6 = resolveTAddress(address, IpAddressFamily.IPv6)
+    tas6 = resolveTAddress(address, AddressFamily.IPv6)
   except:
     discard
 
@@ -88,13 +88,13 @@ proc addStreamServer*(server: RpcSocketServer, address: string, port: Port) =
 
   # Attempt to resolve `address` for IPv4 address space.
   try:
-    tas4 = resolveTAddress(address, port, IpAddressFamily.IPv4)
+    tas4 = resolveTAddress(address, port, AddressFamily.IPv4)
   except:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
-    tas6 = resolveTAddress(address, port, IpAddressFamily.IPv6)
+    tas6 = resolveTAddress(address, port, AddressFamily.IPv6)
   except:
     discard
 
@@ -118,13 +118,13 @@ proc addStreamServer*(server: RpcSocketServer, address: string, port: Port) =
 proc newRpcSocketServer*: RpcSocketServer =
   RpcSocketServer(router: newRpcRouter(), servers: @[])
 
-proc newRpcSocketServer*(addresses: openarray[TransportAddress]): RpcSocketServer = 
+proc newRpcSocketServer*(addresses: openarray[TransportAddress]): RpcSocketServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcSocketServer()
   result.addStreamServers(addresses)
 
 proc newRpcSocketServer*(addresses: openarray[string]): RpcSocketServer =
-  ## Create new server and assign it to addresses ``addresses``.  
+  ## Create new server and assign it to addresses ``addresses``.
   result = newRpcSocketServer()
   result.addStreamServers(addresses)
 
