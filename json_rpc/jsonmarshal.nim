@@ -15,11 +15,12 @@ proc `%`*(n: ref SomeInteger): JsonNode =
   else:
     result = newJInt(n[])
 
-proc `%`*[T](option: Option[T]): JsonNode =
-  if option.isSome:
-    result = `%`(option.get)
-  else:
-    result = newJNull()
+when (NimMajor, NimMinor, NimPatch) < (0, 19, 9):
+  proc `%`*[T](option: Option[T]): JsonNode =
+    if option.isSome:
+      result = `%`(option.get)
+    else:
+      result = newJNull()
 
 # Compiler requires forward decl when processing out of module
 proc fromJson(n: JsonNode, argName: string, result: var bool)
