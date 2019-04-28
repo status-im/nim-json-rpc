@@ -4,7 +4,8 @@ import
 export chronos, json, jsonmarshal
 
 type
-  RpcJsonError* = enum rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams
+  RpcJsonError* = enum
+    rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams, rjeNoJObject
   RpcJsonErrorContainer* = tuple[err: RpcJsonError, msg: string]
 
   # Procedure signature accepted as an RPC call by server
@@ -46,7 +47,8 @@ const
       (INVALID_REQUEST, "JSON 2.0 required"),
       (INVALID_REQUEST, "No method requested"),
       (INVALID_REQUEST, "No id specified"),
-      (INVALID_PARAMS, "No parameters specified")
+      (INVALID_PARAMS, "No parameters specified"),
+      (INVALID_PARAMS, "Invalid request object")
     ]
 
 proc newRpcRouter*: RpcRouter =
@@ -81,6 +83,8 @@ proc checkJsonState*(line: string,
   let res = jsonValid(line, node)
   if not res[0]:
     return some((rjeInvalidJson, res[1]))
+  if node.kind != JObject:
+    return some((rjeNoJObject, ""))
   if not node.hasKey(idField):
     return some((rjeNoId, ""))
   let jVer = node{jsonRpcField}
@@ -139,7 +143,9 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   if jsonErrorState.isSome:
     let errState = jsonErrorState.get
     var id =
-      if errState.err == rjeInvalidJson or errState.err == rjeNoId:
+      if errState.err == rjeInvalidJson or
+         errState.err == rjeNoId or
+         errState.err == rjeNoJObject:
         newJNull()
       else:
         node["id"]
