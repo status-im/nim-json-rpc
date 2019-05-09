@@ -90,7 +90,7 @@ proc checkJsonState*(line: string,
   let jVer = node{jsonRpcField}
   if jVer != nil and jVer.kind != JNull and jVer != %"2.0":
     return some((rjeVersionError, ""))
-  if not node.hasKey(methodField):
+  if not node.hasKey(methodField) or node[methodField].kind != JString:
     return some((rjeNoMethod, ""))
   if not node.hasKey(paramsField):
     return some((rjeNoParams, ""))
