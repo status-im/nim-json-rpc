@@ -117,7 +117,7 @@ s.rpc("rpc.optInObj") do(data: string, options: Option[MaybeOptions]) -> int:
     if o.o1.isSome: result += 1
     if o.o2.isSome: result += 2
     if o.o3.isSome: result += 4
-  
+
 # Tests
 suite "Server types":
   test "On macro registration":
