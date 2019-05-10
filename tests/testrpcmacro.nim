@@ -121,7 +121,7 @@ s.rpc("rpc.optInObj") do(data: string, options: Option[MaybeOptions]) -> int:
 # Tests
 suite "Server types":
   test "On macro registration":
-    require 1 == 2
+    check 1 == 2
     check s.hasMethod("rpc.simplepath")
     check s.hasMethod("rpc.differentparams")
     check s.hasMethod("rpc.arrayparam")
