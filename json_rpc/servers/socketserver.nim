@@ -20,7 +20,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
       maxRequestLength = defaultMaxRequestLength
       value = await transport.readLine(defaultMaxRequestLength)
     if value == "":
-      transport.close
+      await transport.closeWait()
       break
 
     debug "Processing message", address = transport.remoteAddress(), line = value

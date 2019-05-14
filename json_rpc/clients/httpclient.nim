@@ -11,6 +11,7 @@ type
 
   RpcHttpClient* = ref object of RpcClient
     transp*: StreamTransport
+    loop: Future[void]
     addresses: seq[TransportAddress]
     options: HttpClientOptions
 
@@ -115,7 +116,7 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     error = true
 
   if error or not transp.validateResponse(header):
-    transp.close()
+    await transp.closeWait()
     result = ""
     return
 
@@ -155,7 +156,7 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     error = true
 
   if error:
-    transp.close()
+    await transp.closeWait()
     result = ""
   else:
     result = cast[string](buffer)
@@ -188,7 +189,7 @@ proc call*(client: RpcHttpClient, name: string,
   if not res:
     debug "Failed to send message to RPC server",
           address = client.transp.remoteAddress(), msg_len = len(value)
-    client.transp.close()
+    await client.transp.closeWait()
     raise newException(ValueError, "Transport error")
   else:
     debug "Message sent to RPC server", address = client.transp.remoteAddress(),
@@ -207,19 +208,28 @@ template call*(client: RpcHttpClient, name: string,
 
 proc processData(client: RpcHttpClient) {.async.} =
   while true:
-    var value = await client.transp.recvData()
-    if value == "":
-      break
-    debug "Received response from RPC server",
-          address = client.transp.remoteAddress(),
-          msg_len = len(value)
-    trace "Message", msg = value
-    client.processMessage(value)
+    while true:
+      var value = await client.transp.recvData()
+      debug "Returned from recvData()", address = client.transp.remoteAddress()
+      if value == "":
+        debug "Empty response from RPC server",
+              address = client.transp.remoteAddress()
+        break
+      debug "Received response from RPC server",
+            address = client.transp.remoteAddress(),
+            msg_len = len(value)
+      trace "Message", msg = value
+      client.processMessage(value)
 
-  # async loop reconnection and waiting
-  client.transp = await connect(client.addresses[0])
+    # async loop reconnection and waiting
+    try:
+      client.transp = await connect(client.addresses[0])
+    except:
+      debug "Could not establish new connection to RPC server",
+            address = client.addresses[0]
+      break
 
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)
   client.transp = await connect(client.addresses[0])
-  asyncCheck processData(client)
+  client.loop = processData(client)
