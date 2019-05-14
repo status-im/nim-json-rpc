@@ -104,7 +104,7 @@ proc processClient(server: StreamServer,
         debug "Timeout expired while receiving headers",
               address = transp.remoteAddress()
         let res = await transp.sendAnswer(HttpVersion11, Http408)
-        transp.close()
+        await transp.closeWait()
         break
       else:
         let hlen = hlenfut.read()
@@ -115,24 +115,29 @@ proc processClient(server: StreamServer,
           debug "Malformed header received",
                 address = transp.remoteAddress()
           let res = await transp.sendAnswer(HttpVersion11, Http400)
-          transp.close()
+          await transp.closeWait()
           break
     except TransportLimitError:
       # size of headers exceeds `MaxHttpHeadersSize`
       debug "Maximum size of headers limit reached",
             address = transp.remoteAddress()
       let res = await transp.sendAnswer(HttpVersion11, Http413)
-      transp.close()
+      await transp.closeWait()
       break
     except TransportIncompleteError:
       # remote peer disconnected
       debug "Remote peer disconnected", address = transp.remoteAddress()
-      transp.close()
+      await transp.closeWait()
       break
     except TransportOsError:
       debug "Problems with networking", address = transp.remoteAddress(),
             error = getCurrentExceptionMsg()
-      transp.close()
+      await transp.closeWait()
+      break
+    except:
+      debug "Unknown exception", address = transp.remoteAddress(),
+            error = getCurrentExceptionMsg()
+      await transp.closeWait()
       break
 
     let vres = await validateRequest(transp, header)
@@ -154,19 +159,19 @@ proc processClient(server: StreamServer,
           debug "Timeout expired while receiving request body",
                 address = transp.remoteAddress()
           let res = await transp.sendAnswer(header.version, Http413)
-          transp.close()
+          await transp.closeWait()
           break
         else:
           blenfut.read()
       except TransportIncompleteError:
         # remote peer disconnected
         debug "Remote peer disconnected", address = transp.remoteAddress()
-        transp.close()
+        await transp.closeWait()
         break
       except TransportOsError:
         debug "Problems with networking", address = transp.remoteAddress(),
               error = getCurrentExceptionMsg()
-        transp.close()
+        await transp.closeWait()
         break
 
       let future = rpc.route(cast[string](buffer))
@@ -177,29 +182,31 @@ proc processClient(server: StreamServer,
               address = transp.remoteAddress()
         let res = await transp.sendAnswer(header.version, Http503)
         if not res:
-          transp.close()
+          await transp.closeWait()
           break
       else:
         var data = future.read()
         let res = await transp.sendAnswer(header.version, Http200, data)
         info "RPC result has been sent", address = transp.remoteAddress()
         if not res:
-          transp.close()
+          await transp.closeWait()
           break
     elif vres == ErrorFailure:
       debug "Remote peer disconnected", address = transp.remoteAddress()
-      transp.close()
+      await transp.closeWait()
       break
 
     if header.version in {HttpVersion09, HttpVersion10}:
       debug "Disconnecting client", address = transp.remoteAddress()
-      transp.close()
+      await transp.closeWait()
       break
     else:
       if connection == "close":
         debug "Disconnecting client", address = transp.remoteAddress()
-        transp.close()
+        await transp.closeWait()
         break
+
+  info "Finished connection", address = transp.remoteAddress()
 
 # Utility functions for setting up servers using stream transport addresses
 

@@ -4,6 +4,7 @@ type
   RpcSocketClient* = ref object of RpcClient
     transport*: StreamTransport
     address*: TransportAddress
+    loop*: Future[void]
 
 const defaultMaxRequestLength* = 1024 * 128
 
@@ -32,18 +33,19 @@ proc call*(self: RpcSocketClient, name: string,
 
 proc processData(client: RpcSocketClient) {.async.} =
   while true:
-    var value = await client.transport.readLine(defaultMaxRequestLength)
-    if value == "":
-      # transmission ends
-      client.transport.close
-      break
+    while true:
+      var value = await client.transport.readLine(defaultMaxRequestLength)
+      if value == "":
+        # transmission ends
+        await client.transport.closeWait()
+        break
 
-    client.processMessage(value)
-  # async loop reconnection and waiting
-  client.transport = await connect(client.address)
+      client.processMessage(value)
+    # async loop reconnection and waiting
+    client.transport = await connect(client.address)
 
 proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   let addresses = resolveTAddress(address, port)
   client.transport = await connect(addresses[0])
   client.address = addresses[0]
-  asyncCheck processData(client)
+  client.loop = processData(client)
