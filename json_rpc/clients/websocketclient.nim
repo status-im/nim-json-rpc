@@ -1,19 +1,20 @@
 import ../client, chronos, tables, json
 
+const newsUseChronos = true
+include news
+
 type
-  RpcSocketClient* = ref object of RpcClient
-    transport*: StreamTransport
-    address*: TransportAddress
+  RpcWebSocketClient* = ref object of RpcClient
+    transport*: WebSocket
+    uri*: string
     loop*: Future[void]
 
-const defaultMaxRequestLength* = 1024 * 128
-
-proc newRpcSocketClient*: RpcSocketClient =
+proc newRpcWebSocketClient*: RpcWebSocketClient =
   ## Creates a new client instance.
   new result
   result.initRpcClient()
 
-method call*(self: RpcSocketClient, name: string,
+method call*(self: RpcWebSocketClient, name: string,
           params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
@@ -21,9 +22,8 @@ method call*(self: RpcSocketClient, name: string,
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
-  let res = await self.transport.write(value)
-  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == len(value))
+  # echo "Sent msg: ", value
+  await self.transport.send(value)
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
@@ -31,25 +31,24 @@ method call*(self: RpcSocketClient, name: string,
   self.awaiting[id] = newFut
   result = await newFut
 
-proc processData(client: RpcSocketClient) {.async.} =
+proc processData(client: RpcWebSocketClient) {.async.} =
   while true:
     while true:
-      var value = await client.transport.readLine(defaultMaxRequestLength)
+      var value = await client.transport.receivePacket()
       if value == "":
         # transmission ends
-        await client.transport.closeWait()
+        client.transport.close()
         break
 
       client.processMessage(value)
     # async loop reconnection and waiting
-    client.transport = await connect(client.address)
+    client.transport = await newWebSocket(client.uri)
 
-proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
-  let addresses = resolveTAddress(address, port)
-  client.transport = await connect(addresses[0])
-  client.address = addresses[0]
+proc connect*(client: RpcWebSocketClient, uri: string) {.async.} =
+  client.transport = await newWebSocket(uri)
+  client.uri = uri
   client.loop = processData(client)
 
-method close*(client: RpcSocketClient) =
+method close*(client: RpcWebSocketClient) =
   # TODO: Stop the processData loop
   client.transport.close()

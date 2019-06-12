@@ -1,3 +1,3 @@
 import client
-import clients/[socketclient, httpclient]
-export client, socketclient, httpclient
+import clients/[socketclient, httpclient, websocketclient]
+export client, socketclient, httpclient, websocketclient
