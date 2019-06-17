@@ -12,7 +12,6 @@ requires "nim >= 0.17.3",
          "chronos",
          "httputils",
          "chronicles",
-         "byteutils",
          "news"
 
 proc configForTests() =

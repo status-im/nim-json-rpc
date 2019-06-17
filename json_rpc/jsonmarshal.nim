@@ -1,4 +1,4 @@
-import macros, json, options, strutils, typetraits, byteutils
+import macros, json, options, typetraits
 
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
@@ -36,13 +36,6 @@ proc fromJson(n: JsonNode, argName: string, result: var ref int64)
 proc fromJson(n: JsonNode, argName: string, result: var ref int)
 proc fromJson[T](n: JsonNode, argName: string, result: var Option[T])
 
-proc parseStringToInt(s: string): int =
-  ## If s starts with '0x' parse as hexadecimal, otherwise parse as decimal.
-  if s.len > 2 and s[0] == '0' and s[1] in {'x', 'X'}:
-    result = parseHexInt(s)
-  else:
-    result = parseInt(s)
-
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
@@ -69,11 +62,8 @@ proc fromJson(n: JsonNode, argName: string, result: var bool) =
   result = n.getBool()
 
 proc fromJson(n: JsonNode, argName: string, result: var int) =
-  if n.kind == JString:
-    result = n.getStr().parseStringToInt()
-  else:
-    n.kind.expect(JInt, argName)
-    result = n.getInt()
+  n.kind.expect(JInt, argName)
+  result = n.getInt()
 
 proc fromJson[T: ref object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
@@ -120,14 +110,6 @@ proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
     fromJson(n[i], argName, result[i])
 
 proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
-  when T is byte:
-    if n.kind == JString:
-      let s = n.getStr
-      if s.len >= result.len + 2 and # (2 for 0x prefix)
-          s[0] == '0' and s[1] in {'x', 'X'}:
-        hexToByteArray(n.getStr, result)
-        return
-
   n.kind.expect(JArray, argName)
   if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   for i in 0 ..< n.len:
