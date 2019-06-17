@@ -66,7 +66,7 @@ proc continuousTest(address: string, port: Port): Future[int] {.async.} =
     var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
     if r.result.getStr == "Hello abc data: [1, 2, 3, " & $i & "]":
       result += 1
-    client.close()
+    await client.close()
 
 proc customMessage(address: TransportAddress,
                    data: string,

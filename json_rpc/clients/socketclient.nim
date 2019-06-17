@@ -50,6 +50,6 @@ proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   client.address = addresses[0]
   client.loop = processData(client)
 
-method close*(client: RpcSocketClient) =
+method close*(client: RpcSocketClient) {.async.} =
   # TODO: Stop the processData loop
-  client.transport.close()
+  await client.transport.closeWait()

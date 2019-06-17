@@ -183,7 +183,7 @@ method call*(client: RpcHttpClient, name: string,
   if not res:
     debug "Failed to send message to RPC server",
           address = transp.remoteAddress(), msg_len = len(reqBody)
-    transp.close()
+    await transp.closeWait()
     raise newException(ValueError, "Transport error")
   else:
     debug "Message sent to RPC server", address = transp.remoteAddress(),
@@ -191,7 +191,7 @@ method call*(client: RpcHttpClient, name: string,
     trace "Message", msg = reqBody
 
   var value = await transp.recvData()
-  transp.close()
+  await transp.closeWait()
   if value.len == 0:
     raise newException(ValueError, "Empty response from server")
 

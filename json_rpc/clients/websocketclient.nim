@@ -49,6 +49,6 @@ proc connect*(client: RpcWebSocketClient, uri: string) {.async.} =
   client.uri = uri
   client.loop = processData(client)
 
-method close*(client: RpcWebSocketClient) =
+method close*(client: RpcWebSocketClient) {.async.} =
   # TODO: Stop the processData loop
   client.transport.close()
