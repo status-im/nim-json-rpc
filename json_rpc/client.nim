@@ -9,12 +9,14 @@ type
   RpcClient* = ref object of RootRef
     awaiting*: Table[ClientId, Future[Response]]
     nextId: ClientId
+    methodHandlers: Table[string, proc(j: JsonNode)]
 
   Response* = tuple[error: bool, result: JsonNode]
 
 proc initRpcClient*[T: RpcClient](client: var T) =
   client.awaiting = initTable[ClientId, Future[Response]]()
   client.nextId = 1
+  client.methodHandlers = initTable[string, proc(j: JsonNode)]()
 
 proc getNextId*(client: RpcClient): ClientId =
   result = client.nextId
@@ -22,6 +24,11 @@ proc getNextId*(client: RpcClient): ClientId =
 
 proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
+
+method call*(client: RpcClient, name: string,
+           params: JsonNode): Future[Response] {.async, base.} = discard
+
+method close*(client: RpcClient) {.base, async.} = discard
 
 template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
   fut.fail(newException(errType, msg))
@@ -45,32 +52,41 @@ macro checkGet(node: JsonNode, fieldName: string,
   of JObject: result.add(quote do: `n`.getObject)
   else: discard
 
-proc processMessage*[T: RpcClient](self: T, line: string) =
+proc processMessage*(self: RpcClient, line: string) =
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
-  let
-    node = parseJson(line)
-    id = checkGet(node, "id", JInt)
+  let node = parseJson(line)
 
-  if not self.awaiting.hasKey(id):
-    raise newException(ValueError,
-      "Cannot find message id \"" & node["id"].str & "\"")
+  if "id" in node:
+    let id = checkGet(node, "id", JInt)
 
-  let version = checkGet(node, "jsonrpc", JString)
-  if version != "2.0":
-    self.awaiting[id].asyncRaise(ValueError,
-      "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
+    if not self.awaiting.hasKey(id):
+      raise newException(ValueError,
+        "Cannot find message id \"" & node["id"].str & "\"")
 
-  let errorNode = node{"error"}
-  if errorNode.isNil or errorNode.kind == JNull:
-    var res = node{"result"}
-    if not res.isNil:
-      self.awaiting[id].complete((false, res))
-    self.awaiting.del(id)
-    # TODO: actions on unable find result node
+    let version = checkGet(node, "jsonrpc", JString)
+    if version != "2.0":
+      self.awaiting[id].asyncRaise(ValueError,
+        "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
+
+    let errorNode = node{"error"}
+    if errorNode.isNil or errorNode.kind == JNull:
+      var res = node{"result"}
+      if not res.isNil:
+        self.awaiting[id].complete((false, res))
+      self.awaiting.del(id)
+      # TODO: actions on unable find result node
+    else:
+      self.awaiting[id].fail(newException(ValueError, $errorNode))
+      self.awaiting.del(id)
+  elif "method" in node:
+    # This could be subscription notification
+    let name = node["method"].getStr()
+    let handler = self.methodHandlers.getOrDefault(name)
+    if not handler.isNil:
+      handler(node{"params"})
   else:
-    self.awaiting[id].fail(newException(ValueError, $errorNode))
-    self.awaiting.del(id)
+    raise newException(ValueError, "Invalid jsonrpc message: " & $node)
 
 # Signature processing
 
@@ -172,6 +188,12 @@ proc processRpcSigs(clientType, parsedCode: NimNode): NimNode =
     if line.kind == nnkProcDef:
       var procDef = createRpcFromSig(clientType, line)
       result.add(procDef)
+
+proc setMethodHandler*(cl: RpcClient, name: string, callback: proc(j: JsonNode)) =
+  cl.methodHandlers[name] = callback
+
+proc delMethodHandler*(cl: RpcClient, name: string) =
+  cl.methodHandlers.del(name)
 
 macro createRpcSigs*(clientType: untyped, filePath: static[string]): untyped =
   ## Takes a file of forward declarations in Nim and builds them into RPC

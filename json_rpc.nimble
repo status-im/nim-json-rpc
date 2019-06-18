@@ -11,7 +11,8 @@ requires "nim >= 0.17.3",
          "stint",
          "chronos",
          "httputils",
-         "chronicles"
+         "chronicles",
+         "news"
 
 proc configForTests() =
   --hints: off

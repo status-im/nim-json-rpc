@@ -13,7 +13,7 @@ proc newRpcSocketClient*: RpcSocketClient =
   new result
   result.initRpcClient()
 
-proc call*(self: RpcSocketClient, name: string,
+method call*(self: RpcSocketClient, name: string,
           params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
@@ -49,3 +49,7 @@ proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   client.transport = await connect(addresses[0])
   client.address = addresses[0]
   client.loop = processData(client)
+
+method close*(client: RpcSocketClient) {.async.} =
+  # TODO: Stop the processData loop
+  await client.transport.closeWait()

@@ -10,7 +10,6 @@ type
     httpMethod: HttpMethod
 
   RpcHttpClient* = ref object of RpcClient
-    transp*: StreamTransport
     loop: Future[void]
     addresses: seq[TransportAddress]
     options: HttpClientOptions
@@ -69,13 +68,11 @@ proc validateResponse*(transp: StreamTransport,
         if header["Transfer-Encoding"].toLowerAscii() == "chunked":
           debug "Chunked encoding is not supported",
                 address = transp.remoteAddress()
-          result = false
-          return
         else:
           debug "Content body size could not be calculated",
                 address = transp.remoteAddress()
-          result = false
-          return
+        result = false
+        return
 
   result = true
 
@@ -116,7 +113,6 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     error = true
 
   if error or not transp.validateResponse(header):
-    await transp.closeWait()
     result = ""
     return
 
@@ -156,13 +152,12 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     error = true
 
   if error:
-    await transp.closeWait()
     result = ""
   else:
     result = cast[string](buffer)
 
 proc init(opts: var HttpClientOptions) =
-  opts.httpMethod = MethodGet
+  opts.httpMethod = MethodPost
 
 proc newRpcHttpClient*(): RpcHttpClient =
   ## Creates a new HTTP client instance.
@@ -176,60 +171,36 @@ proc httpMethod*(client: RpcHttpClient): HttpMethod =
 proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
   client.options.httpMethod = m
 
-proc call*(client: RpcHttpClient, name: string,
-           params: JsonNode, httpMethod: HttpMethod): Future[Response] {.async.} =
+method call*(client: RpcHttpClient, name: string,
+           params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
-  var value = $rpcCallNode(name, params, id) & "\c\l"
-  if isNil(client.transp) or client.transp.closed():
-    raise newException(ValueError,
-      "Transport is not initialised or already closed")
-  let res = await client.transp.sendRequest(value, httpMethod)
+  let transp = await connect(client.addresses[0])
+  var reqBody = $rpcCallNode(name, params, id)
+  echo "Sending (", client.httpMethod, "): ", reqBody
+  let res = await transp.sendRequest(reqBody, client.httpMethod)
   if not res:
     debug "Failed to send message to RPC server",
-          address = client.transp.remoteAddress(), msg_len = len(value)
-    await client.transp.closeWait()
+          address = transp.remoteAddress(), msg_len = len(reqBody)
+    await transp.closeWait()
     raise newException(ValueError, "Transport error")
   else:
-    debug "Message sent to RPC server", address = client.transp.remoteAddress(),
-          msg_len = len(value)
-    trace "Message", msg = value
+    debug "Message sent to RPC server", address = transp.remoteAddress(),
+          msg_len = len(reqBody)
+    trace "Message", msg = reqBody
+
+  var value = await transp.recvData()
+  await transp.closeWait()
+  if value.len == 0:
+    raise newException(ValueError, "Empty response from server")
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
   # add to awaiting responses
   client.awaiting[id] = newFut
+  client.processMessage(value)
   result = await newFut
-
-template call*(client: RpcHttpClient, name: string,
-               params: JsonNode): untyped =
-  client.call(name, params, client.httpMethod)
-
-proc processData(client: RpcHttpClient) {.async.} =
-  while true:
-    while true:
-      var value = await client.transp.recvData()
-      debug "Returned from recvData()", address = client.transp.remoteAddress()
-      if value == "":
-        debug "Empty response from RPC server",
-              address = client.transp.remoteAddress()
-        break
-      debug "Received response from RPC server",
-            address = client.transp.remoteAddress(),
-            msg_len = len(value)
-      trace "Message", msg = value
-      client.processMessage(value)
-
-    # async loop reconnection and waiting
-    try:
-      client.transp = await connect(client.addresses[0])
-    except:
-      debug "Could not establish new connection to RPC server",
-            address = client.addresses[0]
-      break
 
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)
-  client.transp = await connect(client.addresses[0])
-  client.loop = processData(client)
