@@ -1,5 +1,5 @@
 import json, strutils, tables
-import chronicles, httputils, chronos
+import chronicles, httputils, chronos, json_serialization/std/net
 import ../client
 
 logScope:

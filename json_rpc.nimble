@@ -12,7 +12,9 @@ requires "nim >= 0.17.3",
          "chronos",
          "httputils",
          "chronicles",
-         "news"
+         "news",
+         "chronicles",
+         "json_serialization"
 
 proc configForTests() =
   --hints: off
