@@ -26,9 +26,9 @@ proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
 
 method call*(client: RpcClient, name: string,
-           params: JsonNode): Future[Response] {.async, base.} = discard
+           params: JsonNode): Future[Response] {.gcsafe, async, base.} = discard
 
-method close*(client: RpcClient) {.base, async.} = discard
+method close*(client: RpcClient) {.base, gcsafe, async.} = discard
 
 template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
   fut.fail(newException(errType, msg))
