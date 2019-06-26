@@ -62,7 +62,7 @@ proc processMessage*(self: RpcClient, line: string) =
 
     if not self.awaiting.hasKey(id):
       raise newException(ValueError,
-        "Cannot find message id \"" & node["id"].str & "\"")
+        "Cannot find message id \"" & $node["id"].getInt & "\"")
 
     let version = checkGet(node, "jsonrpc", JString)
     if version != "2.0":

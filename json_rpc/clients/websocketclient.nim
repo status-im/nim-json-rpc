@@ -23,12 +23,13 @@ method call*(self: RpcWebSocketClient, name: string,
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
   # echo "Sent msg: ", value
-  await self.transport.send(value)
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
   # add to awaiting responses
   self.awaiting[id] = newFut
+
+  await self.transport.send(value)
   result = await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
