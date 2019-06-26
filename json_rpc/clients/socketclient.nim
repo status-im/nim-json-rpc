@@ -21,14 +21,16 @@ method call*(self: RpcSocketClient, name: string,
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
-  let res = await self.transport.write(value)
-  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == len(value))
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
   # add to awaiting responses
   self.awaiting[id] = newFut
+
+  let res = await self.transport.write(value)
+  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
+  doAssert(res == len(value))    
+
   result = await newFut
 
 proc processData(client: RpcSocketClient) {.async.} =
