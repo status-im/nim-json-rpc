@@ -45,8 +45,15 @@ proc processData(client: RpcWebSocketClient) {.async.} =
     # async loop reconnection and waiting
     client.transport = await newWebSocket(client.uri)
 
-proc connect*(client: RpcWebSocketClient, uri: string) {.async.} =
-  client.transport = await newWebSocket(uri)
+proc connect*(client: RpcWebSocketClient, uri: string, headers: StringTableRef = nil) {.async.} =
+  var headers = headers
+  if headers.isNil:
+    headers = newStringTable({"Origin": "http://localhost"})
+  elif "Origin" notin headers:
+    # TODO: This is a hack, because the table might be case sensitive. Ideally strtabs module has
+    # to be extended with case insensitive accessors.
+    headers["Origin"] = "http://localhost"
+  client.transport = await newWebSocket(uri, headers)
   client.uri = uri
   client.loop = processData(client)
 
