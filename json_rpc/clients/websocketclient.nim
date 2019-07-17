@@ -8,11 +8,13 @@ type
     transport*: WebSocket
     uri*: string
     loop*: Future[void]
+    lock*: AsyncLock
 
 proc newRpcWebSocketClient*: RpcWebSocketClient =
   ## Creates a new client instance.
   new result
   result.initRpcClient()
+  result.lock = newAsyncLock()
 
 method call*(self: RpcWebSocketClient, name: string,
           params: JsonNode): Future[Response] {.async.} =
@@ -29,7 +31,11 @@ method call*(self: RpcWebSocketClient, name: string,
   # add to awaiting responses
   self.awaiting[id] = newFut
 
-  await self.transport.send(value)
+  await self.lock.acquire()
+  try:
+    await self.transport.send(value)
+  finally:
+    self.lock.release()
   result = await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
