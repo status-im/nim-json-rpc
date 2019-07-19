@@ -9,7 +9,7 @@ type
   RpcClient* = ref object of RootRef
     awaiting*: Table[ClientId, Future[Response]]
     nextId: ClientId
-    methodHandlers: Table[string, proc(j: JsonNode)]
+    methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
 
   Response* = tuple[error: bool, result: JsonNode]
 
@@ -82,10 +82,9 @@ proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
   elif "method" in node:
     # This could be subscription notification
     let name = node["method"].getStr()
-    {.gcsafe.}:
-      let handler = self.methodHandlers.getOrDefault(name)
-      if not handler.isNil:
-        handler(node{"params"})
+    let handler = self.methodHandlers.getOrDefault(name)
+    if not handler.isNil:
+      handler(node{"params"})
   else:
     raise newException(ValueError, "Invalid jsonrpc message: " & $node)
 
@@ -190,7 +189,7 @@ proc processRpcSigs(clientType, parsedCode: NimNode): NimNode =
       var procDef = createRpcFromSig(clientType, line)
       result.add(procDef)
 
-proc setMethodHandler*(cl: RpcClient, name: string, callback: proc(j: JsonNode)) =
+proc setMethodHandler*(cl: RpcClient, name: string, callback: proc(j: JsonNode) {.gcsafe.}) =
   cl.methodHandlers[name] = callback
 
 proc delMethodHandler*(cl: RpcClient, name: string) =
