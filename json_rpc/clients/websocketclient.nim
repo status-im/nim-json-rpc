@@ -1,4 +1,4 @@
-import ../client, chronos, tables, json
+import ../client, chronos, tables, json, strtabs
 
 const newsUseChronos = true
 include news
