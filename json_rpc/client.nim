@@ -52,7 +52,7 @@ macro checkGet(node: JsonNode, fieldName: string,
   of JObject: result.add(quote do: `n`.getObject)
   else: discard
 
-proc processMessage*(self: RpcClient, line: string) =
+proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
   let node = parseJson(line)
@@ -82,9 +82,10 @@ proc processMessage*(self: RpcClient, line: string) =
   elif "method" in node:
     # This could be subscription notification
     let name = node["method"].getStr()
-    let handler = self.methodHandlers.getOrDefault(name)
-    if not handler.isNil:
-      handler(node{"params"})
+    {.gcsafe.}:
+      let handler = self.methodHandlers.getOrDefault(name)
+      if not handler.isNil:
+        handler(node{"params"})
   else:
     raise newException(ValueError, "Invalid jsonrpc message: " & $node)
 
