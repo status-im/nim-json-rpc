@@ -1,4 +1,4 @@
-import json, strutils, tables
+import json, strutils, tables, uri
 import chronicles, httputils, chronos, json_serialization/std/net
 import ../client
 
@@ -204,3 +204,11 @@ method call*(client: RpcHttpClient, name: string,
 
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)
+
+proc connect*(client: RpcHttpClient, url: string) {.async.} =
+  # TODO: The url (path, etc) should make it into the request
+  let pu = parseUri(url)
+  var port = Port(80)
+  if pu.port.len != 0:
+    port = parseInt(pu.port).Port
+  client.addresses = resolveTAddress(pu.hostname, port)
