@@ -1,4 +1,4 @@
-import ../client, chronos, tables, json, strtabs
+import ../client, chronos, tables, json, strtabs, chronicles
 
 const newsUseChronos = true
 include news
@@ -56,6 +56,10 @@ proc connect*(client: RpcWebSocketClient, uri: string, headers: StringTableRef =
   client.transport = await newWebSocket(uri, headers)
   client.uri = uri
   client.loop = processData(client)
+  client.loop.addCallback do(data: pointer):
+    if client.loop.failed:
+      let err = client.loop.readError()
+      error "websocket rpc", msg = err.msg, stacktrace = err.getStackTrace()
 
 method close*(client: RpcWebSocketClient) {.async.} =
   # TODO: Stop the processData loop
