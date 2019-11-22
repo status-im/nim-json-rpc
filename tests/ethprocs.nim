@@ -41,7 +41,7 @@ proc addEthRpcs*(server: RpcServer) =
     ## Returns the SHA3 result of the given string.
     # TODO: Capture error on malformed input
     var rawData: seq[byte]
-    rawData = data.string.fromHex
+    rawData = nimcrypto.fromHex(data.string)
     # data will have 0x prefix
     result = hexDataStr "0x" & $keccak_256.digest(rawData)
 
