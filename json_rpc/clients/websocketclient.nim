@@ -1,4 +1,4 @@
-import ../client, chronos, tables, json, strtabs, chronicles
+import ../client, chronos, tables, json, strtabs
 
 const newsUseChronos = true
 include news
@@ -33,17 +33,29 @@ method call*(self: RpcWebSocketClient, name: string,
   result = await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
-  while true:
+  var error: ref Exception
+  try:
     while true:
       var value = await client.transport.receivePacket()
       if value == "":
         # transmission ends
-        client.transport.close()
         break
 
       client.processMessage(value)
-    # async loop reconnection and waiting
-    client.transport = await newWebSocket(client.uri)
+  except CatchableError as e:
+    error = e
+
+  client.transport.close()
+  client.transport = nil
+
+  if client.awaiting.len != 0:
+    if error.isNil:
+      error = newException(IOError, "Transport was closed while waiting for response")
+    for k, v in client.awaiting:
+      v.fail(error)
+    client.awaiting.clear()
+  if not client.onDisconnect.isNil:
+    client.onDisconnect()
 
 proc connect*(client: RpcWebSocketClient, uri: string, headers: StringTableRef = nil) {.async.} =
   var headers = headers
@@ -56,11 +68,7 @@ proc connect*(client: RpcWebSocketClient, uri: string, headers: StringTableRef =
   client.transport = await newWebSocket(uri, headers)
   client.uri = uri
   client.loop = processData(client)
-  client.loop.addCallback do(data: pointer):
-    if client.loop.failed:
-      let err = client.loop.readError()
-      error "websocket rpc", msg = err.msg, stacktrace = err.getStackTrace()
 
 method close*(client: RpcWebSocketClient) {.async.} =
-  # TODO: Stop the processData loop
-  client.transport.close()
+  if not client.transport.isNil:
+    client.loop.cancel()

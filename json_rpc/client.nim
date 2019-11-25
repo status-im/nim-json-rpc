@@ -10,6 +10,7 @@ type
     awaiting*: Table[ClientId, Future[Response]]
     nextId: ClientId
     methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
+    onDisconnect*: proc() {.gcsafe.}
 
   Response* = tuple[error: bool, result: JsonNode]
 
