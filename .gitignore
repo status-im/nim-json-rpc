@@ -11,8 +11,8 @@
 *.exe
 *.dll
 
-# Ignore the nimcache folders
 nimcache/
+/build
 
 # Ignore editor settings
 .vscode

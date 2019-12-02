@@ -129,14 +129,14 @@ proc processClient(server: StreamServer,
       debug "Remote peer disconnected", address = transp.remoteAddress()
       await transp.closeWait()
       break
-    except TransportOsError:
+    except TransportOsError as exc:
       debug "Problems with networking", address = transp.remoteAddress(),
-            error = getCurrentExceptionMsg()
+            error = exc.msg
       await transp.closeWait()
       break
-    except:
+    except CatchableError as exc:
       debug "Unknown exception", address = transp.remoteAddress(),
-            error = getCurrentExceptionMsg()
+            error = exc.msg
       await transp.closeWait()
       break
 
@@ -168,9 +168,9 @@ proc processClient(server: StreamServer,
         debug "Remote peer disconnected", address = transp.remoteAddress()
         await transp.closeWait()
         break
-      except TransportOsError:
+      except TransportOsError as exc:
         debug "Problems with networking", address = transp.remoteAddress(),
-              error = getCurrentExceptionMsg()
+              error = exc.msg
         await transp.closeWait()
         break
 
@@ -216,9 +216,9 @@ proc addStreamServer*(server: RpcHttpServer, address: TransportAddress) =
     var transServer = createStreamServer(address, processClient,
                                          {ReuseAddr}, udata = server)
     server.servers.add(transServer)
-  except:
+  except CatchableError as exc:
     error "Failed to create server", address = $address,
-                                     message = getCurrentExceptionMsg()
+                                     message = exc.msg
 
   if len(server.servers) == 0:
     # Server was not bound, critical error.

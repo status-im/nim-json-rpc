@@ -69,10 +69,11 @@ template jsonValid*(jsonString: string, node: var JsonNode): (bool, string) =
   var
     valid = true
     msg = ""
-  try: node = parseJson(line)
-  except:
+  try:
+    node = parseJson(line)
+  except CatchableError as exc:
     valid = false
-    msg = getCurrentExceptionMsg()
+    msg = exc.msg
     debug "Cannot process json", json = jsonString, msg = msg
   (valid, msg)
 
@@ -190,8 +191,8 @@ proc hasReturnType(params: NimNode): bool =
 template trap(path: string, body: untyped): untyped =
   try:
     body
-  except:
-    let msg = getCurrentExceptionMsg()
+  except CatchableError as exc:
+    let msg = exc.msg
     debug "Error occurred within RPC ", path = path, errorMessage = msg
     result = %*{codeField: %SERVER_ERROR, messageField: %msg}
 
