@@ -35,8 +35,8 @@ proc addStreamServer*(server: RpcSocketServer, address: TransportAddress) =
     info "Creating server on ", address = $address
     var transportServer = createStreamServer(address, processClient, {ReuseAddr}, udata = server)
     server.servers.add(transportServer)
-  except:
-    error "Failed to create server", address = $address, message = getCurrentExceptionMsg()
+  except CatchableError as exc:
+    error "Failed to create server", address = $address, message = exc.msg
 
   if len(server.servers) == 0:
     # Server was not bound, critical error.

@@ -17,7 +17,7 @@ server.rpc("rpc") do(a: int, b: int):
 
 server.rpc("makeError"):
   if true:
-    raise newException(ValueError, "Test")  
+    raise newException(ValueError, "Test")
 
 proc testMissingRpc: Future[Response] {.async.} =
   var fut = client.call("phantomRpc", %[])
@@ -51,23 +51,23 @@ suite "RPC Errors":
       check res.error == true and
         res.result["message"] == %"Method not found" and
         res.result["data"] == %"phantomRpc is not a registered method."
-    except:
-      echo "Error ", getCurrentExceptionMsg()
+    except CatchableError as exc:
+      echo "Error ", exc.msg
 
   #[test "Incorrect json version":
     #expect ValueError:
     try:
       let res = waitFor testInvalidJsonVer()
       check res.error == true and res.result["message"] == %"JSON 2.0 required"
-    except:
-      echo "Error ", getCurrentExceptionMsg()
+    except CatchableError as exc:
+      echo "Error ", exc.msg
   ]#
   test "Raising exceptions":
     #expect ValueError:
     try:
       let res = waitFor testRaise()
-    except:
-      echo "Error ", getCurrentExceptionMsg()
+    except CatchableError as exc:
+      echo "Error ", exc.msg
 
   test "Malformed json":
     # TODO: We time out here because the server won't be able to
@@ -75,6 +75,6 @@ suite "RPC Errors":
     try:
       let res = waitFor testMalformed()
       check res.error == true and res.result == %"Timeout"
-    except:
-      echo "Error ", getCurrentExceptionMsg()
-  
+    except CatchableError as exc:
+      echo "Error ", exc.msg
+

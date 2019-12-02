@@ -107,9 +107,9 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     # remote peer disconnected
     debug "Remote peer disconnected", address = transp.remoteAddress()
     error = true
-  except TransportOsError:
+  except TransportOsError as exc:
     debug "Problems with networking", address = transp.remoteAddress(),
-          error = getCurrentExceptionMsg()
+          error = exc.msg
     error = true
 
   if error or not transp.validateResponse(header):
@@ -146,9 +146,9 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
     # remote peer disconnected
     debug "Remote peer disconnected", address = transp.remoteAddress()
     error = true
-  except TransportOsError:
+  except TransportOsError as exc:
     debug "Problems with networking", address = transp.remoteAddress(),
-          error = getCurrentExceptionMsg()
+          error = exc.msg
     error = true
 
   if error:

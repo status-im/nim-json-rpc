@@ -16,14 +16,11 @@ requires "nim >= 0.17.3",
          "chronicles",
          "json_serialization"
 
-proc configForTests() =
-  --hints: off
-  --debuginfo
-  --path: "."
-  --run
-  --forceBuild
-  --threads: on
+proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
+  if not dirExists "build":
+    mkDir "build"
+  exec "nim " & lang & " --out:./build/" & name & " " & params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 task test, "run tests":
-  configForTests()
-  setCommand "c", "tests/all.nim"
+  buildBinary "all", "tests/", "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR"
+
