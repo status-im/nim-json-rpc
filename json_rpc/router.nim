@@ -230,36 +230,32 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     let returnType = parameters[0]
 
     # delegate async proc allows return and setting of result as native type
-    result.add(quote do:
-      proc `doMain`(`paramsIdent`: JsonNode): `returnType` =
+    result.add quote do:
+      proc `doMain`(`paramsIdent`: JsonNode): Future[`returnType`] {.async.} =
         `setup`
         `procBody`
-    )
 
     if returnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
-      result.add( quote do:
+      result.add quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
           trap(`pathStr`):
-            `res` = `doMain`(`paramsIdent`)
-      )
+            `res` = await `doMain`(`paramsIdent`)
     else:
-      result.add(quote do:
+      result.add quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
           trap(`pathStr`):
-            `res` = %`doMain`(`paramsIdent`)
-      )
+            `res` = %(await `doMain`(`paramsIdent`))
   else:
     # no return types, inline contents
-    result.add(quote do:
+    result.add quote do:
       proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
         `setup`
         trap(`pathStr`):
           `procBody`
-    )
-  result.add( quote do:
+
+  result.add quote do:
     `server`.register(`path`, `procName`)
-  )
 
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr
