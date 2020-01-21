@@ -227,15 +227,15 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     procBody = if body.kind == nnkStmtList: body else: body.body
 
   if parameters.hasReturnType:
-    let returnType = parameters[0]
+    let ReturnType = parameters[0]
 
     # delegate async proc allows return and setting of result as native type
     result.add quote do:
-      proc `doMain`(`paramsIdent`: JsonNode): Future[`returnType`] {.async.} =
+      proc `doMain`(`paramsIdent`: JsonNode): Future[`ReturnType`] {.async.} =
         `setup`
         `procBody`
 
-    if returnType == ident"JsonNode":
+    if ReturnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
       result.add quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
