@@ -93,7 +93,7 @@ proc processClient(server: StreamServer,
   var header: HttpRequestHeader
   var connection: string
 
-  info "Received connection", address = transp.remoteAddress()
+  info "Received connection", address = $transp.remoteAddress()
   while true:
     try:
       let hlenfut = transp.readUntil(addr buffer[0], MaxHttpHeadersSize,
@@ -143,7 +143,7 @@ proc processClient(server: StreamServer,
     let vres = await validateRequest(transp, header)
 
     if vres == Success:
-      info "Received valid RPC request", address = transp.remoteAddress()
+      info "Received valid RPC request", address = $transp.remoteAddress()
 
       # we need to get `Connection` header value before, because
       # we are reusing `buffer`, and its value will be lost.
@@ -187,7 +187,7 @@ proc processClient(server: StreamServer,
       else:
         var data = future.read()
         let res = await transp.sendAnswer(header.version, Http200, data)
-        info "RPC result has been sent", address = transp.remoteAddress()
+        info "RPC result has been sent", address = $transp.remoteAddress()
         if not res:
           await transp.closeWait()
           break
@@ -206,7 +206,7 @@ proc processClient(server: StreamServer,
         await transp.closeWait()
         break
 
-  info "Finished connection", address = transp.remoteAddress()
+  info "Finished connection", address = $transp.remoteAddress()
 
 # Utility functions for setting up servers using stream transport addresses
 
