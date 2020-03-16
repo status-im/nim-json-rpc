@@ -241,6 +241,8 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
           trap(`pathStr`):
             `res` = await `doMain`(`paramsIdent`)
+    elif ReturnType == ident"JsonString":
+      discard
     else:
       result.add quote do:
         proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =

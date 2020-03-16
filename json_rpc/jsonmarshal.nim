@@ -23,26 +23,26 @@ when (NimMajor, NimMinor, NimPatch) < (0, 19, 9):
       result = newJNull()
 
 # Compiler requires forward decl when processing out of module
-proc fromJson(n: JsonNode, argName: string, result: var bool)
-proc fromJson(n: JsonNode, argName: string, result: var int)
-proc fromJson(n: JsonNode, argName: string, result: var byte)
-proc fromJson(n: JsonNode, argName: string, result: var float)
-proc fromJson(n: JsonNode, argName: string, result: var string)
-proc fromJson[T](n: JsonNode, argName: string, result: var seq[T])
-proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T])
-proc fromJson(n: JsonNode, argName: string, result: var int64)
-proc fromJson(n: JsonNode, argName: string, result: var uint64)
-proc fromJson(n: JsonNode, argName: string, result: var ref int64)
-proc fromJson(n: JsonNode, argName: string, result: var ref int)
-proc fromJson[T](n: JsonNode, argName: string, result: var Option[T])
+proc fromJson*(n: JsonNode, argName: string, result: var bool)
+proc fromJson*(n: JsonNode, argName: string, result: var int)
+proc fromJson*(n: JsonNode, argName: string, result: var byte)
+proc fromJson*(n: JsonNode, argName: string, result: var float)
+proc fromJson*(n: JsonNode, argName: string, result: var string)
+proc fromJson*[T](n: JsonNode, argName: string, result: var seq[T])
+proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T])
+proc fromJson*(n: JsonNode, argName: string, result: var int64)
+proc fromJson*(n: JsonNode, argName: string, result: var uint64)
+proc fromJson*(n: JsonNode, argName: string, result: var ref int64)
+proc fromJson*(n: JsonNode, argName: string, result: var ref int)
+proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T])
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
-proc fromJson[T: enum](n: JsonNode, argName: string, result: var T) =
+proc fromJson*[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
   result = n.getInt().T
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
-proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
+proc fromJson*[T: object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   for k, v in fieldPairs(result):
     if v is Option and not n.hasKey(k):
@@ -50,72 +50,73 @@ proc fromJson[T: object](n: JsonNode, argName: string, result: var T) =
     else:
       fromJson(n[k], k, v)
 
-proc fromJson[T](n: JsonNode, argName: string, result: var Option[T]) =
+proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T]) =
   # Allow JNull for options
   if n.kind != JNull:
     var val: T
     fromJson(n, argName, val)
     result = some(val)
 
-proc fromJson(n: JsonNode, argName: string, result: var bool) =
+proc fromJson*(n: JsonNode, argName: string, result: var bool) =
   n.kind.expect(JBool, argName)
   result = n.getBool()
 
-proc fromJson(n: JsonNode, argName: string, result: var int) =
+proc fromJson*(n: JsonNode, argName: string, result: var int) =
   n.kind.expect(JInt, argName)
   result = n.getInt()
 
-proc fromJson[T: ref object](n: JsonNode, argName: string, result: var T) =
+proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   result = new T
   for k, v in fieldpairs(result[]):
     fromJson(n[k], k, v)
 
-proc fromJson(n: JsonNode, argName: string, result: var int64) =
+proc fromJson*(n: JsonNode, argName: string, result: var int64) =
   n.kind.expect(JInt, argName)
   result = n.getInt()
 
-proc fromJson(n: JsonNode, argName: string, result: var uint64) =
+proc fromJson*(n: JsonNode, argName: string, result: var uint64) =
   n.kind.expect(JInt, argName)
   result = n.getInt().uint64
 
-proc fromJson(n: JsonNode, argName: string, result: var ref int64) =
+proc fromJson*(n: JsonNode, argName: string, result: var ref int64) =
   n.kind.expect(JInt, argName)
   new result
   result[] = n.getInt()
 
-proc fromJson(n: JsonNode, argName: string, result: var ref int) =
+proc fromJson*(n: JsonNode, argName: string, result: var ref int) =
   n.kind.expect(JInt, argName)
   new result
   result[] = n.getInt()
 
-proc fromJson(n: JsonNode, argName: string, result: var byte) =
+proc fromJson*(n: JsonNode, argName: string, result: var byte) =
   n.kind.expect(JInt, argName)
   let v = n.getInt()
   if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
   result = byte(v)
 
-proc fromJson(n: JsonNode, argName: string, result: var float) =
+proc fromJson*(n: JsonNode, argName: string, result: var float) =
   n.kind.expect(JFloat, argName)
   result = n.getFloat()
 
-proc fromJson(n: JsonNode, argName: string, result: var string) =
+proc fromJson*(n: JsonNode, argName: string, result: var string) =
   n.kind.expect(JString, argName)
   result = n.getStr()
 
-proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
+proc fromJson*[T](n: JsonNode, argName: string, result: var seq[T]) =
   n.kind.expect(JArray, argName)
   result = newSeq[T](n.len)
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
-proc fromJson[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
+proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
   n.kind.expect(JArray, argName)
   if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
 proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
+  mixin fromJson
   fromJson(args, argName, result)
 
 proc expectArrayLen(node, jsonIdent: NimNode, length: int) =

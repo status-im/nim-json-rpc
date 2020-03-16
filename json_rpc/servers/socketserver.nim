@@ -1,4 +1,7 @@
-import ../ server, json
+import
+  json, json_serialization/std/net,
+  ../server
+
 export server
 
 type
