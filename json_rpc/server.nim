@@ -15,7 +15,8 @@ proc newRpcServer*(): RpcServer =
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)
 
-template hasMethod*(server: RpcServer, methodName: string): bool = server.router.hasMethod(methodName)
+template hasMethod*(server: RpcServer, methodName: string): bool =
+  server.router.hasMethod(methodName)
 
 # Wrapper for message processing
 

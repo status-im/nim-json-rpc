@@ -12,8 +12,7 @@ proc sendError*[T](transport: T, code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()) {.async.} =
   ## Send error message to client
   let error = wrapError(code, msg, id, data)
-  var value = $wrapReply(id, newJNull(), error)
-  result = transport.write(value)
+  result = transport.write(string wrapReply(id, StringOfJson("null"), error))
 
 proc processClient(server: StreamServer, transport: StreamTransport) {.async, gcsafe.} =
   ## Process transport data to the RPC server

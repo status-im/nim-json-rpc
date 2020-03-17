@@ -8,8 +8,10 @@ type
     rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams, rjeNoJObject
   RpcJsonErrorContainer* = tuple[err: RpcJsonError, msg: string]
 
+  StringOfJson* = distinct string
+
   # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(input: JsonNode): Future[JsonNode] {.gcsafe.}
+  RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe.}
 
   RpcProcError* = ref object of Exception
     code*: int
@@ -99,16 +101,22 @@ proc checkJsonState*(line: string,
 
 # Json reply wrappers
 
-proc wrapReply*(id: JsonNode, value: JsonNode, error: JsonNode): JsonNode =
-  return %{jsonRpcField: %"2.0", idField: id, resultField: value, errorField: error}
+proc wrapReply*(id: JsonNode, value, error: StringOfJson): StringOfJson =
+  return StringOfJson(
+    """{"jsonRpcField":"2.0","idField":$1,"resultField":$2,"errorField":$3}""" % [
+      $id, string(value), string(error)
+    ])
 
 proc wrapError*(code: int, msg: string, id: JsonNode,
-                data: JsonNode = newJNull()): JsonNode {.gcsafe.} =
+                data: JsonNode = newJNull()): StringOfJson {.gcsafe.} =
   # Create standardised error json
-  result = %{codeField: %(code), idField: id, messageField: %msg, dataField: data}
+  result = StringOfJson(
+    """{"codeField":$1,"idField":$2,"messageField":$3,"dataField":$4}""" % [
+      $code, $id, escapeJson(msg), $data
+    ])
   debug "Error generated", error = result, id = id
 
-proc route*(router: RpcRouter, node: JsonNode): Future[JsonNode] {.async, gcsafe.} =
+proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
   ## Assumes correct setup of node
   let
     methodName = node[methodField].str
@@ -119,19 +127,17 @@ proc route*(router: RpcRouter, node: JsonNode): Future[JsonNode] {.async, gcsafe
     let
       methodNotFound = %(methodName & " is not a registered RPC method.")
       error = wrapError(METHOD_NOT_FOUND, "Method not found", id, methodNotFound)
-    result = wrapReply(id, newJNull(), error)
+    result = wrapReply(id, StringOfJson("null"), error)
   else:
-    let
-      jParams = node[paramsField]
-      res = await rpcProc(jParams)
-      errCode = res.getOrDefault(codeField)
-      errMsg = res.getOrDefault(messageField)
-    if errCode != nil and errCode.kind == JInt and
-      errMsg != nil and errMsg.kind == JString:
-      let error = wrapError(errCode.getInt, methodName & " raised an exception", id, errMsg)
-      result = wrapReply(id, newJNull(), error)
-    else:
-      result = wrapReply(id, res, newJNull())
+    try:
+      let jParams = node[paramsField]
+      let res = await rpcProc(jParams)
+      result = wrapReply(id, res, StringOfJson("null"))
+    except CatchableError as err:
+      debug "Error occurred within RPC", methodName, errorMessage = err.msg
+      let error = wrapError(SERVER_ERROR, methodName & " raised an exception",
+                            id, newJString(err.msg))
+      result = wrapReply(id, StringOfJson("null"), error)
 
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
@@ -157,12 +163,12 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
       fullMsg = errKind[1] & " " & errState[1]
       res = wrapError(code = errKind[0], msg = fullMsg, id = id)
     # return error state as json
-    result = $res & messageTerminator
+    result = string(res) & messageTerminator
   else:
     let res = await router.route(node)
-    result = $res & messageTerminator
+    result = string(res) & messageTerminator
 
-proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[JsonNode]): bool =
+proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[StringOfJson]): bool =
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
   let
@@ -187,14 +193,6 @@ proc hasReturnType(params: NimNode): bool =
   if params != nil and params.len > 0 and params[0] != nil and
      params[0].kind != nnkEmpty:
     result = true
-
-template trap(path: string, body: untyped): untyped =
-  try:
-    body
-  except CatchableError as exc:
-    let msg = exc.msg
-    debug "Error occurred within RPC ", path = path, errorMessage = msg
-    result = %*{codeField: %SERVER_ERROR, messageField: %msg}
 
 macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   ## Define a remote procedure call.
@@ -238,23 +236,22 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     if ReturnType == ident"JsonNode":
       # `JsonNode` results don't need conversion
       result.add quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
-          trap(`pathStr`):
-            `res` = await `doMain`(`paramsIdent`)
-    elif ReturnType == ident"JsonString":
-      discard
+        proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+          return StringOfJson($(await `doMain`(`paramsIdent`)))
+    elif ReturnType == ident"StringOfJson":
+      result.add quote do:
+        proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+          return await `doMain`(`paramsIdent`)
     else:
       result.add quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
-          trap(`pathStr`):
-            `res` = %(await `doMain`(`paramsIdent`))
+        proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+          return StringOfJson($(%(await `doMain`(`paramsIdent`))))
   else:
     # no return types, inline contents
     result.add quote do:
-      proc `procName`(`paramsIdent`: JsonNode): Future[JsonNode] {.async, gcsafe.} =
+      proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
         `setup`
-        trap(`pathStr`):
-          `procBody`
+        `procBody`
 
   result.add quote do:
     `server`.register(`path`, `procName`)
