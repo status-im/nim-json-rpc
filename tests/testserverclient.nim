@@ -1,5 +1,6 @@
-import unittest, json, chronicles
-import  ../json_rpc/[rpcclient, rpcserver]
+import
+  unittest, json, chronicles,
+  ../json_rpc/[rpcclient, rpcserver], ./helpers
 
 var srv = newRpcSocketServer(["localhost:8545"])
 var client = newRpcSocketClient()
@@ -19,3 +20,4 @@ suite "Server/Client RPC":
 
 srv.stop()
 waitFor srv.closeWait()
+

@@ -15,7 +15,7 @@ proc newRpcWebSocketClient*: RpcWebSocketClient =
   result.initRpcClient()
 
 method call*(self: RpcWebSocketClient, name: string,
-          params: JsonNode): Future[Response] {.async.} =
+             params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
   var value = $rpcCallNode(name, params, id) & "\c\l"

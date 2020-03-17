@@ -14,7 +14,7 @@ proc newRpcSocketClient*: RpcSocketClient =
   result.initRpcClient()
 
 method call*(self: RpcSocketClient, name: string,
-          params: JsonNode): Future[Response] {.async.} =
+             params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
   var value = $rpcCallNode(name, params, id) & "\c\l"
@@ -29,7 +29,7 @@ method call*(self: RpcSocketClient, name: string,
 
   let res = await self.transport.write(value)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == len(value))    
+  doAssert(res == len(value))
 
   result = await newFut
 

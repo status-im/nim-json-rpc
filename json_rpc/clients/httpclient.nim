@@ -172,13 +172,12 @@ proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
   client.options.httpMethod = m
 
 method call*(client: RpcHttpClient, name: string,
-           params: JsonNode): Future[Response] {.async, gcsafe.} =
+             params: JsonNode): Future[Response] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
   let transp = await connect(client.addresses[0])
   var reqBody = $rpcCallNode(name, params, id)
-  echo "Sending (", client.httpMethod, "): ", reqBody
   let res = await transp.sendRequest(reqBody, client.httpMethod)
   if not res:
     debug "Failed to send message to RPC server",

@@ -1,5 +1,5 @@
 import unittest, json, chronicles, options
-import ../json_rpc/rpcserver
+import ../json_rpc/rpcserver, ./helpers
 
 type
   # some nested types to check object parsing
@@ -137,7 +137,7 @@ suite "Server types":
 
   test "Simple paths":
     let r = waitFor rpcSimplePath(%[])
-    check r == %1
+    check r == "1"
 
   test "Different param types":
     let

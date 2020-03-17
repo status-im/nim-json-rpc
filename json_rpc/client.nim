@@ -27,7 +27,8 @@ proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
 
 method call*(client: RpcClient, name: string,
-           params: JsonNode): Future[Response] {.gcsafe, async, base.} = discard
+             params: JsonNode): Future[Response] {.gcsafe, async, base.} =
+  discard
 
 method close*(client: RpcClient) {.base, gcsafe, async.} = discard
 

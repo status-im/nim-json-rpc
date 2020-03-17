@@ -28,11 +28,6 @@ const
   paramsField = "params"
   jsonRpcField = "jsonrpc"
   idField = "id"
-  resultField = "result"
-  errorField = "error"
-  codeField = "code"
-  messageField = "message"
-  dataField = "data"
   messageTerminator = "\c\l"
 
   JSON_PARSE_ERROR* = -32700
@@ -103,7 +98,7 @@ proc checkJsonState*(line: string,
 
 proc wrapReply*(id: JsonNode, value, error: StringOfJson): StringOfJson =
   return StringOfJson(
-    """{"jsonRpcField":"2.0","idField":$1,"resultField":$2,"errorField":$3}""" % [
+    """{"jsonrpc":"2.0","id":$1,"result":$2,"error":$3}""" % [
       $id, string(value), string(error)
     ])
 
@@ -111,7 +106,7 @@ proc wrapError*(code: int, msg: string, id: JsonNode,
                 data: JsonNode = newJNull()): StringOfJson {.gcsafe.} =
   # Create standardised error json
   result = StringOfJson(
-    """{"codeField":$1,"idField":$2,"messageField":$3,"dataField":$4}""" % [
+    """{"code":$1,"id":$2,"message":$3,"data":$4}""" % [
       $code, $id, escapeJson(msg), $data
     ])
   debug "Error generated", error = result, id = id
@@ -224,34 +219,28 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     setup = jsonToNim(parameters, paramsIdent)
     procBody = if body.kind == nnkStmtList: body else: body.body
 
-  if parameters.hasReturnType:
-    let ReturnType = parameters[0]
+  let ReturnType = if parameters.hasReturnType: parameters[0]
+                   else: ident "JsonNode"
 
-    # delegate async proc allows return and setting of result as native type
-    result.add quote do:
-      proc `doMain`(`paramsIdent`: JsonNode): Future[`ReturnType`] {.async.} =
-        `setup`
-        `procBody`
+  # delegate async proc allows return and setting of result as native type
+  result.add quote do:
+    proc `doMain`(`paramsIdent`: JsonNode): Future[`ReturnType`] {.async.} =
+      `setup`
+      `procBody`
 
-    if ReturnType == ident"JsonNode":
-      # `JsonNode` results don't need conversion
-      result.add quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-          return StringOfJson($(await `doMain`(`paramsIdent`)))
-    elif ReturnType == ident"StringOfJson":
-      result.add quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-          return await `doMain`(`paramsIdent`)
-    else:
-      result.add quote do:
-        proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-          return StringOfJson($(%(await `doMain`(`paramsIdent`))))
-  else:
-    # no return types, inline contents
+  if ReturnType == ident"JsonNode":
+    # `JsonNode` results don't need conversion
     result.add quote do:
       proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        `setup`
-        `procBody`
+        return StringOfJson($(await `doMain`(`paramsIdent`)))
+  elif ReturnType == ident"StringOfJson":
+    result.add quote do:
+      proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+        return await `doMain`(`paramsIdent`)
+  else:
+    result.add quote do:
+      proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+        return StringOfJson($(%(await `doMain`(`paramsIdent`))))
 
   result.add quote do:
     `server`.register(`path`, `procName`)
