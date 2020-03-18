@@ -1,14 +1,17 @@
 import
-  json, tables, chronos, jsonmarshal, strutils, macros,
-  chronicles, options
-export chronos, json, jsonmarshal
+  json, tables, strutils, macros, options,
+  chronicles, chronos, json_serialization/writer,
+  jsonmarshal
+
+export
+  chronos, json, jsonmarshal
 
 type
   RpcJsonError* = enum
     rjeInvalidJson, rjeVersionError, rjeNoMethod, rjeNoId, rjeNoParams, rjeNoJObject
   RpcJsonErrorContainer* = tuple[err: RpcJsonError, msg: string]
 
-  StringOfJson* = distinct string
+  StringOfJson* = JsonString
 
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe.}
