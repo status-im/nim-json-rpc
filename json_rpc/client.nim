@@ -15,9 +15,7 @@ type
   Response* = tuple[error: bool, result: JsonNode]
 
 proc initRpcClient*[T: RpcClient](client: var T) =
-  client.awaiting = initTable[ClientId, Future[Response]]()
   client.nextId = 1
-  client.methodHandlers = initTable[string, proc(j: JsonNode)]()
 
 proc getNextId*(client: RpcClient): ClientId =
   result = client.nextId
