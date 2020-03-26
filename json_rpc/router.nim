@@ -112,7 +112,7 @@ proc wrapError*(code: int, msg: string, id: JsonNode,
     """{"code":$1,"id":$2,"message":$3,"data":$4}""" % [
       $code, $id, escapeJson(msg), $data
     ])
-  debug "Error generated", error = result, id = id
+  debug "Error generated", error = string(result), id = id
 
 proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
   ## Assumes correct setup of node
