@@ -12,7 +12,7 @@ requires "nim >= 0.17.3",
          "chronos",
          "httputils",
          "chronicles",
-         "news >= 0.2 & < 0.3",
+         "news >= 0.4 & < 0.5",
          "chronicles",
          "json_serialization"
 

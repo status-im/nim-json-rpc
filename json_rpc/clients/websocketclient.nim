@@ -36,7 +36,7 @@ proc processData(client: RpcWebSocketClient) {.async.} =
   var error: ref Exception
   try:
     while true:
-      var value = await client.transport.receivePacket()
+      var value = await client.transport.receiveString()
       if value == "":
         # transmission ends
         break
