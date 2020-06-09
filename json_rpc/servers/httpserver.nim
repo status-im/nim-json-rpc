@@ -3,7 +3,7 @@ import chronicles, httputils, chronos
 import ../server
 
 logScope:
-  topic = "JSONRPC-HTTP-SERVER"
+  topics = "JSONRPC-HTTP-SERVER"
 
 const
   MaxHttpHeadersSize = 8192        # maximum size of HTTP headers in octets
