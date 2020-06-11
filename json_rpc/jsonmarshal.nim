@@ -42,13 +42,20 @@ proc fromJson*[T: enum](n: JsonNode, argName: string, result: var T) =
   result = n.getInt().T
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
-proc fromJson*[T: object](n: JsonNode, argName: string, result: var T) =
+proc fromJson*[T: object|tuple](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   for k, v in fieldPairs(result):
     if v is Option and not n.hasKey(k):
       fromJson(newJNull(), k, v)
     else:
       fromJson(n[k], k, v)
+
+# same as `proc `%`*[T: object](o: T): JsonNode` in json.nim from the stdlib
+# TODO this PR removes the need for this: https://github.com/nim-lang/Nim/pull/14638
+proc `%`*[T: tuple](o: T): JsonNode =
+  ## Construct JsonNode from tuples and objects.
+  result = newJObject()
+  for k, v in o.fieldPairs: result[k] = %v
 
 proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T]) =
   # Allow JNull for options
