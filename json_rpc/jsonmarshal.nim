@@ -1,4 +1,6 @@
-import macros, json, options, typetraits
+import
+  macros, json, options, typetraits,
+  stew/byteutils
 
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
@@ -111,6 +113,11 @@ proc fromJson*(n: JsonNode, argName: string, result: var string) =
   result = n.getStr()
 
 proc fromJson*[T](n: JsonNode, argName: string, result: var seq[T]) =
+  when T is byte:
+    if n.kind == JString:
+      result = hexToSeqByte n.getStr()
+      return
+
   n.kind.expect(JArray, argName)
   result = newSeq[T](n.len)
   for i in 0 ..< n.len:

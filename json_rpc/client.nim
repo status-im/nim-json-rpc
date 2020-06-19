@@ -1,8 +1,12 @@
-import tables, json, macros
-import chronos
+import
+  tables, json, macros,
+  chronos,
+  jsonmarshal, errors
+
 from strutils import toLowerAscii
-import jsonmarshal
-export chronos
+
+export
+  chronos
 
 type
   ClientId* = int64
@@ -60,7 +64,8 @@ proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
   if "id" in node:
     let id = checkGet(node, "id", JInt)
 
-    if not self.awaiting.hasKey(id):
+    var requestFut: Future[Response]
+    if not self.awaiting.pop(id, requestFut):
       raise newException(ValueError,
         "Cannot find message id \"" & $node["id"].getInt & "\"")
 
@@ -73,12 +78,12 @@ proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
     if errorNode.isNil or errorNode.kind == JNull:
       var res = node{"result"}
       if not res.isNil:
-        self.awaiting[id].complete((false, res))
-      self.awaiting.del(id)
-      # TODO: actions on unable find result node
+        requestFut.complete((false, res))
+      else:
+        requestFut.fail(newException(InvalidResponse, "Missing `result` field"))
     else:
-      self.awaiting[id].fail(newException(ValueError, $errorNode))
-      self.awaiting.del(id)
+      requestFut.fail(newException(ValueError, $errorNode))
+
   elif "method" in node:
     # This could be subscription notification
     let name = node["method"].getStr()
@@ -175,9 +180,9 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
     callBody.add(jsonToNim(procRes, returnType, jsonRpcResult, "result"))
   else:
     # native json expected so no work
-    callBody.add(quote do:
+    callBody.add quote do:
       `procRes` = `rpcResult`.result
-      )
+
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
 
