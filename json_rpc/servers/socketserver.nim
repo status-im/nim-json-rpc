@@ -19,7 +19,6 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
   var rpc = getUserData[RpcSocketServer](server)
   while true:
     var
-      maxRequestLength = defaultMaxRequestLength
       value = await transport.readLine(defaultMaxRequestLength)
     if value == "":
       await transport.closeWait()
@@ -28,7 +27,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
     debug "Processing message", address = transport.remoteAddress(), line = value
 
     let res = await rpc.route(value)
-    result = transport.write(res)
+    discard await transport.write(res)
 
 # Utility functions for setting up servers using stream transport addresses
 
