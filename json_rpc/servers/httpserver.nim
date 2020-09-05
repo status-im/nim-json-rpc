@@ -143,7 +143,7 @@ proc processClient(server: StreamServer,
     let vres = await validateRequest(transp, header)
 
     if vres == Success:
-      info "Received valid RPC request", address = $transp.remoteAddress()
+      trace "Received valid RPC request", address = $transp.remoteAddress()
 
       # we need to get `Connection` header value before, because
       # we are reusing `buffer`, and its value will be lost.
@@ -187,7 +187,7 @@ proc processClient(server: StreamServer,
       else:
         var data = future.read()
         let res = await transp.sendAnswer(header.version, Http200, data)
-        info "RPC result has been sent", address = $transp.remoteAddress()
+        trace "RPC result has been sent", address = $transp.remoteAddress()
         if not res:
           await transp.closeWait()
           break
