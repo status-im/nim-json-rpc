@@ -12,7 +12,7 @@ requires "nim >= 0.17.3",
          "chronos",
          "httputils",
          "chronicles",
-         "news >= 0.4 & < 0.5",
+         "https://github.com/status-im/news#status",
          "chronicles",
          "json_serialization"
 
