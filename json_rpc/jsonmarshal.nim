@@ -86,7 +86,13 @@ proc fromJson*(n: JsonNode, argName: string, result: var int64) =
 
 proc fromJson*(n: JsonNode, argName: string, result: var uint64) =
   n.kind.expect(JInt, argName)
-  result = n.getInt().uint64
+  let asInt = n.getInt()
+  # signed -> unsigned conversions are unchecked
+  # https://github.com/nim-lang/RFCs/issues/175
+  if asInt < 0:
+    raise newException(
+      ValueError, "JSON-RPC input is an unexpected negative value")
+  result = uint64(asInt)
 
 proc fromJson*(n: JsonNode, argName: string, result: var ref int64) =
   n.kind.expect(JInt, argName)
