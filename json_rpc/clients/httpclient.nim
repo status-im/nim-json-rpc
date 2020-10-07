@@ -61,6 +61,14 @@ proc validateResponse*(transp: StreamTransport,
     return
 
   let length = header.contentLength()
+
+  if length > MaxHttpRequestSize:
+    # response length is more then `MaxHttpRequestSize`.
+    debug "Maximum size of request body reached",
+          address = transp.remoteAddress()
+    result = false
+    return
+
   if length <= 0:
     if header.version == HttpVersion11:
       if header["Connection"].toLowerAscii() != "close":
