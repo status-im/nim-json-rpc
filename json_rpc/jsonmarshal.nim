@@ -97,7 +97,7 @@ proc fromJson*(n: JsonNode, argName: string, result: var uint64) =
 
 proc fromJson*(n: JsonNode, argName: string, result: var uint32) =
   n.kind.expect(JInt, argName)
-  let asInt = n.getInt()
+  let asInt = n.getBiggestInt()
   # signed -> unsigned conversions are unchecked
   # https://github.com/nim-lang/RFCs/issues/175
   if asInt < 0:
