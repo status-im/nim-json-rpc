@@ -16,11 +16,16 @@ requires "nim >= 0.17.3",
          "chronicles",
          "json_serialization"
 
+proc getLang(): string =
+  # Compilation language is controlled by TEST_LANG
+  result = "c"
+  if existsEnv"TEST_LANG":
+    result = getEnv"TEST_LANG"
+
 proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
   exec "nim " & lang & " --out:./build/" & name & " " & params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 task test, "run tests":
-  buildBinary "all", "tests/", "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR"
-
+  buildBinary "all", "tests/", "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR", getLang()
