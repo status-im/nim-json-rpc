@@ -1,4 +1,4 @@
-import json, strutils
+import std/[json, strutils]
 import chronicles, httputils, chronos
 import ../server
 
@@ -93,7 +93,7 @@ proc processClient(server: StreamServer,
   var header: HttpRequestHeader
   var connection: string
 
-  info "Received connection", address = $transp.remoteAddress()
+  debug "Received connection", address = $transp.remoteAddress()
   while true:
     try:
       let hlenfut = transp.readUntil(addr buffer[0], MaxHttpHeadersSize,
@@ -206,13 +206,13 @@ proc processClient(server: StreamServer,
         await transp.closeWait()
         break
 
-  info "Finished connection", address = $transp.remoteAddress()
+  debug "Finished connection", address = $transp.remoteAddress()
 
 # Utility functions for setting up servers using stream transport addresses
 
 proc addStreamServer*(server: RpcHttpServer, address: TransportAddress) =
   try:
-    info "Creating server on ", address = $address
+    info "Starting JSON-RPC HTTP server", url = "http://" & $address
     var transServer = createStreamServer(address, processClient,
                                          {ReuseAddr}, udata = server)
     server.servers.add(transServer)

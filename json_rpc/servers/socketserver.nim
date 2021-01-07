@@ -1,5 +1,7 @@
 import
-  json, json_serialization/std/net,
+  std/json,
+  chronicles,
+  json_serialization/std/net,
   ../server
 
 export server
@@ -33,7 +35,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
 
 proc addStreamServer*(server: RpcSocketServer, address: TransportAddress) =
   try:
-    info "Creating server on ", address = $address
+    info "Starting JSON-RPC socket server", address = $address
     var transportServer = createStreamServer(address, processClient, {ReuseAddr}, udata = server)
     server.servers.add(transportServer)
   except CatchableError as exc:
