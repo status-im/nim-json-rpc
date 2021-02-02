@@ -3,7 +3,7 @@ import
   chronos,
   jsonmarshal, errors
 
-from strutils import toLowerAscii
+from strutils import toLowerAscii, replace
 
 export
   chronos
@@ -205,4 +205,4 @@ macro createRpcSigs*(clientType: untyped, filePath: static[string]): untyped =
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's
   ## Nim type.
-  result = processRpcSigs(clientType, staticRead($filePath).parseStmt())
+  result = processRpcSigs(clientType, staticRead($filePath.replace('\\', '/')).parseStmt())
