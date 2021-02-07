@@ -56,6 +56,13 @@ const
       "Connection: close\r\n" &
       "\r\n" &
       "{\"jsonrpc\":\"2.0\",\"method\":\"myProc\",\"params\":[\"abc\", [1, 2, 3]],\"id\":67}",
+    "GET / HTTP/1.1\r\n" &
+      "Host: www.google.com\r\n" &
+      "Content-Length: 49\r\n" &
+      "Content-Type: application/json\r\n" &
+      "Connection: close\r\n" &
+      "\r\n" &
+      "{\"jsonrpc\":\"2.0\",\"method\":\"noParamsProc\",\"id\":67}",
   ]
 
 proc continuousTest(address: string, port: Port): Future[int] {.async.} =
@@ -150,6 +157,8 @@ var httpsrv = newRpcHttpServer(["localhost:8545"])
 # Create RPC on server
 httpsrv.rpc("myProc") do(input: string, data: array[0..3, int]):
   result = %("Hello " & input & " data: " & $data)
+httpsrv.rpc("noParamsProc") do():
+  result = %("Hello world")
 
 httpsrv.start()
 
@@ -176,6 +185,8 @@ suite "HTTP Server/HTTP Client RPC test suite":
       waitFor(disconTest("localhost", Port(8545), 6, 200)) == true
   test "[Connection]: close test":
     check waitFor(disconTest("localhost", Port(8545), 7, 200)) == true
+  test "Omitted params test":
+    check waitFor(simpleTest("localhost", Port(8545), 8, 200)) == true
 
 httpsrv.stop()
 waitFor httpsrv.closeWait()
