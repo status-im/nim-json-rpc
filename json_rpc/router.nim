@@ -71,6 +71,9 @@ template jsonValid*(jsonString: string, node: var JsonNode): (bool, string) =
     msg = ""
   try:
     node = parseJson(line)
+    # Handle cases where params is omitted
+    if not node.hasKey(paramsField):
+        node.add(paramsField, newJArray())
   except CatchableError as exc:
     valid = false
     msg = exc.msg
