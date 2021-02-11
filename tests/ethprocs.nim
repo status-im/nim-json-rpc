@@ -1,5 +1,5 @@
 import
-  strutils, json,
+  json,
   nimcrypto, stint,
   ethtypes, ethhexstrings, stintjson, ../json_rpc/rpcserver
 
@@ -208,7 +208,7 @@ proc addEthRpcs*(server: RpcServer) =
     ## Generates and returns an estimate of how much gas is necessary to allow the transaction to complete.
     ## The transaction will not be added to the blockchain. Note that the estimate may be significantly more than
     ## the amount of gas actually used by the transaction, for a variety of reasons including EVM mechanics and node performance.
-    ## 
+    ##
     ## call: the transaction call object.
     ## quantityTag:  integer block number, or the string "latest", "earliest" or "pending", see the default block parameter.
     ## Returns the amount of gas used.
@@ -260,7 +260,7 @@ proc addEthRpcs*(server: RpcServer) =
     discard
 
   server.rpc("eth_getUncleByBlockHashAndIndex") do(data: UInt256, quantity: int64) -> BlockObject:
-    ## Returns information about a uncle of a block by hash and uncle index position.  
+    ## Returns information about a uncle of a block by hash and uncle index position.
     ##
     ## data: hash a block.
     ## quantity: the uncle's index position.
@@ -310,7 +310,7 @@ proc addEthRpcs*(server: RpcServer) =
     ## [A] "A in first position (and anything after)"
     ## [null, B] "anything in first position AND B in second position (and anything after)"
     ## [A, B] "A in first position AND B in second position (and anything after)"
-    ## [[A, B], [A, B]] "(A OR B) in first position AND (A OR B) in second position (and anything after)"  
+    ## [[A, B], [A, B]] "(A OR B) in first position AND (A OR B) in second position (and anything after)"
     ##
     ## filterOptions: settings for this filter.
     ## Returns integer filter id.
@@ -331,7 +331,7 @@ proc addEthRpcs*(server: RpcServer) =
     discard
 
   server.rpc("eth_uninstallFilter") do(filterId: int) -> bool:
-    ## Uninstalls a filter with given id. Should always be called when watch is no longer needed. 
+    ## Uninstalls a filter with given id. Should always be called when watch is no longer needed.
     ## Additonally Filters timeout when they aren't requested with eth_getFilterChanges for a period of time.
     ##
     ## filterId: The filter id.

@@ -1,6 +1,7 @@
-import std/[json, strutils]
-import chronicles, httputils, chronos
-import ../server
+import
+  std/[json, strutils],
+  chronicles, httputils, chronos,
+  ../server, ../errors
 
 logScope:
   topics = "JSONRPC-HTTP-SERVER"
@@ -34,42 +35,37 @@ proc sendAnswer(transp: StreamTransport, version: HttpVersion, code: HttpCode,
     answer.add(data)
   try:
     let res = await transp.write(answer)
-    if res != len(answer):
-      result = false
-    result = true
-  except:
-    result = false
+    return res == len(answer):
+  except CatchableError:
+    return false
 
 proc validateRequest(transp: StreamTransport,
                      header: HttpRequestHeader): Future[ReqStatus] {.async.} =
   if header.meth in {MethodPut, MethodDelete}:
     # Request method is either PUT or DELETE.
     debug "PUT/DELETE methods are not allowed", address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http405):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http405):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
   let length = header.contentLength()
   if length <= 0:
     # request length could not be calculated.
     debug "Content-Length is missing or 0", address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http411):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http411):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
   if length > MaxHttpRequestSize:
     # request length is more then `MaxHttpRequestSize`.
     debug "Maximum size of request body reached",
           address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http413):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http413):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
   var ctype = header["Content-Type"]
   # might be "application/json; charset=utf-8"
@@ -77,13 +73,12 @@ proc validateRequest(transp: StreamTransport,
     # Content-Type header is not "application/json"
     debug "Content type must be application/json",
           address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http415):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http415):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
-  result = Success
+  return Success
 
 proc processClient(server: StreamServer,
                    transp: StreamTransport) {.async, gcsafe.} =
@@ -103,7 +98,7 @@ proc processClient(server: StreamServer,
         # Timeout
         debug "Timeout expired while receiving headers",
               address = transp.remoteAddress()
-        let res = await transp.sendAnswer(HttpVersion11, Http408)
+        discard await transp.sendAnswer(HttpVersion11, Http408)
         await transp.closeWait()
         break
       else:

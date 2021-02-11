@@ -63,6 +63,13 @@ const
       "Connection: close\r\n" &
       "\r\n" &
       "{\"jsonrpc\":\"2.0\",\"method\":\"noParamsProc\",\"id\":67}",
+    "GET / HTTP/1.1\r\n" &
+      "Host: www.google.com\r\n" &
+      "Content-Length: 137438953472\r\n" &
+      "Content-Type: application/json\r\n" &
+      "Connection: close\r\n" &
+      "\r\n" &
+      "{128 gb Content-Length}",
   ]
 
 proc continuousTest(address: string, port: Port): Future[int] {.async.} =
@@ -187,6 +194,8 @@ suite "HTTP Server/HTTP Client RPC test suite":
     check waitFor(disconTest("localhost", Port(8545), 7, 200)) == true
   test "Omitted params test":
     check waitFor(simpleTest("localhost", Port(8545), 8, 200)) == true
+  test "Big Content-Length":
+    check waitFor(simpleTest("localhost", Port(8545), 9, 413)) == true
 
 httpsrv.stop()
 waitFor httpsrv.closeWait()

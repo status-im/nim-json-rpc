@@ -1,6 +1,8 @@
-import json, strutils, tables, uri
-import chronicles, httputils, chronos, json_serialization/std/net
-import ../client
+import
+  std/[json, strutils, tables, uri],
+  stew/byteutils,
+  chronicles, httputils, chronos, json_serialization/std/net,
+  ../client
 
 logScope:
   topics = "JSONRPC-HTTP-CLIENT"
@@ -13,10 +15,11 @@ type
     loop: Future[void]
     addresses: seq[TransportAddress]
     options: HttpClientOptions
+    maxBodySize: int
 
 const
   MaxHttpHeadersSize = 8192        # maximum size of HTTP headers in octets
-  MaxHttpRequestSize = 128 * 1024  # maximum size of HTTP body in octets
+  MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
   HttpHeadersTimeout = 120.seconds # timeout for receiving headers (120 sec)
   HttpBodyTimeout = 12.seconds     # timeout for receiving body (12 sec)
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
@@ -34,12 +37,10 @@ proc sendRequest(transp: StreamTransport,
   if len(data) > 0:
     request.add(data)
   try:
-    let res = await transp.write(cast[seq[char]](request))
-    if res != len(request):
-      result = false
-    result = true
-  except:
-    result = false
+    let res = await transp.write(request.toBytes())
+    return res == len(request):
+  except CatchableError:
+    return false
 
 proc validateResponse*(transp: StreamTransport,
                        header: HttpResponseHeader): bool =
@@ -48,8 +49,7 @@ proc validateResponse*(transp: StreamTransport,
            httpcode = header.code,
            httpreason = header.reason(),
            address = transp.remoteAddress()
-    result = false
-    return
+    return false
 
   var ctype = header["Content-Type"]
   # might be "application/json; charset=utf-8"
@@ -57,8 +57,7 @@ proc validateResponse*(transp: StreamTransport,
     # Content-Type header is not "application/json"
     debug "Content type must be application/json",
           address = transp.remoteAddress()
-    result = false
-    return
+    return false
 
   let length = header.contentLength()
   if length <= 0:
@@ -71,15 +70,13 @@ proc validateResponse*(transp: StreamTransport,
         else:
           debug "Content body size could not be calculated",
                 address = transp.remoteAddress()
-        result = false
-        return
+        return false
 
-  result = true
+  return true
 
-proc recvData(transp: StreamTransport): Future[string] {.async.} =
+proc recvData(transp: StreamTransport, maxBodySize: int): Future[string] {.async.} =
   var buffer = newSeq[byte](MaxHttpHeadersSize)
   var header: HttpResponseHeader
-  var error = false
   try:
     let hlenfut = transp.readUntil(addr buffer[0], MaxHttpHeadersSize,
                                    HeadersMark)
@@ -88,35 +85,38 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
       # Timeout
       debug "Timeout expired while receiving headers",
              address = transp.remoteAddress()
-      error = true
-    else:
-      let hlen = hlenfut.read()
-      buffer.setLen(hlen)
-      header = buffer.parseResponse()
-      if header.failed():
-        # Header could not be parsed
-        debug "Malformed header received",
-              address = transp.remoteAddress()
-        error = true
+      return ""
+
+    let hlen = hlenfut.read()
+    buffer.setLen(hlen)
+    header = buffer.parseResponse()
+    if header.failed():
+      # Header could not be parsed
+      debug "Malformed header received",
+            address = transp.remoteAddress()
+      return ""
   except TransportLimitError:
     # size of headers exceeds `MaxHttpHeadersSize`
     debug "Maximum size of headers limit reached",
           address = transp.remoteAddress()
-    error = true
+    return ""
   except TransportIncompleteError:
     # remote peer disconnected
     debug "Remote peer disconnected", address = transp.remoteAddress()
-    error = true
+    return ""
   except TransportOsError as exc:
     debug "Problems with networking", address = transp.remoteAddress(),
           error = exc.msg
-    error = true
+    return ""
 
-  if error or not transp.validateResponse(header):
-    result = ""
-    return
+  if not transp.validateResponse(header):
+    return ""
 
   let length = header.contentLength()
+  if length > maxBodySize:
+    debug "Request body too large", length, maxBodySize
+    return ""
+
   try:
     if length > 0:
       # `Content-Length` is present in response header.
@@ -127,41 +127,39 @@ proc recvData(transp: StreamTransport): Future[string] {.async.} =
         # Timeout
         debug "Timeout expired while receiving request body",
               address = transp.remoteAddress()
-        error = true
-      else:
-        blenfut.read()
+        return ""
+
+      blenfut.read() # exceptions
     else:
       # `Content-Length` is not present in response header, so we are reading
       # everything until connection will be closed.
-      var blenfut = transp.read()
+      var blenfut = transp.read(maxBodySize)
       let ores = await withTimeout(blenfut, HttpBodyTimeout)
       if not ores:
         # Timeout
         debug "Timeout expired while receiving request body",
               address = transp.remoteAddress()
-        error = true
-      else:
-        buffer = blenfut.read()
+        return ""
+
+      buffer = blenfut.read()
   except TransportIncompleteError:
     # remote peer disconnected
     debug "Remote peer disconnected", address = transp.remoteAddress()
-    error = true
+    return ""
   except TransportOsError as exc:
     debug "Problems with networking", address = transp.remoteAddress(),
           error = exc.msg
-    error = true
+    return ""
 
-  if error:
-    result = ""
-  else:
-    result = cast[string](buffer)
+  return string.fromBytes(buffer)
 
 proc init(opts: var HttpClientOptions) =
   opts.httpMethod = MethodPost
 
-proc newRpcHttpClient*(): RpcHttpClient =
+proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize): RpcHttpClient =
   ## Creates a new HTTP client instance.
   new result
+  result.maxBodySize = maxBodySize
   result.initRpcClient()
   result.options.init()
 
@@ -189,7 +187,7 @@ method call*(client: RpcHttpClient, name: string,
           msg_len = len(reqBody)
     trace "Message", msg = reqBody
 
-  var value = await transp.recvData()
+  var value = await transp.recvData(client.maxBodySize)
   await transp.closeWait()
   if value.len == 0:
     raise newException(ValueError, "Empty response from server")
@@ -199,7 +197,7 @@ method call*(client: RpcHttpClient, name: string,
   # add to awaiting responses
   client.awaiting[id] = newFut
   client.processMessage(value)
-  result = await newFut
+  return await newFut
 
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)

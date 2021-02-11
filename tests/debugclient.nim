@@ -8,7 +8,7 @@ proc rawCall*(self: RpcClient, name: string,
   let id = $self.nextId
   self.nextId.inc
 
-  var s = msg & "\c\l"  
+  var s = msg & "\r\n"
   let res = await self.transport.write(s)
   doAssert res == len(s)
 
@@ -16,5 +16,5 @@ proc rawCall*(self: RpcClient, name: string,
   var newFut = newFuture[Response]()
   # add to awaiting responses
   self.awaiting[id] = newFut
-  
+
   result = await newFut

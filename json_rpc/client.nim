@@ -1,7 +1,7 @@
 import
-  tables, json, macros,
+  std/[tables, json, macros],
   chronos,
-  jsonmarshal, errors
+  ./jsonmarshal, ./errors
 
 from strutils import toLowerAscii, replace
 

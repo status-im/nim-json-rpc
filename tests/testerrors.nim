@@ -26,7 +26,7 @@ proc testMissingRpc: Future[Response] {.async.} =
 proc testInvalidJsonVer: Future[Response] {.async.} =
   let json =
     $ %{"jsonrpc": %"3.99", "method": %"rpc", "params": %[],
-      "id": % $client.nextId} & "\c\l"
+      "id": % $client.nextId} & "\r\n"
   var fut = client.rawCall("rpc", json)
   result = await fut
 

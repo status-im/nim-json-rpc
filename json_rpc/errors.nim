@@ -8,3 +8,5 @@ type
   InvalidResponse* = object of JsonRpcError
     ## raised when the server response violates the JSON-RPC protocol
 
+  RpcBindError* = object of JsonRpcError
+  RpcAddressUnresolvableError* = object of JsonRpcError

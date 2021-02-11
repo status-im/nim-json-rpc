@@ -2,7 +2,7 @@ import
   std/json,
   chronicles,
   json_serialization/std/net,
-  ../server
+  ../server, ../errors
 
 export server
 

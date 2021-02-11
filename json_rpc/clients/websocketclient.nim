@@ -1,4 +1,6 @@
-import ../client, chronos, tables, json, strtabs
+import
+  std/[json, strtabs, tables],
+  ../client, chronos
 
 const newsUseChronos = true
 include news
@@ -18,7 +20,7 @@ method call*(self: RpcWebSocketClient, name: string,
              params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
-  var value = $rpcCallNode(name, params, id) & "\c\l"
+  var value = $rpcCallNode(name, params, id) & "\r\n"
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
