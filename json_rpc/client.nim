@@ -16,6 +16,8 @@ type
     methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
     onDisconnect*: proc() {.gcsafe.}
 
+  # TODO the error field is not used here, instead an exception is set on the
+  #      future
   Response* = tuple[error: bool, result: JsonNode]
 
 proc initRpcClient*[T: RpcClient](client: var T) =
@@ -62,6 +64,8 @@ proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
   let node = parseJson(line)
 
   if "id" in node:
+    # TODO this is weird, it raises if id is not present, aborting the wrong
+    #      processMessage call potentially
     let id = checkGet(node, "id", JInt)
 
     var requestFut: Future[Response]
@@ -69,10 +73,13 @@ proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
       raise newException(ValueError,
         "Cannot find message id \"" & $node["id"].getInt & "\"")
 
+    # TODO this is wrong, checkGet will raise meaning the wrong request will be
+    #      aborted
     let version = checkGet(node, "jsonrpc", JString)
     if version != "2.0":
-      self.awaiting[id].asyncRaise(ValueError,
-        "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
+      requestFut.fail(newException(ValueError,
+        "Unsupported version of JSON, expected 2.0, received \"" & version & "\""))
+      return
 
     let errorNode = node{"error"}
     if errorNode.isNil or errorNode.kind == JNull:
@@ -89,6 +96,8 @@ proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
     let name = node["method"].getStr()
     let handler = self.methodHandlers.getOrDefault(name)
     if not handler.isNil:
+      # TODO this is wrong, it may call the handler with a nil params node which
+      #      is not supported
       handler(node{"params"})
   else:
     raise newException(ValueError, "Invalid jsonrpc message: " & $node)

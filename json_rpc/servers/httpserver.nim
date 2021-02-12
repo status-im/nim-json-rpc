@@ -35,7 +35,8 @@ proc sendAnswer(transp: StreamTransport, version: HttpVersion, code: HttpCode,
     answer.add(data)
   try:
     let res = await transp.write(answer)
-    return res == len(answer):
+    return res == len(answer)
+  except CancelledError as exc: raise exc
   except CatchableError:
     return false
 
@@ -109,14 +110,14 @@ proc processClient(server: StreamServer,
           # Header could not be parsed
           debug "Malformed header received",
                 address = transp.remoteAddress()
-          let res = await transp.sendAnswer(HttpVersion11, Http400)
+          discard await transp.sendAnswer(HttpVersion11, Http400)
           await transp.closeWait()
           break
     except TransportLimitError:
       # size of headers exceeds `MaxHttpHeadersSize`
       debug "Maximum size of headers limit reached",
             address = transp.remoteAddress()
-      let res = await transp.sendAnswer(HttpVersion11, Http413)
+      discard await transp.sendAnswer(HttpVersion11, Http413)
       await transp.closeWait()
       break
     except TransportIncompleteError:
@@ -153,7 +154,7 @@ proc processClient(server: StreamServer,
           # Timeout
           debug "Timeout expired while receiving request body",
                 address = transp.remoteAddress()
-          let res = await transp.sendAnswer(header.version, Http413)
+          discard await transp.sendAnswer(header.version, Http413)
           await transp.closeWait()
           break
         else:
@@ -234,13 +235,13 @@ proc addStreamServer*(server: RpcHttpServer, address: string) =
   # Attempt to resolve `address` for IPv4 address space.
   try:
     tas4 = resolveTAddress(address, AddressFamily.IPv4)
-  except:
+  except CatchableError:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
     tas6 = resolveTAddress(address, AddressFamily.IPv6)
-  except:
+  except CatchableError:
     discard
 
   for r in tas4:
@@ -267,13 +268,13 @@ proc addStreamServer*(server: RpcHttpServer, address: string, port: Port) =
   # Attempt to resolve `address` for IPv4 address space.
   try:
     tas4 = resolveTAddress(address, port, AddressFamily.IPv4)
-  except:
+  except CatchableError:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
     tas6 = resolveTAddress(address, port, AddressFamily.IPv6)
-  except:
+  except CatchableError:
     discard
 
   if len(tas4) == 0 and len(tas6) == 0:

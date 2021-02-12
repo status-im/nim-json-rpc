@@ -39,6 +39,7 @@ proc sendRequest(transp: StreamTransport,
   try:
     let res = await transp.write(request.toBytes())
     return res == len(request):
+  except CancelledError as exc: raise exc
   except CatchableError:
     return false
 
@@ -187,6 +188,8 @@ method call*(client: RpcHttpClient, name: string,
           msg_len = len(reqBody)
     trace "Message", msg = reqBody
 
+  # TODO this is wrong - there's no guarantee that only _one_ recvData is active
+  #      here - some other call might happen concurrently
   var value = await transp.recvData(client.maxBodySize)
   await transp.closeWait()
   if value.len == 0:
@@ -196,6 +199,7 @@ method call*(client: RpcHttpClient, name: string,
   var newFut = newFuture[Response]()
   # add to awaiting responses
   client.awaiting[id] = newFut
+  # TODO this is wrong, the processMessage may randomly raise an exception
   client.processMessage(value)
   return await newFut
 
