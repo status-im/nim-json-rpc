@@ -63,9 +63,9 @@ suite "Local calls":
 suite "Remote calls":
   let remoteResults = testRemoteUInt256().waitFor
   test "UInt256 param":
-    check remoteResults[0].result == %"0x1234567891"
+    check remoteResults[0] == %"0x1234567891"
   test "Return UInt256":
-    check remoteResults[1].result == %"0x1234567890abcdef"
+    check remoteResults[1] == %"0x1234567890abcdef"
 
 suite "Generated from signatures":
   let sigResults = testSigCalls().waitFor

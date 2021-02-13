@@ -16,9 +16,7 @@ type
     methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
     onDisconnect*: proc() {.gcsafe.}
 
-  # TODO the error field is not used here, instead an exception is set on the
-  #      future
-  Response* = tuple[error: bool, result: JsonNode]
+  Response* = JsonNode
 
 proc initRpcClient*[T: RpcClient](client: var T) =
   client.nextId = 1
@@ -36,69 +34,38 @@ method call*(client: RpcClient, name: string,
 
 method close*(client: RpcClient) {.base, gcsafe, async.} = discard
 
-template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
-  fut.fail(newException(errType, msg))
+template `or`(a: JsonNode, b: typed): JsonNode =
+  if a == nil: b else: a
 
-macro checkGet(node: JsonNode, fieldName: string,
-               jKind: static[JsonNodeKind]): untyped =
-  let n = genSym(ident = "n") #`node`{`fieldName`}
-  result = quote:
-    let `n` = `node`{`fieldname`}
-    if `n`.isNil or `n`.kind == JNull:
-      raise newException(ValueError,
-        "Message is missing required field \"" & `fieldName` & "\"")
-    if `n`.kind != `jKind`.JsonNodeKind:
-      raise newException(ValueError,
-        "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`n`.kind)
-  case jKind
-  of JBool: result.add(quote do: `n`.getBool)
-  of JInt: result.add(quote do: `n`.getInt)
-  of JString: result.add(quote do: `n`.getStr)
-  of JFloat: result.add(quote do: `n`.getFloat)
-  of JObject: result.add(quote do: `n`.getObject)
-  else: discard
-
-proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
+proc processMessage*(self: RpcClient, line: string) =
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
   let node = parseJson(line)
 
   if "id" in node:
-    # TODO this is weird, it raises if id is not present, aborting the wrong
-    #      processMessage call potentially
-    let id = checkGet(node, "id", JInt)
+    let id = node{"id"} or newJNull()
 
     var requestFut: Future[Response]
-    if not self.awaiting.pop(id, requestFut):
-      raise newException(ValueError,
-        "Cannot find message id \"" & $node["id"].getInt & "\"")
+    if not self.awaiting.pop(id.getInt(-1), requestFut):
+      raise newException(ValueError, "Cannot find message id \"" & $id & "\"")
 
-    # TODO this is wrong, checkGet will raise meaning the wrong request will be
-    #      aborted
-    let version = checkGet(node, "jsonrpc", JString)
+    let version = node{"jsonrpc"}.getStr()
     if version != "2.0":
       requestFut.fail(newException(ValueError,
         "Unsupported version of JSON, expected 2.0, received \"" & version & "\""))
-      return
-
-    let errorNode = node{"error"}
-    if errorNode.isNil or errorNode.kind == JNull:
-      var res = node{"result"}
-      if not res.isNil:
-        requestFut.complete((false, res))
-      else:
-        requestFut.fail(newException(InvalidResponse, "Missing `result` field"))
     else:
-      requestFut.fail(newException(ValueError, $errorNode))
-
+      let result = node{"result"}
+      if result.isNil:
+        let error = node{"error"} or newJNull()
+        requestFut.fail(newException(ValueError, $error))
+      else:
+        requestFut.complete(result)
   elif "method" in node:
     # This could be subscription notification
     let name = node["method"].getStr()
     let handler = self.methodHandlers.getOrDefault(name)
     if not handler.isNil:
-      # TODO this is wrong, it may call the handler with a nil params node which
-      #      is not supported
-      handler(node{"params"})
+      handler(node{"params"} or newJArray())
   else:
     raise newException(ValueError, "Invalid jsonrpc message: " & $node)
 
@@ -174,23 +141,20 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
     clientIdent = newIdentNode("client")
     # proc return variable
     procRes = ident"result"
-    # actual return value, `rpcResult`.result
-    jsonRpcResult = nnkDotExpr.newTree(rpcResult, newIdentNode("result"))
 
   # perform rpc call
   callBody.add(quote do:
     # `rpcResult` is of type `Response`
     let `rpcResult` = await `clientIdent`.call(`pathStr`, `jsonParamIdent`)
-    if `rpcResult`.error: raise newException(ValueError, $`rpcResult`.result)
   )
 
   if customReturnType:
     # marshal json to native Nim type
-    callBody.add(jsonToNim(procRes, returnType, jsonRpcResult, "result"))
+    callBody.add(jsonToNim(procRes, returnType, rpcResult, "result"))
   else:
     # native json expected so no work
     callBody.add quote do:
-      `procRes` = `rpcResult`.result
+      `procRes` = `rpcResult`
 
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr

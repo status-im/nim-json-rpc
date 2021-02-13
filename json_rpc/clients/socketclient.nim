@@ -33,7 +33,7 @@ method call*(self: RpcSocketClient, name: string,
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
   doAssert(res == len(value))
 
-  result = await newFut
+  return await newFut
 
 proc processData(client: RpcSocketClient) {.async.} =
   while true:
@@ -44,7 +44,9 @@ proc processData(client: RpcSocketClient) {.async.} =
         await client.transport.closeWait()
         break
 
+      # TODO handle exceptions
       client.processMessage(value)
+
     # async loop reconnection and waiting
     client.transport = await connect(client.address)
 

@@ -35,7 +35,7 @@ method call*(self: RpcWebSocketClient, name: string,
   result = await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
-  var error: ref Exception
+  var error: ref CatchableError
   try:
     while true:
       var value = await client.transport.receiveString()

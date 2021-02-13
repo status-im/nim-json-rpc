@@ -175,33 +175,42 @@ method call*(client: RpcHttpClient, name: string,
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
-  let transp = await connect(client.addresses[0])
-  var reqBody = $rpcCallNode(name, params, id)
-  let res = await transp.sendRequest(reqBody, client.httpMethod)
+  let
+    transp = await connect(client.addresses[0])
+    reqBody = $rpcCallNode(name, params, id)
+    res = await transp.sendRequest(reqBody, client.httpMethod)
+
   if not res:
     debug "Failed to send message to RPC server",
           address = transp.remoteAddress(), msg_len = len(reqBody)
     await transp.closeWait()
     raise newException(ValueError, "Transport error")
-  else:
-    debug "Message sent to RPC server", address = transp.remoteAddress(),
-          msg_len = len(reqBody)
-    trace "Message", msg = reqBody
 
-  # TODO this is wrong - there's no guarantee that only _one_ recvData is active
-  #      here - some other call might happen concurrently
-  var value = await transp.recvData(client.maxBodySize)
+  debug "Message sent to RPC server", address = transp.remoteAddress(),
+        msg_len = len(reqBody)
+  trace "Message", msg = reqBody
+
+  let value = await transp.recvData(client.maxBodySize)
   await transp.closeWait()
   if value.len == 0:
     raise newException(ValueError, "Empty response from server")
 
-  # completed by processMessage.
+  # completed by processMessage - the flow is quite weird here to accomodate
+  # socket and ws clients, but could use a more thorough refactoring
   var newFut = newFuture[Response]()
   # add to awaiting responses
   client.awaiting[id] = newFut
-  # TODO this is wrong, the processMessage may randomly raise an exception
-  client.processMessage(value)
-  return await newFut
+
+  try:
+    # Might raise for all kinds of reasons
+    client.processMessage(value)
+  finally:
+    # Need to clean up in case the answer was invalid
+    client.awaiting.del(id)
+
+  # processMessage should have completed this future - if it didn't, `read` will
+  # raise, which is reasonable
+  return newFut.read()
 
 proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
   client.addresses = resolveTAddress(address, port)
