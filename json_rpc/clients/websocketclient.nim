@@ -11,10 +11,12 @@ type
     uri*: string
     loop*: Future[void]
 
+proc new*(T: type RpcWebSocketClient): T =
+  T()
+
 proc newRpcWebSocketClient*: RpcWebSocketClient =
   ## Creates a new client instance.
-  new result
-  result.initRpcClient()
+  RpcWebSocketClient.new()
 
 method call*(self: RpcWebSocketClient, name: string,
              params: JsonNode): Future[Response] {.async.} =
@@ -32,7 +34,7 @@ method call*(self: RpcWebSocketClient, name: string,
   self.awaiting[id] = newFut
 
   await self.transport.send(value)
-  result = await newFut
+  return await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
   var error: ref CatchableError

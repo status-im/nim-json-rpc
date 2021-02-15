@@ -1,29 +1,26 @@
 import
   std/[tables, json, macros],
   chronos,
-  ./jsonmarshal, ./errors
+  ./jsonmarshal
 
 from strutils import toLowerAscii, replace
 
 export
-  chronos
+  chronos, json, tables
 
 type
   ClientId* = int64
   RpcClient* = ref object of RootRef
     awaiting*: Table[ClientId, Future[Response]]
-    nextId: ClientId
+    lastId: ClientId
     methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
     onDisconnect*: proc() {.gcsafe.}
 
   Response* = JsonNode
 
-proc initRpcClient*[T: RpcClient](client: var T) =
-  client.nextId = 1
-
 proc getNextId*(client: RpcClient): ClientId =
-  result = client.nextId
-  client.nextId.inc
+  client.lastId += 1
+  client.lastId
 
 proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}

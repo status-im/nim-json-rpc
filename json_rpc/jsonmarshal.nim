@@ -2,6 +2,8 @@ import
   std/[macros, json, options, typetraits],
   stew/byteutils
 
+export json
+
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 

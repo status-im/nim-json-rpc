@@ -221,7 +221,7 @@ proc addStreamServer*(server: RpcHttpServer, address: TransportAddress) =
     raise newException(RpcBindError, "Unable to create server!")
 
 proc addStreamServers*(server: RpcHttpServer,
-                       addresses: openarray[TransportAddress]) =
+                       addresses: openArray[TransportAddress]) =
   for item in addresses:
     server.addStreamServer(item)
 
@@ -255,7 +255,7 @@ proc addStreamServer*(server: RpcHttpServer, address: string) =
     # Addresses could not be resolved, critical error.
     raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
-proc addStreamServers*(server: RpcHttpServer, addresses: openarray[string]) =
+proc addStreamServers*(server: RpcHttpServer, addresses: openArray[string]) =
   for address in addresses:
     server.addStreamServer(address)
 
@@ -294,15 +294,18 @@ proc addStreamServer*(server: RpcHttpServer, address: string, port: Port) =
     raise newException(RpcBindError,
                       "Could not setup server on " & address & ":" & $int(port))
 
-proc newRpcHttpServer*(): RpcHttpServer =
-  RpcHttpServer(router: newRpcRouter(), servers: @[])
+proc new*(T: type RpcHttpServer): T =
+  T(router: RpcRouter.init(), servers: @[])
 
-proc newRpcHttpServer*(addresses: openarray[TransportAddress]): RpcHttpServer =
+proc newRpcHttpServer*(): RpcHttpServer =
+  RpcHttpServer.new()
+
+proc newRpcHttpServer*(addresses: openArray[TransportAddress]): RpcHttpServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcHttpServer()
   result.addStreamServers(addresses)
 
-proc newRpcHttpServer*(addresses: openarray[string]): RpcHttpServer =
+proc newRpcHttpServer*(addresses: openArray[string]): RpcHttpServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcHttpServer()
   result.addStreamServers(addresses)

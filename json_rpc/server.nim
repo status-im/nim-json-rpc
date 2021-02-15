@@ -10,9 +10,10 @@ type
   RpcServer* = ref object of RootRef
     router*: RpcRouter
 
-proc newRpcServer*(): RpcServer =
-  new result
-  result.router = newRpcRouter()
+proc new(T: type RpcServer): T =
+  T(router: RpcRouter.init())
+
+proc newRpcServer*(): RpcServer {.deprecated.} = RpcServer.new()
 
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)

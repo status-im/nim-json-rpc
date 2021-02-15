@@ -28,8 +28,10 @@ const
 
   defaultMaxRequestLength* = 1024 * 128
 
-proc newRpcRouter*: RpcRouter =
-  discard
+proc init*(T: type RpcRouter): T = discard
+
+proc newRpcRouter*: RpcRouter {.deprecated.} =
+  RpcRouter.init()
 
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
   router.procs.add(path, call)

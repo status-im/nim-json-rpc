@@ -45,7 +45,7 @@ proc addStreamServer*(server: RpcSocketServer, address: TransportAddress) =
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
-proc addStreamServers*(server: RpcSocketServer, addresses: openarray[TransportAddress]) =
+proc addStreamServers*(server: RpcSocketServer, addresses: openArray[TransportAddress]) =
   for item in addresses:
     server.addStreamServer(item)
 
@@ -79,7 +79,7 @@ proc addStreamServer*(server: RpcSocketServer, address: string) =
     # Addresses could not be resolved, critical error.
     raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
-proc addStreamServers*(server: RpcSocketServer, addresses: openarray[string]) =
+proc addStreamServers*(server: RpcSocketServer, addresses: openArray[string]) =
   for address in addresses:
     server.addStreamServer(address)
 
@@ -118,22 +118,25 @@ proc addStreamServer*(server: RpcSocketServer, address: string, port: Port) =
     raise newException(RpcBindError,
                       "Could not setup server on " & address & ":" & $int(port))
 
-proc newRpcSocketServer*: RpcSocketServer =
-  RpcSocketServer(router: newRpcRouter(), servers: @[])
+proc new(T: type RpcSocketServer): T =
+  T(router: RpcRouter.init(), servers: @[])
 
-proc newRpcSocketServer*(addresses: openarray[TransportAddress]): RpcSocketServer =
+proc newRpcSocketServer*(): RpcSocketServer =
+  RpcSocketServer.new()
+
+proc newRpcSocketServer*(addresses: openArray[TransportAddress]): RpcSocketServer =
   ## Create new server and assign it to addresses ``addresses``.
-  result = newRpcSocketServer()
+  result = RpcSocketServer.new()
   result.addStreamServers(addresses)
 
-proc newRpcSocketServer*(addresses: openarray[string]): RpcSocketServer =
+proc newRpcSocketServer*(addresses: openArray[string]): RpcSocketServer =
   ## Create new server and assign it to addresses ``addresses``.
-  result = newRpcSocketServer()
+  result = RpcSocketServer.new()
   result.addStreamServers(addresses)
 
 proc newRpcSocketServer*(address: string, port: Port = Port(8545)): RpcSocketServer =
   # Create server on specified port
-  result = newRpcSocketServer()
+  result = RpcSocketServer.new()
   result.addStreamServer(address, port)
 
 proc start*(server: RpcSocketServer) =

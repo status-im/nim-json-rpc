@@ -154,15 +154,14 @@ proc recvData(transp: StreamTransport, maxBodySize: int): Future[string] {.async
 
   return string.fromBytes(buffer)
 
-proc init(opts: var HttpClientOptions) =
-  opts.httpMethod = MethodPost
+proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize): T =
+  T(
+    maxBodySize: maxBodySize,
+    options: HttpClientOptions(httpMethod: MethodPost),
+  )
 
 proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize): RpcHttpClient =
-  ## Creates a new HTTP client instance.
-  new result
-  result.maxBodySize = maxBodySize
-  result.initRpcClient()
-  result.options.init()
+  RpcHttpClient.new(maxBodySize)
 
 proc httpMethod*(client: RpcHttpClient): HttpMethod =
   client.options.httpMethod

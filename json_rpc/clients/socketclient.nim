@@ -10,10 +10,12 @@ type
 
 const defaultMaxRequestLength* = 1024 * 128
 
+proc new*(T: type RpcSocketClient): T =
+  T()
+
 proc newRpcSocketClient*: RpcSocketClient =
   ## Creates a new client instance.
-  new result
-  result.initRpcClient()
+  RpcSocketClient.new()
 
 method call*(self: RpcSocketClient, name: string,
              params: JsonNode): Future[Response] {.async.} =
