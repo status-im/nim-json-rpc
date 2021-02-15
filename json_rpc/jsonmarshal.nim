@@ -1,28 +1,30 @@
 import
-  macros, json, options, typetraits,
+  std/[macros, json, options, typetraits],
   stew/byteutils
+
+export json
 
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 
 proc `%`*(n: byte{not lit}): JsonNode =
-  result = newJInt(int(n))
+  newJInt(int(n))
 
 proc `%`*(n: uint64{not lit}): JsonNode =
-  result = newJInt(int(n))
+  newJInt(int(n))
 
 proc `%`*(n: ref SomeInteger): JsonNode =
   if n.isNil:
-    result = newJNull()
+    newJNull()
   else:
-    result = newJInt(n[])
+    newJInt(n[])
 
 when (NimMajor, NimMinor, NimPatch) < (0, 19, 9):
   proc `%`*[T](option: Option[T]): JsonNode =
     if option.isSome:
-      result = `%`(option.get)
+      `%`(option.get)
     else:
-      result = newJNull()
+      newJNull()
 
 # Compiler requires forward decl when processing out of module
 proc fromJson*(n: JsonNode, argName: string, result: var bool)
@@ -42,7 +44,7 @@ proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T])
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson*[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
-  result = n.getInt().T
+  result = n.getBiggestInt().T
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson*[T: object|tuple](n: JsonNode, argName: string, result: var T) =
@@ -83,11 +85,11 @@ proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
 
 proc fromJson*(n: JsonNode, argName: string, result: var int64) =
   n.kind.expect(JInt, argName)
-  result = n.getInt()
+  result = n.getBiggestInt().int64
 
 proc fromJson*(n: JsonNode, argName: string, result: var uint64) =
   n.kind.expect(JInt, argName)
-  let asInt = n.getInt()
+  let asInt = n.getBiggestInt()
   # signed -> unsigned conversions are unchecked
   # https://github.com/nim-lang/RFCs/issues/175
   if asInt < 0:
@@ -103,6 +105,10 @@ proc fromJson*(n: JsonNode, argName: string, result: var uint32) =
   if asInt < 0:
     raise newException(
       ValueError, "JSON-RPC input is an unexpected negative value")
+  if asInt > BiggestInt(uint32.high()):
+    raise newException(
+      ValueError, "JSON-RPC input is too large for uint32")
+
   result = uint32(asInt)
 
 proc fromJson*(n: JsonNode, argName: string, result: var ref int64) =
@@ -118,7 +124,8 @@ proc fromJson*(n: JsonNode, argName: string, result: var ref int) =
 proc fromJson*(n: JsonNode, argName: string, result: var byte) =
   n.kind.expect(JInt, argName)
   let v = n.getInt()
-  if v > 255 or v < 0: raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
+  if v > 255 or v < 0:
+    raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
   result = byte(v)
 
 proc fromJson*(n: JsonNode, argName: string, result: var float) =
@@ -142,7 +149,8 @@ proc fromJson*[T](n: JsonNode, argName: string, result: var seq[T]) =
 
 proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
   n.kind.expect(JArray, argName)
-  if n.len > result.len: raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
+  if n.len > result.len:
+    raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
   for i in 0 ..< n.len:
     fromJson(n[i], argName, result[i])
 
@@ -175,12 +183,9 @@ iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
       yield (arg[j], argType)
 
 proc isOptionalArg(typeNode: NimNode): bool =
-  if typeNode.kind != nnkBracketExpr:
-    result = false
-    return
-
-  result = typeNode[0].kind == nnkIdent and
-           typeNode[0].strVal == "Option"
+  typeNode.kind == nnkBracketExpr and
+    typeNode[0].kind == nnkIdent and
+    typeNode[0].strVal == "Option"
 
 proc expectOptionalArrayLen(node, parameters, jsonIdent: NimNode, maxLength: int): int =
   var minLength = maxLength
@@ -199,13 +204,12 @@ proc expectOptionalArrayLen(node, parameters, jsonIdent: NimNode, maxLength: int
       raise newException(ValueError, `expectedStr` & $`jsonIdent`.len)
   )
 
-  result = minLength
+  minLength
 
 proc containsOptionalArg(params: NimNode): bool =
   for n, t in paramsIter(params):
     if t.isOptionalArg:
-      result = true
-      break
+      return true
 
 proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string, optional = false): NimNode =
   # verify input and load a Nim type from json data

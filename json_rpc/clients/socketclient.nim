@@ -1,4 +1,6 @@
-import ../client, chronos, tables, json
+import
+  std/[json, tables],
+  ../client, chronos
 
 type
   RpcSocketClient* = ref object of RpcClient
@@ -8,16 +10,18 @@ type
 
 const defaultMaxRequestLength* = 1024 * 128
 
+proc new*(T: type RpcSocketClient): T =
+  T()
+
 proc newRpcSocketClient*: RpcSocketClient =
   ## Creates a new client instance.
-  new result
-  result.initRpcClient()
+  RpcSocketClient.new()
 
 method call*(self: RpcSocketClient, name: string,
              params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
-  var value = $rpcCallNode(name, params, id) & "\c\l"
+  var value = $rpcCallNode(name, params, id) & "\r\n"
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
@@ -31,7 +35,7 @@ method call*(self: RpcSocketClient, name: string,
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
   doAssert(res == len(value))
 
-  result = await newFut
+  return await newFut
 
 proc processData(client: RpcSocketClient) {.async.} =
   while true:
@@ -42,7 +46,9 @@ proc processData(client: RpcSocketClient) {.async.} =
         await client.transport.closeWait()
         break
 
+      # TODO handle exceptions
       client.processMessage(value)
+
     # async loop reconnection and waiting
     client.transport = await connect(client.address)
 

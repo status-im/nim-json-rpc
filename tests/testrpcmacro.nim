@@ -38,47 +38,46 @@ var s = newRpcSocketServer(["localhost:8545"])
 
 # RPC definitions
 s.rpc("rpc.simplepath"):
-  result = %1
+  return %1
 
 s.rpc("rpc.differentparams") do(a: int, b: string):
-  result = %[%a, %b]
+  return %[%a, %b]
 
 s.rpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
   var res = %arr
   res.add %b
-  result = %res
+  return %res
 
 s.rpc("rpc.seqparam") do(a: string, s: seq[int]):
   var res = newJArray()
   res.add %a
   for item in s:
     res.add %int(item)
-  result = res
+  return res
 
 s.rpc("rpc.objparam") do(a: string, obj: MyObject):
-  result = %obj
+  return %obj
 
 s.rpc("rpc.returntypesimple") do(i: int) -> int:
-  result = i
+  return i
 
 s.rpc("rpc.returntypecomplex") do(i: int) -> Test2:
-  result.x = [1, i, 3]
-  result.y = "test"
+  return Test2(x: [1, i, 3], y: "test")
 
 s.rpc("rpc.testreturns") do() -> int:
   return 1234
 
 s.rpc("rpc.multivarsofonetype") do(a, b: string) -> string:
-  result = a & " " & b
+  return a & " " & b
 
 s.rpc("rpc.optional") do(obj: MyOptional) -> MyOptional:
-  result = obj
+  return obj
 
 s.rpc("rpc.optionalArg") do(val: int, obj: Option[MyOptional]) -> MyOptional:
-  if obj.isSome():
-    result = obj.get()
+  return if obj.isSome():
+    obj.get()
   else:
-    result = MyOptional(maybeInt: some(val))
+    MyOptional(maybeInt: some(val))
 
 type
   OptionalFields = object
@@ -98,12 +97,14 @@ s.rpc("rpc.mixedOptionalArg") do(a: int, b: Option[int], c: string,
   result.e = e
 
 s.rpc("rpc.optionalArgNotBuiltin") do(obj: Option[MyOptionalNotBuiltin]) -> string:
-  result = "Empty1"
-  if obj.isSome:
+  return if obj.isSome:
     let val = obj.get.val
-    result = "Empty2"
     if val.isSome:
-      result = obj.get.val.get.y
+      obj.get.val.get.y
+    else:
+      "Empty2"
+  else:
+    "Empty1"
 
 type
   MaybeOptions = object
@@ -198,8 +199,7 @@ suite "Server types":
       discard waitfor rpcArrayParam(%[%"test", %"hello"])
     expect ValueError:
       # wrong param type
-      let res = waitFor rpcDifferentParams(%[%"abc", %1])
-      # TODO: When errors are proper return values, check error for param name
+      discard waitFor rpcDifferentParams(%[%"abc", %1])
 
   test "Multiple variables of one type":
     let r = waitfor rpcMultiVarsOfOneType(%[%"hello", %"world"])
@@ -256,4 +256,3 @@ suite "Server types":
 
 s.stop()
 waitFor s.closeWait()
-

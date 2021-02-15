@@ -1,4 +1,6 @@
-import ../client, chronos, tables, json, strtabs
+import
+  std/[json, strtabs, tables],
+  ../client, chronos
 
 const newsUseChronos = true
 include news
@@ -9,16 +11,18 @@ type
     uri*: string
     loop*: Future[void]
 
+proc new*(T: type RpcWebSocketClient): T =
+  T()
+
 proc newRpcWebSocketClient*: RpcWebSocketClient =
   ## Creates a new client instance.
-  new result
-  result.initRpcClient()
+  RpcWebSocketClient.new()
 
 method call*(self: RpcWebSocketClient, name: string,
              params: JsonNode): Future[Response] {.async.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
-  var value = $rpcCallNode(name, params, id) & "\c\l"
+  var value = $rpcCallNode(name, params, id) & "\r\n"
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
@@ -30,10 +34,10 @@ method call*(self: RpcWebSocketClient, name: string,
   self.awaiting[id] = newFut
 
   await self.transport.send(value)
-  result = await newFut
+  return await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
-  var error: ref Exception
+  var error: ref CatchableError
   try:
     while true:
       var value = await client.transport.receiveString()

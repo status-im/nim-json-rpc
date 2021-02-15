@@ -1,6 +1,8 @@
-import json, macros
-import chronos, router, chronicles
-import jsonmarshal
+import
+  std/[json, macros],
+  chronos, chronicles,
+  ./router,
+  ./jsonmarshal
 
 export chronos, json, jsonmarshal, router, chronicles
 
@@ -8,9 +10,10 @@ type
   RpcServer* = ref object of RootRef
     router*: RpcRouter
 
-proc newRpcServer*(): RpcServer =
-  new result
-  result.router = newRpcRouter()
+proc new(T: type RpcServer): T =
+  T(router: RpcRouter.init())
+
+proc newRpcServer*(): RpcServer {.deprecated.} = RpcServer.new()
 
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)
@@ -20,8 +23,8 @@ template hasMethod*(server: RpcServer, methodName: string): bool =
 
 # Wrapper for message processing
 
-proc route*(server: RpcServer, line: string): Future[string] {.async, gcsafe.} =
-  result = await server.router.route(line)
+proc route*(server: RpcServer, line: string): Future[string] {.gcsafe.} =
+  server.router.route(line)
 
 # Server registration
 
@@ -32,5 +35,3 @@ proc register*(server: RpcServer, name: string, rpc: RpcProc) =
 proc unRegisterAll*(server: RpcServer) =
   # Remove all remote procedure calls from this server.
   server.router.clear
-
-

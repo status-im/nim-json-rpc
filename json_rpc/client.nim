@@ -1,29 +1,26 @@
 import
-  tables, json, macros,
+  std/[tables, json, macros],
   chronos,
-  jsonmarshal, errors
+  ./jsonmarshal
 
 from strutils import toLowerAscii, replace
 
 export
-  chronos
+  chronos, json, tables
 
 type
   ClientId* = int64
   RpcClient* = ref object of RootRef
     awaiting*: Table[ClientId, Future[Response]]
-    nextId: ClientId
+    lastId: ClientId
     methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
     onDisconnect*: proc() {.gcsafe.}
 
-  Response* = tuple[error: bool, result: JsonNode]
-
-proc initRpcClient*[T: RpcClient](client: var T) =
-  client.nextId = 1
+  Response* = JsonNode
 
 proc getNextId*(client: RpcClient): ClientId =
-  result = client.nextId
-  client.nextId.inc
+  client.lastId += 1
+  client.lastId
 
 proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
@@ -34,62 +31,38 @@ method call*(client: RpcClient, name: string,
 
 method close*(client: RpcClient) {.base, gcsafe, async.} = discard
 
-template asyncRaise[T](fut: Future[T], errType: typedesc, msg: string) =
-  fut.fail(newException(errType, msg))
+template `or`(a: JsonNode, b: typed): JsonNode =
+  if a == nil: b else: a
 
-macro checkGet(node: JsonNode, fieldName: string,
-               jKind: static[JsonNodeKind]): untyped =
-  let n = genSym(ident = "n") #`node`{`fieldName`}
-  result = quote:
-    let `n` = `node`{`fieldname`}
-    if `n`.isNil or `n`.kind == JNull:
-      raise newException(ValueError,
-        "Message is missing required field \"" & `fieldName` & "\"")
-    if `n`.kind != `jKind`.JsonNodeKind:
-      raise newException(ValueError,
-        "Expected " & $(`jKind`.JsonNodeKind) & ", got " & $`n`.kind)
-  case jKind
-  of JBool: result.add(quote do: `n`.getBool)
-  of JInt: result.add(quote do: `n`.getInt)
-  of JString: result.add(quote do: `n`.getStr)
-  of JFloat: result.add(quote do: `n`.getFloat)
-  of JObject: result.add(quote do: `n`.getObject)
-  else: discard
-
-proc processMessage*(self: RpcClient, line: string) {.gcsafe.} =
+proc processMessage*(self: RpcClient, line: string) =
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
   let node = parseJson(line)
 
   if "id" in node:
-    let id = checkGet(node, "id", JInt)
+    let id = node{"id"} or newJNull()
 
     var requestFut: Future[Response]
-    if not self.awaiting.pop(id, requestFut):
-      raise newException(ValueError,
-        "Cannot find message id \"" & $node["id"].getInt & "\"")
+    if not self.awaiting.pop(id.getInt(-1), requestFut):
+      raise newException(ValueError, "Cannot find message id \"" & $id & "\"")
 
-    let version = checkGet(node, "jsonrpc", JString)
+    let version = node{"jsonrpc"}.getStr()
     if version != "2.0":
-      self.awaiting[id].asyncRaise(ValueError,
-        "Unsupported version of JSON, expected 2.0, received \"" & version & "\"")
-
-    let errorNode = node{"error"}
-    if errorNode.isNil or errorNode.kind == JNull:
-      var res = node{"result"}
-      if not res.isNil:
-        requestFut.complete((false, res))
-      else:
-        requestFut.fail(newException(InvalidResponse, "Missing `result` field"))
+      requestFut.fail(newException(ValueError,
+        "Unsupported version of JSON, expected 2.0, received \"" & version & "\""))
     else:
-      requestFut.fail(newException(ValueError, $errorNode))
-
+      let result = node{"result"}
+      if result.isNil:
+        let error = node{"error"} or newJNull()
+        requestFut.fail(newException(ValueError, $error))
+      else:
+        requestFut.complete(result)
   elif "method" in node:
     # This could be subscription notification
     let name = node["method"].getStr()
     let handler = self.methodHandlers.getOrDefault(name)
     if not handler.isNil:
-      handler(node{"params"})
+      handler(node{"params"} or newJArray())
   else:
     raise newException(ValueError, "Invalid jsonrpc message: " & $node)
 
@@ -165,23 +138,20 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
     clientIdent = newIdentNode("client")
     # proc return variable
     procRes = ident"result"
-    # actual return value, `rpcResult`.result
-    jsonRpcResult = nnkDotExpr.newTree(rpcResult, newIdentNode("result"))
 
   # perform rpc call
   callBody.add(quote do:
     # `rpcResult` is of type `Response`
     let `rpcResult` = await `clientIdent`.call(`pathStr`, `jsonParamIdent`)
-    if `rpcResult`.error: raise newException(ValueError, $`rpcResult`.result)
   )
 
   if customReturnType:
     # marshal json to native Nim type
-    callBody.add(jsonToNim(procRes, returnType, jsonRpcResult, "result"))
+    callBody.add(jsonToNim(procRes, returnType, rpcResult, "result"))
   else:
     # native json expected so no work
     callBody.add quote do:
-      `procRes` = `rpcResult`.result
+      `procRes` = `rpcResult`
 
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr

@@ -1,6 +1,7 @@
-import std/[json, strutils]
-import chronicles, httputils, chronos
-import ../server
+import
+  std/[json, strutils],
+  chronicles, httputils, chronos,
+  ../server, ../errors
 
 logScope:
   topics = "JSONRPC-HTTP-SERVER"
@@ -34,42 +35,38 @@ proc sendAnswer(transp: StreamTransport, version: HttpVersion, code: HttpCode,
     answer.add(data)
   try:
     let res = await transp.write(answer)
-    if res != len(answer):
-      result = false
-    result = true
-  except:
-    result = false
+    return res == len(answer)
+  except CancelledError as exc: raise exc
+  except CatchableError:
+    return false
 
 proc validateRequest(transp: StreamTransport,
                      header: HttpRequestHeader): Future[ReqStatus] {.async.} =
   if header.meth in {MethodPut, MethodDelete}:
     # Request method is either PUT or DELETE.
     debug "PUT/DELETE methods are not allowed", address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http405):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http405):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
   let length = header.contentLength()
   if length <= 0:
     # request length could not be calculated.
     debug "Content-Length is missing or 0", address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http411):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http411):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
   if length > MaxHttpRequestSize:
     # request length is more then `MaxHttpRequestSize`.
     debug "Maximum size of request body reached",
           address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http413):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http413):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
   var ctype = header["Content-Type"]
   # might be "application/json; charset=utf-8"
@@ -77,13 +74,12 @@ proc validateRequest(transp: StreamTransport,
     # Content-Type header is not "application/json"
     debug "Content type must be application/json",
           address = transp.remoteAddress()
-    if await transp.sendAnswer(header.version, Http415):
-      result = Error
+    return if await transp.sendAnswer(header.version, Http415):
+      Error
     else:
-      result = ErrorFailure
-    return
+      ErrorFailure
 
-  result = Success
+  return Success
 
 proc processClient(server: StreamServer,
                    transp: StreamTransport) {.async, gcsafe.} =
@@ -103,7 +99,7 @@ proc processClient(server: StreamServer,
         # Timeout
         debug "Timeout expired while receiving headers",
               address = transp.remoteAddress()
-        let res = await transp.sendAnswer(HttpVersion11, Http408)
+        discard await transp.sendAnswer(HttpVersion11, Http408)
         await transp.closeWait()
         break
       else:
@@ -114,14 +110,14 @@ proc processClient(server: StreamServer,
           # Header could not be parsed
           debug "Malformed header received",
                 address = transp.remoteAddress()
-          let res = await transp.sendAnswer(HttpVersion11, Http400)
+          discard await transp.sendAnswer(HttpVersion11, Http400)
           await transp.closeWait()
           break
     except TransportLimitError:
       # size of headers exceeds `MaxHttpHeadersSize`
       debug "Maximum size of headers limit reached",
             address = transp.remoteAddress()
-      let res = await transp.sendAnswer(HttpVersion11, Http413)
+      discard await transp.sendAnswer(HttpVersion11, Http413)
       await transp.closeWait()
       break
     except TransportIncompleteError:
@@ -158,7 +154,7 @@ proc processClient(server: StreamServer,
           # Timeout
           debug "Timeout expired while receiving request body",
                 address = transp.remoteAddress()
-          let res = await transp.sendAnswer(header.version, Http413)
+          discard await transp.sendAnswer(header.version, Http413)
           await transp.closeWait()
           break
         else:
@@ -225,7 +221,7 @@ proc addStreamServer*(server: RpcHttpServer, address: TransportAddress) =
     raise newException(RpcBindError, "Unable to create server!")
 
 proc addStreamServers*(server: RpcHttpServer,
-                       addresses: openarray[TransportAddress]) =
+                       addresses: openArray[TransportAddress]) =
   for item in addresses:
     server.addStreamServer(item)
 
@@ -239,13 +235,13 @@ proc addStreamServer*(server: RpcHttpServer, address: string) =
   # Attempt to resolve `address` for IPv4 address space.
   try:
     tas4 = resolveTAddress(address, AddressFamily.IPv4)
-  except:
+  except CatchableError:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
     tas6 = resolveTAddress(address, AddressFamily.IPv6)
-  except:
+  except CatchableError:
     discard
 
   for r in tas4:
@@ -259,7 +255,7 @@ proc addStreamServer*(server: RpcHttpServer, address: string) =
     # Addresses could not be resolved, critical error.
     raise newException(RpcAddressUnresolvableError, "Unable to get address!")
 
-proc addStreamServers*(server: RpcHttpServer, addresses: openarray[string]) =
+proc addStreamServers*(server: RpcHttpServer, addresses: openArray[string]) =
   for address in addresses:
     server.addStreamServer(address)
 
@@ -272,13 +268,13 @@ proc addStreamServer*(server: RpcHttpServer, address: string, port: Port) =
   # Attempt to resolve `address` for IPv4 address space.
   try:
     tas4 = resolveTAddress(address, port, AddressFamily.IPv4)
-  except:
+  except CatchableError:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
     tas6 = resolveTAddress(address, port, AddressFamily.IPv6)
-  except:
+  except CatchableError:
     discard
 
   if len(tas4) == 0 and len(tas6) == 0:
@@ -298,15 +294,18 @@ proc addStreamServer*(server: RpcHttpServer, address: string, port: Port) =
     raise newException(RpcBindError,
                       "Could not setup server on " & address & ":" & $int(port))
 
-proc newRpcHttpServer*(): RpcHttpServer =
-  RpcHttpServer(router: newRpcRouter(), servers: @[])
+proc new*(T: type RpcHttpServer): T =
+  T(router: RpcRouter.init(), servers: @[])
 
-proc newRpcHttpServer*(addresses: openarray[TransportAddress]): RpcHttpServer =
+proc newRpcHttpServer*(): RpcHttpServer =
+  RpcHttpServer.new()
+
+proc newRpcHttpServer*(addresses: openArray[TransportAddress]): RpcHttpServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcHttpServer()
   result.addStreamServers(addresses)
 
-proc newRpcHttpServer*(addresses: openarray[string]): RpcHttpServer =
+proc newRpcHttpServer*(addresses: openArray[string]): RpcHttpServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcHttpServer()
   result.addStreamServers(addresses)
