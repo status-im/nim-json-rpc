@@ -43,7 +43,7 @@ proc processMessage*(self: RpcClient, line: string) =
     let id = node{"id"} or newJNull()
 
     var requestFut: Future[Response]
-    if not self.awaiting.pop(id.getInt(-1), requestFut):
+    if not self.awaiting.pop(id.getBiggestInt(-1), requestFut):
       raise newException(ValueError, "Cannot find message id \"" & $id & "\"")
 
     let version = node{"jsonrpc"}.getStr()

@@ -1,28 +1,36 @@
 import
-  std/[macros, json, options, typetraits],
+  std/[macros, json, options, strutils, typetraits],
   stew/byteutils
 
 export json
 
+proc raiseKindError(actual, expected: JsonNodeKind, argName: string) {.noreturn, noinline.} =
+  raise (ref ValueError)(msg: "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
+
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
-  if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
+  if actual != expected: raiseKindError(actual, expected, argName)
 
 proc `%`*(n: byte{not lit}): JsonNode =
   newJInt(int(n))
 
 proc `%`*(n: uint64{not lit}): JsonNode =
-  newJInt(int(n))
+  if n > int64.high().uint64:
+    # Unfortunately, internal std lib parser can't handle large uint64
+    # values, so string is the closest we get
+    newJString($n)
+  else:
+    newJInt(int64(n))
 
 proc `%`*(n: ref SomeInteger): JsonNode =
   if n.isNil:
     newJNull()
   else:
-    newJInt(n[])
+    `%`(n[])
 
 when (NimMajor, NimMinor, NimPatch) < (0, 19, 9):
   proc `%`*[T](option: Option[T]): JsonNode =
     if option.isSome:
-      `%`(option.get)
+      `%`(option.get())
     else:
       newJNull()
 
@@ -74,8 +82,13 @@ proc fromJson*(n: JsonNode, argName: string, result: var bool) =
   result = n.getBool()
 
 proc fromJson*(n: JsonNode, argName: string, result: var int) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt()
+  result =
+    if n.kind == JInt:
+      n.getInt()
+    elif n.kind == JString:
+      parseInt(n.getStr())
+    else:
+      raiseKindError(JInt, n.kind, argName)
 
 proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
@@ -84,42 +97,60 @@ proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
     fromJson(n[k], k, v)
 
 proc fromJson*(n: JsonNode, argName: string, result: var int64) =
-  n.kind.expect(JInt, argName)
-  result = n.getBiggestInt().int64
+  result =
+    if n.kind == JInt:
+      n.getBiggestInt().int64
+    elif n.kind == JString:
+      parseBiggestInt(n.getStr()).int64
+    else:
+      raiseKindError(JInt, n.kind, argName)
 
 proc fromJson*(n: JsonNode, argName: string, result: var uint64) =
-  n.kind.expect(JInt, argName)
-  let asInt = n.getBiggestInt()
-  # signed -> unsigned conversions are unchecked
-  # https://github.com/nim-lang/RFCs/issues/175
-  if asInt < 0:
-    raise newException(
-      ValueError, "JSON-RPC input is an unexpected negative value")
-  result = uint64(asInt)
+  result =
+    if n.kind == JInt:
+      # Unfortunately, internal std lib parser can't handle large uint64
+      # values, so string is the closest we get
+      let asInt = n.getBiggestInt()
+      if asInt < 0:
+        raise newException(
+          ValueError, "JSON-RPC input is an unexpected negative value")
+      # signed -> unsigned conversions are unchecked
+      # https://github.com/nim-lang/RFCs/issues/175
+      asInt.uint64
+    elif n.kind == JString:
+      parseBiggestUInt(n.getStr()).uint64
+    else:
+      raiseKindError(JInt, n.kind, argName)
 
 proc fromJson*(n: JsonNode, argName: string, result: var uint32) =
-  n.kind.expect(JInt, argName)
-  let asInt = n.getBiggestInt()
-  # signed -> unsigned conversions are unchecked
-  # https://github.com/nim-lang/RFCs/issues/175
-  if asInt < 0:
-    raise newException(
-      ValueError, "JSON-RPC input is an unexpected negative value")
-  if asInt > BiggestInt(uint32.high()):
-    raise newException(
-      ValueError, "JSON-RPC input is too large for uint32")
-
-  result = uint32(asInt)
+  result =
+    if n.kind == JInt:
+      let asInt = n.getBiggestInt()
+      if asInt < 0:
+        raise newException(
+          ValueError, "JSON-RPC input is an unexpected negative value")
+      if asInt > BiggestInt(uint32.high()):
+        raise newException(
+          ValueError, "JSON-RPC input is too large for uint32")
+      # signed -> unsigned conversions are unchecked
+      # https://github.com/nim-lang/RFCs/issues/175
+      asInt.uint32
+    elif n.kind == JString:
+      let asUint = parseBiggestUInt(n.getStr())
+      if asUInt > uint32.high():
+        raise newException(
+          ValueError, "JSON-RPC input is too large for uint32")
+      asUint.uint32
+    else:
+      raiseKindError(JInt, n.kind, argName)
 
 proc fromJson*(n: JsonNode, argName: string, result: var ref int64) =
-  n.kind.expect(JInt, argName)
   new result
-  result[] = n.getInt()
+  fromJson(n, argName, result[])
 
 proc fromJson*(n: JsonNode, argName: string, result: var ref int) =
-  n.kind.expect(JInt, argName)
   new result
-  result[] = n.getInt()
+  fromJson(n, argName, result[])
 
 proc fromJson*(n: JsonNode, argName: string, result: var byte) =
   n.kind.expect(JInt, argName)

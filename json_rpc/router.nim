@@ -81,7 +81,8 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
   except CatchableError as err:
     debug "Error occurred within RPC", methodName = methodName, err = err.msg
     return wrapError(
-      SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
+      SERVER_ERROR, methodName & ": " & err.msg, id,
+      newJString(methodName & " raised an exception"))
 
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
