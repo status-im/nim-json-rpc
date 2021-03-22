@@ -10,11 +10,12 @@ export
 
 type
   ClientId* = int64
+  MethodHandler* = proc (j: JsonNode) {.gcsafe, raises: [Defect, CatchableError].}
   RpcClient* = ref object of RootRef
     awaiting*: Table[ClientId, Future[Response]]
     lastId: ClientId
-    methodHandlers: Table[string, proc(j: JsonNode) {.gcsafe.}]
-    onDisconnect*: proc() {.gcsafe.}
+    methodHandlers: Table[string, MethodHandler]
+    onDisconnect*: proc() {.gcsafe, raises: [Defect].}
 
   Response* = JsonNode
 
@@ -26,10 +27,13 @@ proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
 
 method call*(client: RpcClient, name: string,
-             params: JsonNode): Future[Response] {.gcsafe, async, base.} =
+             params: JsonNode): Future[Response] {.
+    base, async, gcsafe, raises: [Defect, CatchableError].} =
   discard
 
-method close*(client: RpcClient) {.base, gcsafe, async.} = discard
+method close*(client: RpcClient): Future[void] {.
+    base, async, gcsafe, raises: [Defect, CatchableError].} =
+  discard
 
 template `or`(a: JsonNode, b: typed): JsonNode =
   if a == nil: b else: a
@@ -37,7 +41,10 @@ template `or`(a: JsonNode, b: typed): JsonNode =
 proc processMessage*(self: RpcClient, line: string) =
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
-  let node = parseJson(line)
+  let node = try: parseJson(line)
+  except CatchableError as exc: raise exc
+  # TODO https://github.com/status-im/nimbus-eth2/issues/2430
+  except Exception as exc: raise (ref ValueError)(msg: exc.msg, parent: exc)
 
   if "id" in node:
     let id = node{"id"} or newJNull()
@@ -164,7 +171,7 @@ proc processRpcSigs(clientType, parsedCode: NimNode): NimNode =
       var procDef = createRpcFromSig(clientType, line)
       result.add(procDef)
 
-proc setMethodHandler*(cl: RpcClient, name: string, callback: proc(j: JsonNode) {.gcsafe.}) =
+proc setMethodHandler*(cl: RpcClient, name: string, callback: MethodHandler) =
   cl.methodHandlers[name] = callback
 
 proc delMethodHandler*(cl: RpcClient, name: string) =
