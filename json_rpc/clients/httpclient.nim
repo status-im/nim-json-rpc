@@ -170,7 +170,8 @@ proc httpMethod*(client: RpcHttpClient, m: HttpMethod) =
   client.options.httpMethod = m
 
 method call*(client: RpcHttpClient, name: string,
-             params: JsonNode): Future[Response] {.async, gcsafe.} =
+             params: JsonNode): Future[Response] {.
+    async, gcsafe, raises: [Defect, CatchableError].} =
   ## Remotely calls the specified RPC method.
   let id = client.getNextId()
 
