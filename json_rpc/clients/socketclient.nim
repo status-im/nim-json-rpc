@@ -1,6 +1,9 @@
 import
-  std/[json, tables],
-  ../client, chronos
+  std/tables,
+  chronos,
+  ../client
+
+export client
 
 type
   RpcSocketClient* = ref object of RpcClient

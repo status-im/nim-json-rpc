@@ -1,6 +1,9 @@
 import
-  std/[json, strtabs, tables],
-  ../client, chronos
+  std/[strtabs, tables],
+  chronos,
+  ../client
+
+export client
 
 const newsUseChronos = true
 include news

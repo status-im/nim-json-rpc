@@ -2,29 +2,18 @@ import
   std/[macros, json, options, typetraits],
   stew/byteutils
 
-export json
+export json, options
 
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
-  if actual != expected: raise newException(ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
-
-proc `%`*(n: byte{not lit}): JsonNode =
-  newJInt(int(n))
-
-proc `%`*(n: uint64{not lit}): JsonNode =
-  newJInt(int(n))
+  if actual != expected:
+    raise newException(
+      ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 
 proc `%`*(n: ref SomeInteger): JsonNode =
   if n.isNil:
     newJNull()
   else:
     newJInt(n[])
-
-when (NimMajor, NimMinor, NimPatch) < (0, 19, 9):
-  proc `%`*[T](option: Option[T]): JsonNode =
-    if option.isSome:
-      `%`(option.get)
-    else:
-      newJNull()
 
 # Compiler requires forward decl when processing out of module
 proc fromJson*(n: JsonNode, argName: string, result: var bool)

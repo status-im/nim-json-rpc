@@ -1,7 +1,9 @@
 import
-  std/[json, strutils],
+  std/[strutils],
   chronicles, httputils, chronos,
-  ../server, ../errors
+  ".."/[errors, server]
+
+export server
 
 logScope:
   topics = "JSONRPC-HTTP-SERVER"
