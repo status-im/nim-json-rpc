@@ -1,12 +1,12 @@
 import
-  std/[tables, json, macros],
+  std/[tables, macros],
   chronos,
   ./jsonmarshal
 
 from strutils import toLowerAscii, replace
 
 export
-  chronos, json, tables
+  chronos, jsonmarshal, tables
 
 type
   ClientId* = int64

@@ -6,7 +6,7 @@ license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 ### Dependencies
-requires "nim >= 0.17.3",
+requires "nim >= 1.2.0",
          "nimcrypto",
          "stint",
          "chronos",

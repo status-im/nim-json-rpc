@@ -1,10 +1,9 @@
 import
-  std/json,
   chronicles,
   json_serialization/std/net,
-  ../server, ../errors
+  ".."/[errors, server]
 
-export server
+export errors, server
 
 type
   RpcSocketServer* = ref object of RpcServer

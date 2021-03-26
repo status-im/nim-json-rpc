@@ -1,8 +1,10 @@
 import
-  std/[json, strutils, tables, uri],
+  std/[strutils, tables, uri],
   stew/byteutils,
-  chronicles, httputils, chronos, json_serialization/std/net,
+  chronicles, httputils, json_serialization/std/net,
   ../client
+
+export client
 
 logScope:
   topics = "JSONRPC-HTTP-CLIENT"

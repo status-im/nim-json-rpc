@@ -1,10 +1,10 @@
 import
-  std/[json, macros, options, strutils, tables],
+  std/[macros, options, strutils, tables],
   chronicles, chronos, json_serialization/writer,
   ./jsonmarshal
 
 export
-  chronos, json, jsonmarshal
+  chronos, jsonmarshal
 
 type
   StringOfJson* = JsonString

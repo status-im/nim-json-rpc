@@ -1,10 +1,9 @@
 import
-  std/[json, macros],
-  chronos, chronicles,
+  chronos,
   ./router,
   ./jsonmarshal
 
-export chronos, json, jsonmarshal, router, chronicles
+export chronos, jsonmarshal, router
 
 type
   RpcServer* = ref object of RootRef
