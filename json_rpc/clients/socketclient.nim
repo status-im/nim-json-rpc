@@ -63,5 +63,7 @@ proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   client.loop = processData(client)
 
 method close*(client: RpcSocketClient) {.async.} =
-  # TODO: Stop the processData loop
-  await client.transport.closeWait()
+  await client.loop.cancelAndWait()
+  if not client.transport.isNil:
+    client.transport.close()
+    client.transport = nil
