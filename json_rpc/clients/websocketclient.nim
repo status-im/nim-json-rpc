@@ -78,5 +78,8 @@ proc connect*(client: RpcWebSocketClient, uri: string, headers: StringTableRef =
   client.loop = processData(client)
 
 method close*(client: RpcWebSocketClient) {.async.} =
+  await client.loop.cancelAndWait()
   if not client.transport.isNil:
-    client.loop.cancel()
+    client.transport.close()
+    client.transport = nil
+
