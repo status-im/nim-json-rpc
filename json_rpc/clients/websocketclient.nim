@@ -1,6 +1,7 @@
 import
   std/[strtabs, tables, uri, strutils],
   pkg/[chronos, ws/ws, chronicles],
+  ws/extensions/compression/deflate,
   ../client
 
 export client
@@ -67,26 +68,28 @@ proc processData(client: RpcWebSocketClient) {.async.} =
     client.onDisconnect()
 
 proc connect*(client: RpcWebSocketClient, uri: string,
+              compression: bool = false,
               flags: set[TLSFlags] = {
                 NoVerifyHost, NoVerifyServerName}) {.async.} =
-  try:
 
-    let uri = parseUri(uri)
-    let secure = uri.scheme == "wss"
-    let port = parseInt(uri.port)
+  var ext: seq[ExtFactory] = if compression:
+                               @[deflateFactory()]
+                             else:
+                               @[]
+  let uri = parseUri(uri)
+  let secure = uri.scheme == "wss"
+  let port = parseInt(uri.port)
 
-    let ws = await WebSocket.connect(
-      host = uri.hostname,
-      port = Port(port),
-      path = uri.path,
-      secure=secure,
-      flags=flags
-    )
-    client.transport = ws
-    client.uri = uri
-
-  except WebSocketError as exc:
-    error "WebSocket error", exception = exc.msg
+  let ws = await WebSocket.connect(
+    host = uri.hostname,
+    port = Port(port),
+    path = uri.path,
+    secure=secure,
+    flags=flags,
+    factories=ext
+  )
+  client.transport = ws
+  client.uri = uri
 
   client.loop = processData(client)
 

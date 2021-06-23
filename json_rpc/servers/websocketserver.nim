@@ -1,5 +1,6 @@
 import
   chronicles, httputils, chronos, ws/ws,
+  ws/extensions/compression/deflate,
   ".."/[errors, server]
 
 export server
@@ -56,8 +57,17 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
   except WebSocketError as exc:
     error "WebSocket error:", exception = exc.msg
 
+proc initWebsocket(rpc: RpcWebSocketServer, compression: bool) =
+  let deflateFactory = deflateFactory()
+
+  if compression:
+    rpc.wsserver = WSServer.new(factories = [deflateFactory])
+  else:
+    rpc.wsserver = WSServer.new()
+
 proc newRpcWebSocketServer*(
   address: TransportAddress,
+  compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,
     ServerFlags.ReuseAddr}): RpcWebSocketServer =
 
@@ -65,7 +75,7 @@ proc newRpcWebSocketServer*(
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 
-  server.wsserver = WSServer.new()
+  server.initWebsocket(compression)
   server.server = HttpServer.create(
     address,
     processCallback,
@@ -77,15 +87,21 @@ proc newRpcWebSocketServer*(
 proc newRpcWebSocketServer*(
   host: string,
   port: Port,
+  compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,
     ServerFlags.ReuseAddr}): RpcWebSocketServer =
 
-  newRpcWebSocketServer(initTAddress(host, port), flags)
+  newRpcWebSocketServer(
+    initTAddress(host, port),
+    compression,
+    flags
+  )
 
 proc newRpcWebSocketServer*(
   address: TransportAddress,
   tlsPrivateKey: TLSPrivateKey,
   tlsCertificate: TLSCertificate,
+  compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,
     ServerFlags.ReuseAddr},
   tlsFlags: set[TLSFlags] = {},
@@ -96,7 +112,7 @@ proc newRpcWebSocketServer*(
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 
-  server.wsserver = WSServer.new()
+  server.initWebsocket(compression)
   server.server = TlsHttpServer.create(
     address,
     tlsPrivateKey,
@@ -115,6 +131,7 @@ proc newRpcWebSocketServer*(
   port: Port,
   tlsPrivateKey: TLSPrivateKey,
   tlsCertificate: TLSCertificate,
+  compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,
     ServerFlags.ReuseAddr},
   tlsFlags: set[TLSFlags] = {},
@@ -125,6 +142,7 @@ proc newRpcWebSocketServer*(
     initTAddress(host, port),
     tlsPrivateKey,
     tlsCertificate,
+    compression,
     flags,
     tlsFlags,
     tlsMinVersion,
