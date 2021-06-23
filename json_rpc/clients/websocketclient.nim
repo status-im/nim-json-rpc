@@ -2,6 +2,7 @@ import
   std/[strtabs, tables, uri, strutils],
   pkg/[chronos, ws/ws, chronicles],
   ws/extensions/compression/deflate,
+  stew/byteutils,
   ../client
 
 export client
@@ -51,7 +52,7 @@ proc processData(client: RpcWebSocketClient) {.async.} =
         # transmission ends
         break
 
-      client.processMessage(cast[string](value))
+      client.processMessage(string.fromBytes(value))
   except CatchableError as e:
     error = e
 

@@ -1,6 +1,7 @@
 import
   chronicles, httputils, chronos, ws/ws,
   ws/extensions/compression/deflate,
+  stew/byteutils,
   ".."/[errors, server]
 
 export server
@@ -39,7 +40,7 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
         )
         break
 
-      let future = rpc.route(cast[string](recvData))
+      let future = rpc.route(string.fromBytes(recvData))
       yield future
       if future.failed:
         debug "Internal error, while processing RPC call",
