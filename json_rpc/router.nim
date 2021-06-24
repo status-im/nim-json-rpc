@@ -12,8 +12,11 @@ type
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect, CatchableError].}
 
+  RecoveryProc* = proc(name: string, input: JsonNode): Future[JsonNode] {.gcsafe, raises: [Defect, CatchableError].}
+
   RpcRouter* = object
     procs*: Table[string, RpcProc]
+    recoveryCall*: Option[RecoveryProc]
 
 const
   methodField = "method"
@@ -29,6 +32,8 @@ const
   defaultMaxRequestLength* = 1024 * 128
 
 proc init*(T: type RpcRouter): T = discard
+
+proc init*(T: type RpcRouter, recoveryCall: RecoveryProc): T = RpcRouter(recoveryCall: some(recoveryCall))
 
 proc newRpcRouter*: RpcRouter {.deprecated.} =
   RpcRouter.init()
@@ -71,17 +76,31 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
     return wrapError(INVALID_REQUEST, "'method' missing or invalid")
 
   let rpcProc = router.procs.getOrDefault(methodName)
-  if rpcProc == nil:
-    return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
 
   let params = node.getOrDefault("params")
-  try:
-    let res = await rpcProc(if params == nil: newJArray() else: params)
-    return wrapReply(id, res)
-  except CatchableError as err:
-    debug "Error occurred within RPC", methodName = methodName, err = err.msg
-    return wrapError(
-      SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
+
+  if rpcProc == nil and (not router.recoveryCall.isSome()):
+    return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
+  elif rpcProc == nil and (router.recoveryCall.isSome()):
+    try:
+      let recoveryCall = router.recoveryCall.unsafeGet
+      let res = await recoveryCall(methodName, if params == nil: newJArray() else: params)
+      let asString = StringOfJson($res)
+      return wrapReply(id, asString)
+
+    except CatchableError as err:
+      debug "Error occurred within RPC", methodName = methodName, err = err.msg
+      return wrapError(
+        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
+  else:
+    try:
+      let res = await rpcProc(if params == nil: newJArray() else: params)
+      return wrapReply(id, res)
+
+    except CatchableError as err:
+      debug "Error occurred within RPC", methodName = methodName, err = err.msg
+      return wrapError(
+        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
 
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
