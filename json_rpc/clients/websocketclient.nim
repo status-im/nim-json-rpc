@@ -1,17 +1,19 @@
 import
-  std/[strtabs, tables],
-  chronos,
+  std/[strtabs, tables, uri, strutils],
+  pkg/[chronos, ws/ws, chronicles],
+  ws/extensions/compression/deflate,
+  stew/byteutils,
   ../client
 
 export client
 
-const newsUseChronos = true
-include news
+logScope:
+  topics = "JSONRPC-WS-CLIENT"
 
 type
   RpcWebSocketClient* = ref object of RpcClient
-    transport*: WebSocket
-    uri*: string
+    transport*: WSSession
+    uri*: Uri
     loop*: Future[void]
 
 proc new*(T: type RpcWebSocketClient): T =
@@ -30,7 +32,6 @@ method call*(self: RpcWebSocketClient, name: string,
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
-  # echo "Sent msg: ", value
 
   # completed by processMessage.
   var newFut = newFuture[Response]()
@@ -42,18 +43,20 @@ method call*(self: RpcWebSocketClient, name: string,
 
 proc processData(client: RpcWebSocketClient) {.async.} =
   var error: ref CatchableError
+  let ws = client.transport
   try:
-    while true:
-      var value = await client.transport.receiveString()
-      if value == "":
+    while ws.readystate != ReadyState.Closed:
+      var value = await ws.recv()
+
+      if value.len == 0:
         # transmission ends
         break
 
-      client.processMessage(value)
+      client.processMessage(string.fromBytes(value))
   except CatchableError as e:
     error = e
 
-  client.transport.close()
+  await client.transport.close()
   client.transport = nil
 
   if client.awaiting.len != 0:
@@ -65,21 +68,34 @@ proc processData(client: RpcWebSocketClient) {.async.} =
   if not client.onDisconnect.isNil:
     client.onDisconnect()
 
-proc connect*(client: RpcWebSocketClient, uri: string, headers: StringTableRef = nil) {.async.} =
-  var headers = headers
-  if headers.isNil:
-    headers = newStringTable({"Origin": "http://localhost"})
-  elif "Origin" notin headers:
-    # TODO: This is a hack, because the table might be case sensitive. Ideally strtabs module has
-    # to be extended with case insensitive accessors.
-    headers["Origin"] = "http://localhost"
-  client.transport = await newWebSocket(uri, headers)
+proc connect*(client: RpcWebSocketClient, uri: string,
+              compression: bool = false,
+              flags: set[TLSFlags] = {
+                NoVerifyHost, NoVerifyServerName}) {.async.} =
+
+  var ext: seq[ExtFactory] = if compression:
+                               @[deflateFactory()]
+                             else:
+                               @[]
+  let uri = parseUri(uri)
+  let secure = uri.scheme == "wss"
+  let port = parseInt(uri.port)
+
+  let ws = await WebSocket.connect(
+    host = uri.hostname,
+    port = Port(port),
+    path = uri.path,
+    secure=secure,
+    flags=flags,
+    factories=ext
+  )
+  client.transport = ws
   client.uri = uri
+
   client.loop = processData(client)
 
 method close*(client: RpcWebSocketClient) {.async.} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:
-    client.transport.close()
+    await client.transport.close()
     client.transport = nil
-
