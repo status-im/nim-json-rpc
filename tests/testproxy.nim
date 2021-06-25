@@ -22,7 +22,7 @@ proxy.rpc("myProc1") do(input: string, data: array[0..3, int]):
   return %("Hello " & input & " data: " & $data)
 
 srv.start()
-waitFor proxy.init("localhost", Port(8545))
+waitFor proxy.start("localhost", Port(8545))
 waitFor client.connect("localhost", Port(8546))
 
 suite "Proxy RPC":
