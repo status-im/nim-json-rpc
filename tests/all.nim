@@ -1,4 +1,4 @@
 {. warning[UnusedImport]:off .}
 
 import
-  testrpcmacro, testserverclient, testethcalls, testhttp
+  testrpcmacro, testserverclient, testethcalls, testhttp, testproxy

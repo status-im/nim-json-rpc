@@ -12,11 +12,11 @@ type
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect, CatchableError].}
 
-  RecoveryProc* = proc(name: string, input: JsonNode): Future[JsonNode] {.gcsafe, raises: [Defect, CatchableError].}
+  ProxyCall* = proc(name: string, input: JsonNode): Future[JsonNode] {.gcsafe, raises: [Defect, CatchableError].}
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]
-    recoveryCall*: Option[RecoveryProc]
+    proxyCalls*: Table[string, ProxyCall]
 
 const
   methodField = "method"
@@ -33,17 +33,22 @@ const
 
 proc init*(T: type RpcRouter): T = discard
 
-proc init*(T: type RpcRouter, recoveryCall: RecoveryProc): T = RpcRouter(recoveryCall: some(recoveryCall))
-
 proc newRpcRouter*: RpcRouter {.deprecated.} =
   RpcRouter.init()
 
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
   router.procs.add(path, call)
 
-proc clear*(router: var RpcRouter) = router.procs.clear
+proc registerProxy*(router: var RpcRouter, path: string, call: ProxyCall) =
+  router.proxyCalls.add(path, call)
+
+proc clear*(router: var RpcRouter) = 
+  router.procs.clear
+  router.proxyCalls.clear
 
 proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasKey(methodName)
+
+proc hasProxy*(router: RpcRouter, methodName: string): bool = router.proxyCalls.hasKey(methodName)
 
 func isEmpty(node: JsonNode): bool = node.isNil or node.kind == JNull
 
@@ -76,15 +81,14 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
     return wrapError(INVALID_REQUEST, "'method' missing or invalid")
 
   let rpcProc = router.procs.getOrDefault(methodName)
-
+  let proxyCall = router.proxyCalls.getOrDefault(methodName)
   let params = node.getOrDefault("params")
 
-  if rpcProc == nil and (not router.recoveryCall.isSome()):
+  if rpcProc == nil and (proxyCall == nil):
     return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
-  elif rpcProc == nil and (router.recoveryCall.isSome()):
+  elif rpcProc == nil and (proxyCall != nil):
     try:
-      let recoveryCall = router.recoveryCall.unsafeGet
-      let res = await recoveryCall(methodName, if params == nil: newJArray() else: params)
+      let res = await proxyCall(methodName, if params == nil: newJArray() else: params)
       let asString = StringOfJson($res)
       return wrapReply(id, asString)
 

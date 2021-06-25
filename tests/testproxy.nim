@@ -15,6 +15,9 @@ srv.rpc("myProc") do(input: string, data: array[0..3, int]):
   return %("Hello " & input & " data: " & $data)
 
 # Create RPC on proxy server
+proxy.registerProxyMethod("myProc")
+
+# Create standard handler on server
 proxy.rpc("myProc1") do(input: string, data: array[0..3, int]):
   return %("Hello " & input & " data: " & $data)
 
