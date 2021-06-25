@@ -59,9 +59,8 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
     error "WebSocket error:", exception = exc.msg
 
 proc initWebsocket(rpc: RpcWebSocketServer, compression: bool) =
-  let deflateFactory = deflateFactory()
-
   if compression:
+    let deflateFactory = deflateFactory()
     rpc.wsserver = WSServer.new(factories = [deflateFactory])
   else:
     rpc.wsserver = WSServer.new()
