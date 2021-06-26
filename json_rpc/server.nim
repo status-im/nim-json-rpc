@@ -31,9 +31,9 @@ proc register*(server: RpcServer, name: string, rpc: RpcProc) =
   ## Add a name/code pair to the RPC server.
   server.router.register(name, rpc)
 
-proc registerProxyCall*(server: RpcServer, name: string, proxyCall: ProxyCall) =
+proc registerMissingMethodHandler*(server: RpcServer, name: string, proxyCall: MissingMethodHandler) =
   ## Add alternative path for name/code pair handling to the RPC server.
-  server.router.registerProxy(name, proxyCall)
+  server.router.registerMissingMethodHandler(name, proxyCall)
 
 proc unRegisterAll*(server: RpcServer) =
   # Remove all remote procedure calls from this server.

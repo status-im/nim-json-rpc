@@ -8,7 +8,7 @@ type RpcHttpProxy* = ref object of RootRef
   rpcHttpClient: RpcHttpClient
   rpcHttpServer: RpcHttpServer
 
-proc proxyCall(client: RpcHttpClient): ProxyCall =
+proc proxyCall(client: RpcHttpClient): MissingMethodHandler =
   return proc (name: string, params: JsonNode): Future[Response] = client.call(name, params)
 
 proc new*(T: type RpcHttpProxy, listenAddresses: openArray[string]): T {.raises: [Defect, CatchableError].}= 
@@ -31,7 +31,7 @@ template rpc*(server: RpcHttpProxy, path: string, body: untyped): untyped =
   server.rpcHttpServer.rpc(path, body)
 
 proc registerProxyMethod*(proxy: var RpcHttpProxy, methodName: string) {.raises: [Defect, CatchableError].} = 
- proxy.rpcHttpServer.registerProxyCall(methodName, proxyCall(proxy.rpcHttpClient))
+ proxy.rpcHttpServer.registerMissingMethodHandler(methodName, proxyCall(proxy.rpcHttpClient))
 
 proc stop*(rpcHttpProxy: RpcHttpProxy) {.raises: [Defect, CatchableError].} =
   rpcHttpProxy.rpcHttpServer.stop()
