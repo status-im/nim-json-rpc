@@ -1,7 +1,7 @@
 import
   std/[strtabs, tables, uri, strutils],
-  pkg/[chronos, ws/ws, chronicles],
-  ws/extensions/compression/deflate,
+  pkg/[chronos, websock/websock, chronicles],
+  websock/extensions/compression/deflate,
   stew/byteutils,
   ../client
 

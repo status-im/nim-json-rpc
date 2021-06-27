@@ -11,9 +11,8 @@ requires "nim >= 1.2.0",
          "stint",
          "chronos",
          "httputils",
-         "chronicles",
-         "https://github.com/status-im/nim-ws",
-         "chronicles",
+         "chronicles#ba2817f1",
+         "https://github.com/status-im/nim-websock",
          "json_serialization"
 
 proc getLang(): string =

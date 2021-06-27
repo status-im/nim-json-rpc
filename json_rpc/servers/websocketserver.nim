@@ -1,6 +1,6 @@
 import
-  chronicles, httputils, chronos, ws/ws,
-  ws/extensions/compression/deflate,
+  chronicles, httputils, chronos, websock/websock,
+  websock/extensions/compression/deflate,
   stew/byteutils,
   ".."/[errors, server]
 
