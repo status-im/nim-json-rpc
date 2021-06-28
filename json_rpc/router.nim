@@ -12,12 +12,8 @@ type
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect, CatchableError].}
 
-  # Procedure signature to call in case user does not register normal RpcProc handler
-  MissingMethodHandler* = proc(name: string, input: JsonNode): Future[JsonNode] {.gcsafe, raises: [Defect, CatchableError].}
-
   RpcRouter* = object
     procs*: Table[string, RpcProc]
-    missingMethodHandlers*: Table[string, MissingMethodHandler]
 
 const
   methodField = "method"
@@ -40,16 +36,10 @@ proc newRpcRouter*: RpcRouter {.deprecated.} =
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
   router.procs.add(path, call)
 
-proc registerMissingMethodHandler*(router: var RpcRouter, path: string, call: MissingMethodHandler) =
-  router.missingMethodHandlers.add(path, call)
-
 proc clear*(router: var RpcRouter) = 
   router.procs.clear
-  router.missingMethodHandlers.clear
 
 proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasKey(methodName)
-
-proc hasMissingMethodHandler*(router: RpcRouter, methodName: string): bool = router.missingMethodHandlers.hasKey(methodName)
 
 func isEmpty(node: JsonNode): bool = node.isNil or node.kind == JNull
 
@@ -82,21 +72,10 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
     return wrapError(INVALID_REQUEST, "'method' missing or invalid")
 
   let rpcProc = router.procs.getOrDefault(methodName)
-  let missingMethodHandler = router.missingMethodHandlers.getOrDefault(methodName)
   let params = node.getOrDefault("params")
 
-  if rpcProc == nil and (missingMethodHandler == nil):
+  if rpcProc == nil:
     return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
-  elif rpcProc == nil and (missingMethodHandler != nil):
-    try:
-      let res = await missingMethodHandler(methodName, if params == nil: newJArray() else: params)
-      let asString = StringOfJson($res)
-      return wrapReply(id, asString)
-
-    except CatchableError as err:
-      debug "Error occurred within RPC", methodName = methodName, err = err.msg
-      return wrapError(
-        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
   else:
     try:
       let res = await rpcProc(if params == nil: newJArray() else: params)
