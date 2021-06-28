@@ -32,8 +32,12 @@ proc start*(proxy:RpcHttpProxy, proxyServerAddress: string, proxyServerPort: Por
 template rpc*(server: RpcHttpProxy, path: string, body: untyped): untyped =
   server.rpcHttpServer.rpc(path, body)
 
-proc registerProxyMethod*(proxy: var RpcHttpProxy, methodName: string) {.raises: [Defect, CatchableError].} = 
- proxy.rpcHttpServer.register(methodName, proxyCall(proxy.rpcHttpClient, methodName))
+proc registerProxyMethod*(proxy: var RpcHttpProxy, methodName: string) =
+  try:
+    proxy.rpcHttpServer.register(methodName, proxyCall(proxy.rpcHttpClient, methodName))
+  except CatchableError as err:
+    # Adding proc type to table gives invalid exception tracking, see Nim bug: https://github.com/nim-lang/Nim/issues/18376
+    raiseAssert err.msg
 
 proc stop*(rpcHttpProxy: RpcHttpProxy) {.raises: [Defect, CatchableError].} =
   rpcHttpProxy.rpcHttpServer.stop()
