@@ -36,7 +36,8 @@ proc newRpcRouter*: RpcRouter {.deprecated.} =
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
   router.procs.add(path, call)
 
-proc clear*(router: var RpcRouter) = router.procs.clear
+proc clear*(router: var RpcRouter) = 
+  router.procs.clear
 
 proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasKey(methodName)
 
@@ -71,17 +72,19 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
     return wrapError(INVALID_REQUEST, "'method' missing or invalid")
 
   let rpcProc = router.procs.getOrDefault(methodName)
+  let params = node.getOrDefault("params")
+
   if rpcProc == nil:
     return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
+  else:
+    try:
+      let res = await rpcProc(if params == nil: newJArray() else: params)
+      return wrapReply(id, res)
 
-  let params = node.getOrDefault("params")
-  try:
-    let res = await rpcProc(if params == nil: newJArray() else: params)
-    return wrapReply(id, res)
-  except CatchableError as err:
-    debug "Error occurred within RPC", methodName = methodName, err = err.msg
-    return wrapError(
-      SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
+    except CatchableError as err:
+      debug "Error occurred within RPC", methodName = methodName, err = err.msg
+      return wrapError(
+        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
 
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
