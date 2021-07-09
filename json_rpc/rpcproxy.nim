@@ -13,12 +13,20 @@ proc proxyCall(client: RpcHttpClient, name: string): RpcProc =
           let res = await client.call(name, params)
           return StringOfJson($res)
 
-proc new*(T: type RpcHttpProxy, listenAddresses: openArray[string]): T {.raises: [Defect, CatchableError].}= 
+proc new*(T: type RpcHttpProxy, server: RpcHttpServer): T = 
   let client = newRpcHttpClient()
-  let router = RpcRouter.init()
-  T(rpcHttpClient: client, rpcHttpServer: newRpcHttpServer(listenAddresses, router))
+  T(rpcHttpClient: client, rpcHttpServer: server)
+ 
+proc new*(T: type RpcHttpProxy, listenAddresses: openArray[TransportAddress]): T {.raises: [Defect, CatchableError].} =
+  RpcHttpProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init()))
+
+proc new*(T: type RpcHttpProxy, listenAddresses: openArray[string]): T {.raises: [Defect, CatchableError].} =
+  RpcHttpProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init()))
 
 proc newRpcHttpProxy*(listenAddresses: openArray[string]): RpcHttpProxy {.raises: [Defect, CatchableError].} =
+  RpcHttpProxy.new(listenAddresses)
+
+proc newRpcHttpProxy*(listenAddresses: openArray[TransportAddress]): RpcHttpProxy {.raises: [Defect, CatchableError].} =
   RpcHttpProxy.new(listenAddresses)
 
 proc start*(proxy:RpcHttpProxy, proxyServerUrl: string) {.async.} =

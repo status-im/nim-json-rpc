@@ -323,6 +323,11 @@ proc newRpcHttpServer*(addresses: openArray[string], router: RpcRouter): RpcHttp
   result = newRpcHttpServer(router)
   result.addStreamServers(addresses)
 
+proc newRpcHttpServer*(addresses: openArray[TransportAddress], router: RpcRouter): RpcHttpServer =
+  ## Create new server and assign it to addresses ``addresses``.
+  result = newRpcHttpServer(router)
+  result.addStreamServers(addresses)
+
 proc start*(server: RpcHttpServer) =
   ## Start the RPC server.
   for item in server.servers:
