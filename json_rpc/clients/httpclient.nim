@@ -60,7 +60,15 @@ method call*(client: RpcHttpClient, name: string,
   trace "Message", msg = reqBody
   echo "req body ", reqBody
 
-  let resText = string.fromBytes(await res.getBodyBytes(client.maxBodySize))
+  let resBytes =
+    try:
+      await res.getBodyBytes(client.maxBodySize)
+    except CancelledError as exc:
+      raise exc
+    except AsyncStreamError as exc:
+      raise exc
+
+  let resText = string.fromBytes(resBytes)
   trace "Response", text = resText
   echo "response ", resText
 
