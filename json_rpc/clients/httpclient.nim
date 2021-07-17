@@ -45,7 +45,15 @@ method call*(client: RpcHttpClient, name: string,
     req = HttpClientRequestRef.post(client.httpSession,
                                     client.httpAddress.get,
                                     body = reqBody.toOpenArrayByte(0, reqBody.len - 1))
-    res = await req.send()
+    res =
+      try:
+        await req.send()
+      except CancelledError as exc:
+        raise exc
+      except HttpError as exc:
+        raise exc
+      except AsyncStreamError as exc:
+        raise exc
 
   debug "Message sent to RPC server",
          address = client.httpAddress, msg_len = len(reqBody)
