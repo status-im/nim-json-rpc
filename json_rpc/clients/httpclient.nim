@@ -55,6 +55,10 @@ method call*(client: RpcHttpClient, name: string,
       except AsyncStreamError as exc:
         raise exc
 
+  let resStatusStr = $res.status
+  if resStatusStr[0] != '2': # res.status is not 2xx (success)
+    raise newException(HttpError, "POST Response: " & $res.status)
+
   debug "Message sent to RPC server",
          address = client.httpAddress, msg_len = len(reqBody)
   trace "Message", msg = reqBody
