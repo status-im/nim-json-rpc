@@ -78,16 +78,10 @@ proc connect*(client: RpcWebSocketClient, uri: string,
                              else:
                                @[]
   let uri = parseUri(uri)
-  let secure = uri.scheme == "wss"
-  let port = parseInt(uri.port)
-
   let ws = await WebSocket.connect(
-    host = uri.hostname,
-    port = Port(port),
-    path = uri.path,
-    secure=secure,
-    flags=flags,
-    factories=ext
+    uri=uri,
+    factories=ext,
+    flags=flags
   )
   client.transport = ws
   client.uri = uri
