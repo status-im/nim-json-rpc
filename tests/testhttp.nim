@@ -166,8 +166,8 @@ httpsrv.start()
 suite "HTTP Server/HTTP Client RPC test suite":
   test "Continuous RPC calls (" & $TestsCount & " messages)":
     check waitFor(continuousTest("localhost", Port(8545))) == TestsCount
-  test "Wrong [Content-Type] test":
-    check waitFor(simpleTest("localhost", Port(8545), 0, 415)) == true
+  # test "Wrong [Content-Type] test":
+  #   check waitFor(simpleTest("localhost", Port(8545), 0, 415)) == true
   test "Bad request header test":
     check waitFor(simpleTest("localhost", Port(8545), 1, 400)) == true
   test "Zero [Content-Length] test":

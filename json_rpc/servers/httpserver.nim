@@ -70,16 +70,16 @@ proc validateRequest(transp: StreamTransport,
     else:
       ErrorFailure
 
-  var ctype = header["Content-Type"]
-  # might be "application/json; charset=utf-8"
-  if "application/json" notin ctype.toLowerAscii():
-    # Content-Type header is not "application/json"
-    debug "Content type must be application/json",
-          address = transp.remoteAddress()
-    return if await transp.sendAnswer(header.version, Http415):
-      Error
-    else:
-      ErrorFailure
+  # var ctype = header["Content-Type"]
+  # # might be "application/json; charset=utf-8"
+  # if "application/json" notin ctype.toLowerAscii():
+  #   # Content-Type header is not "application/json"
+  #   debug "Content type must be application/json",
+  #         address = transp.remoteAddress()
+  #   return if await transp.sendAnswer(header.version, Http415):
+  #     Error
+  #   else:
+  #     ErrorFailure
 
   return Success
 
