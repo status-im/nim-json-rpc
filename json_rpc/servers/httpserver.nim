@@ -44,6 +44,14 @@ proc sendAnswer(transp: StreamTransport, version: HttpVersion, code: HttpCode,
 
 proc validateRequest(transp: StreamTransport,
                      header: HttpRequestHeader): Future[ReqStatus] {.async.} =
+  if header.meth == MethodError:
+    # Malformed Request Method
+    debug "Bad Request Method"
+    return if await transp.sendAnswer(header.version, Http400):
+      Error
+    else:
+      ErrorFailure
+
   if header.meth in {MethodPut, MethodDelete}:
     # Request method is either PUT or DELETE.
     debug "PUT/DELETE methods are not allowed", address = transp.remoteAddress()
