@@ -174,8 +174,8 @@ suite "HTTP Server/HTTP Client RPC test suite":
     check waitFor(simpleTest("localhost", Port(8545), 2, 200)) == true
   test "PUT/DELETE methods test":
     check:
-      waitFor(simpleTest("localhost", Port(8545), 3, 405)) == true
-      waitFor(simpleTest("localhost", Port(8545), 4, 405)) == true
+      waitFor(simpleTest("localhost", Port(8545), 3, 200)) == true
+      waitFor(simpleTest("localhost", Port(8545), 4, 200)) == true
   test "Oversized headers test":
     check waitFor(headerTest("localhost", Port(8545))) == true
   test "Oversized request test":
