@@ -191,5 +191,5 @@ suite "HTTP Server/HTTP Client RPC test suite":
   test "Big Content-Length":
     check waitFor(simpleTest("localhost", Port(8545), 9, 413)) == true
 
-httpsrv.stop()
+waitFor httpsrv.stop()
 waitFor httpsrv.closeWait()
