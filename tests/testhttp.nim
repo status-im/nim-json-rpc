@@ -17,7 +17,7 @@ const
       "Connection: close\r\n" &
       "\r\n" &
       "{\"jsonrpc\":\"2.0\",\"method\":\"myProc\",\"params\":[\"abc\", [1, 2, 3]],\"id\":67}",
-    "BADHEADER\r\n\r\n",
+    "BADHEADER HTTP/1.1\r\n\r\n",
     "GET / HTTP/1.1\r\n" &
       "Host: status.im\r\n" &
       "Content-Type: application/json\r\n" &
