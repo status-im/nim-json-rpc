@@ -122,32 +122,6 @@ proc bodyTest(address: string, port: Port): Future[bool] {.async.} =
   header.add(body)
   return await customMessage(a[0], header, 413)
 
-proc disconTest(address: string, port: Port,
-                number: int, expect: int): Future[bool] {.async.} =
-  var a = resolveTAddress(address, port)
-  var buffer = newSeq[byte](BufferSize)
-  var header: HttpResponseHeader
-  var transp = await connect(a[0])
-  defer: transp.close()
-
-  let data = Requests[number]
-  let wres = await transp.write(data)
-  doAssert(wres == len(data))
-  let rres = await transp.readUntil(addr buffer[0], BufferSize, HeadersMark)
-  doAssert(rres > 0)
-  buffer.setLen(rres)
-  header = parseResponse(buffer)
-  doAssert(header.success())
-  if header.code != expect:
-    return false
-
-  let length = header.contentLength()
-  doAssert(length > 0)
-  buffer.setLen(length)
-  await transp.readExactly(addr buffer[0], len(buffer))
-  let left = await transp.read()
-  return len(left) == 0 and transp.atEof()
-
 proc simpleTest(address: string, port: Port,
                 number: int, expect: int): Future[bool] {.async.} =
   var a = resolveTAddress(address, port)
@@ -184,8 +158,6 @@ suite "HTTP Server/HTTP Client RPC test suite":
     check:
       waitFor(simpleTest("localhost", Port(8545), 5, 505)) == true
       waitFor(simpleTest("localhost", Port(8545), 6, 200)) == true
-  test "[Connection]: close test":
-    check waitFor(disconTest("localhost", Port(8545), 7, 200)) == true
   test "Omitted params test":
     check waitFor(simpleTest("localhost", Port(8545), 8, 200)) == true
   test "Big Content-Length":
