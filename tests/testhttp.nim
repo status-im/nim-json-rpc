@@ -171,7 +171,7 @@ suite "HTTP Server/HTTP Client RPC test suite":
   test "Bad request header test":
     check waitFor(simpleTest("localhost", Port(8545), 1, 400)) == true
   test "Zero [Content-Length] test":
-    check waitFor(simpleTest("localhost", Port(8545), 2, 411)) == true
+    check waitFor(simpleTest("localhost", Port(8545), 2, 200)) == true
   test "PUT/DELETE methods test":
     check:
       waitFor(simpleTest("localhost", Port(8545), 3, 405)) == true
