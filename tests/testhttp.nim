@@ -4,6 +4,13 @@ import ../json_rpc/[rpcserver, rpcclient]
 
 const TestsCount = 100
 
+proc simpleTest(address: string, port: Port): Future[bool] {.async.} =
+  var client = newRpcHttpClient()
+  await client.connect(address, port)
+  var r = await client.call("noParamsProc", %[])
+  if r.getStr == "Hello world":
+    result = true
+
 proc continuousTest(address: string, port: Port): Future[int] {.async.} =
   var client = newRpcHttpClient()
   result = 0
@@ -25,6 +32,8 @@ httpsrv.rpc("noParamsProc") do():
 httpsrv.start()
 
 suite "JSON-RPC test suite":
+  test "Simple RPC call":
+    check waitFor(simpleTest("localhost", Port(8545))) == true
   test "Continuous RPC calls (" & $TestsCount & " messages)":
     check waitFor(continuousTest("localhost", Port(8545))) == TestsCount
 
