@@ -110,7 +110,7 @@ proc headerTest(address: string, port: Port): Future[bool] {.async.} =
   header.add("Content-Type: application/json\r\n")
   header.add("Connection: close\r\n\r\n")
   header.add("{\"jsonrpc\":\"2.0\",\"method\":\"myProc\",\"params\":[\"abc\", [1, 2, 3]],\"id\":67}")
-  return await customMessage(a[0], header, 413)
+  return await customMessage(a[0], header, 431)
 
 proc bodyTest(address: string, port: Port): Future[bool] {.async.} =
   var body = repeat('B', BigBodySize)
