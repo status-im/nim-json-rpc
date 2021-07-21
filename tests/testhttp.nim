@@ -6,7 +6,7 @@ const
   TestsCount = 100
   BufferSize = 8192
   BigHeaderSize = 8 * 1024 + 1
-  BigBodySize = 128 * 1024 + 1
+  BigBodySize = 1024 * 1024 + 1
   HeadersMark = @[byte(0x0D), byte(0x0A), byte(0x0D), byte(0x0A)]
 
   Requests = [
