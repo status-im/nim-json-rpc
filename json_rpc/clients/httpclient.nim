@@ -62,7 +62,6 @@ method call*(client: RpcHttpClient, name: string,
   debug "Message sent to RPC server",
          address = client.httpAddress, msg_len = len(reqBody)
   trace "Message", msg = reqBody
-  echo "req body ", reqBody
 
   let resBytes =
     try:
@@ -74,7 +73,6 @@ method call*(client: RpcHttpClient, name: string,
 
   let resText = string.fromBytes(resBytes)
   trace "Response", text = resText
-  echo "response ", resText
 
   # completed by processMessage - the flow is quite weird here to accomodate
   # socket and ws clients, but could use a more thorough refactoring
