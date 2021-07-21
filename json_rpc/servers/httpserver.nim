@@ -22,7 +22,7 @@ type
 
   RpcHttpServer* = ref object of RpcServer
     # servers: seq[StreamServer]
-    servers: seq[HttpServerRef]
+    httpServers: seq[HttpServerRef]
 
 # proc sendAnswer(transp: StreamTransport, version: HttpVersion, code: HttpCode,
 #                 data: string = ""): Future[bool] {.async.} =
@@ -95,15 +95,6 @@ type
 
 # proc processClient(server: StreamServer,
 #                   transp: StreamTransport) {.async, gcsafe.} =
-proc processClient(req: RequestFence): Future[HttpResponseRef] {.async.} =
-  ## Process transport data to the RPC server
-  # var rpc = getUserData[RpcHttpServer](server)
-  # var buffer = newSeq[byte](MaxHttpHeadersSize)
-  # var header: HttpRequestHeader
-  # var connection: string
-
-  if req.isOk():
-    let request = req.get()
 
   # while true:
   #   try:
@@ -222,16 +213,37 @@ proc processClient(req: RequestFence): Future[HttpResponseRef] {.async.} =
 # Utility functions for setting up servers using stream transport addresses
 
 # proc addStreamServer*(server: RpcHttpServer, address: TransportAddress) =
-proc addHttpServer*(server: RpcHttpServer, address: TransportAddress) =
+proc addHttpServer*(rpcServer: RpcHttpServer, address: TransportAddress) =
+
+  # closure to generate HttpProcessCallback
+  proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback {.closure.} =
+    return proc (req: RequestFence): Future[HttpResponseRef] {.async.} =
+      if req.isOk():
+        let request = req.get()
+        let body = await request.getBody()
+
+        let future = rpcServer.route(cast[string](body))
+        yield future
+        if future.failed:
+          debug "Internal error while processing JSON-RPC call"
+          return await request.respond(Http503, "Internal error while processing JSON-RPC call")
+        else:
+          var data = future.read()
+          let res = await request.respond(Http200, data)
+          trace "JSON-RPC result has been sent"
+          return res
+      else:
+        return dumbResponse()
+
   try:
     info "Starting JSON-RPC HTTP server", url = "http://" & $address
     # -    var transServer = createStreamServer(address, processClient,
     #                                      {ReuseAddr}, udata = server)
     # server.servers.add(transServer)
-    var res = HttpServerRef.new(address, processClient)
+    var res = HttpServerRef.new(address, processClientRpc(rpcServer))
     if res.isOk():
       let httpServer = res.get()
-      server.servers.add(httpServer)
+      rpcServer.httpServers.add(httpServer)
     else:
       raise newException(RpcBindError, "Unable to create server!")
 
@@ -239,7 +251,7 @@ proc addHttpServer*(server: RpcHttpServer, address: TransportAddress) =
     error "Failed to create server", address = $address,
                                      message = exc.msg
 
-  if len(server.servers) == 0:
+  if len(rpcServer.httpServers) == 0:
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
@@ -312,13 +324,13 @@ proc addHttpServer*(server: RpcHttpServer, address: string, port: Port) =
     server.addHttpServer(r)
     added.inc
 
-  if len(server.servers) == 0:
+  if len(server.httpServers) == 0:
     # Server was not bound, critical error.
     raise newException(RpcBindError,
                       "Could not setup server on " & address & ":" & $int(port))
 
 proc new*(T: type RpcHttpServer): T =
-  T(router: RpcRouter.init(), servers: @[])
+  T(router: RpcRouter.init(), httpServers: @[])
 
 proc newRpcHttpServer*(): RpcHttpServer =
   RpcHttpServer.new()
@@ -335,17 +347,17 @@ proc newRpcHttpServer*(addresses: openArray[string]): RpcHttpServer =
 
 proc start*(server: RpcHttpServer) =
   ## Start the RPC server.
-  for item in server.servers:
+  for item in server.httpServers:
     debug "HTTP RPC server started" # (todo: fix this),  address = item
     item.start()
 
 proc stop*(server: RpcHttpServer) {.async.} =
   ## Stop the RPC server.
-  for item in server.servers:
+  for item in server.httpServers:
     debug "HTTP RPC server stopped" # (todo: fix this), address = item.local
     await item.stop()
 
 proc closeWait*(server: RpcHttpServer) {.async.} =
   ## Cleanup resources of RPC server.
-  for item in server.servers:
+  for item in server.httpServers:
     await item.closeWait()
