@@ -182,8 +182,8 @@ suite "HTTP Server/HTTP Client RPC test suite":
     check waitFor(bodyTest("localhost", Port(8545))) == true
   test "HTTP/0.9 and HTTP/1.0 client test":
     check:
-      waitFor(disconTest("localhost", Port(8545), 5, 200)) == true
-      waitFor(disconTest("localhost", Port(8545), 6, 200)) == true
+      waitFor(simpleTest("localhost", Port(8545), 5, 505)) == true
+      waitFor(simpleTest("localhost", Port(8545), 6, 200)) == true
   test "[Connection]: close test":
     check waitFor(disconTest("localhost", Port(8545), 7, 200)) == true
   test "Omitted params test":
