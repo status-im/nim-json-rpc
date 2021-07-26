@@ -21,6 +21,23 @@ proc continuousTest(address: string, port: Port): Future[int] {.async.} =
       result += 1
     await client.close()
 
+proc invalidTest(address: string, port: Port): Future[bool] {.async.} =
+  var client = newRpcHttpClient()
+  await client.connect(address, port)
+  var invalidA, invalidB: bool
+  try:
+    var r = await client.call("invalidProcA", %[])
+    discard r
+  except ValueError:
+    invalidA = true
+  try:
+    var r = await client.call("invalidProcB", %[1, 2, 3])
+    discard r
+  except ValueError:
+    invalidB = true
+  if invalidA and invalidB:
+    result = true
+
 var httpsrv = newRpcHttpServer(["localhost:8545"])
 
 # Create RPC on server
@@ -36,6 +53,8 @@ suite "JSON-RPC test suite":
     check waitFor(simpleTest("localhost", Port(8545))) == true
   test "Continuous RPC calls (" & $TestsCount & " messages)":
     check waitFor(continuousTest("localhost", Port(8545))) == TestsCount
+  test "Invalid RPC calls":
+    check waitFor(invalidTest("localhost", Port(8545))) == true
 
 waitFor httpsrv.stop()
 waitFor httpsrv.closeWait()
