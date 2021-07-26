@@ -36,6 +36,7 @@ proc addHttpServer*(rpcServer: RpcHttpServer, address: TransportAddress) =
       else:
         return dumbResponse()
 
+  let initialServerCount = len(rpcServer.httpServers)
   try:
     info "Starting JSON-RPC HTTP server", url = "http://" & $address
     var res = HttpServerRef.new(address, processClientRpc(rpcServer))
@@ -49,7 +50,7 @@ proc addHttpServer*(rpcServer: RpcHttpServer, address: TransportAddress) =
     error "Failed to create server", address = $address,
                                      message = exc.msg
 
-  if len(rpcServer.httpServers) == 0:
+  if len(rpcServer.httpServers) != initialServerCount + 1:
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 

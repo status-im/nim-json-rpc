@@ -42,6 +42,7 @@ proc addSecureHttpServer*(rpcServer: RpcSecureHttpServer,
           debug "Timeout error while processing JSON-RPC call"     
         return dumbResponse()
 
+  let initialServerCount = len(rpcServer.secureHttpServers)
   try:
     info "Starting JSON-RPC HTTPS server", url = "https://" & $address
     var res = SecureHttpServerRef.new(address,
@@ -61,7 +62,7 @@ proc addSecureHttpServer*(rpcServer: RpcSecureHttpServer,
     error "Failed to create server", address = $address,
                                      message = exc.msg
 
-  if len(rpcServer.secureHttpServers) == 0:
+  if len(rpcServer.secureHttpServers) != initialServerCount + 1:
     # Server was not bound, critical error.
     raise newException(RpcBindError, "Unable to create server!")
 
