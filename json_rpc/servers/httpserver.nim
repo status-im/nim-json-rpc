@@ -80,9 +80,10 @@ proc addHttpServer*(server: RpcHttpServer, address: string) =
   for r in tas4:
     server.addHttpServer(r)
     added.inc
-  for r in tas6:
-    server.addHttpServer(r)
-    added.inc
+  if added == 0: # avoid ipv4 + ipv6 running together
+    for r in tas6:
+      server.addHttpServer(r)
+      added.inc
 
   if added == 0:
     # Addresses could not be resolved, critical error.
