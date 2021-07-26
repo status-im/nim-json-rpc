@@ -23,14 +23,21 @@ type
 const
   MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
 
-proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize): T =
-  T(
-    maxBodySize: maxBodySize,
-    httpSession: HttpSessionRef.new(),
-  )
+proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false): T =
+  if secure:
+    T(
+      maxBodySize: maxBodySize,
+      httpSession: HttpSessionRef.new(flags={HttpClientFlag.NoVerifyHost,
+                          HttpClientFlag.NoVerifyServerName}),
+    )
+  else:
+    T(
+      maxBodySize: maxBodySize,
+      httpSession: HttpSessionRef.new(),
+    )
 
-proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize): RpcHttpClient =
-  RpcHttpClient.new(maxBodySize)
+proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize, secure = false): RpcHttpClient =
+  RpcHttpClient.new(maxBodySize, secure)
 
 method call*(client: RpcHttpClient, name: string,
              params: JsonNode): Future[Response]
@@ -100,9 +107,11 @@ proc connect*(client: RpcHttpClient, url: string)
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
-proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
+proc connect*(client: RpcHttpClient, address: string, port: Port, secure=false) {.async.} =
   let addresses = resolveTAddress(address, port)
   if addresses.len == 0:
     raise newException(RpcAddressUnresolvableError, "Failed to resolve address: " & address)
-  ok client.httpAddress, getAddress(addresses[0])
-
+  if secure:
+    ok client.httpAddress, getAddress(addresses[0], ctype=HttpClientScheme.Secure)
+  else:
+    ok client.httpAddress, getAddress(addresses[0])
