@@ -108,10 +108,17 @@ proc connect*(client: RpcHttpClient, url: string)
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
 proc connect*(client: RpcHttpClient, address: string, port: Port, secure=false) {.async.} =
-  let addresses = resolveTAddress(address, port)
-  if addresses.len == 0:
-    raise newException(RpcAddressUnresolvableError, "Failed to resolve address: " & address)
+  var uri = initUri()
   if secure:
-    ok client.httpAddress, getAddress(addresses[0], ctype=HttpClientScheme.Secure)
+    uri.scheme = "https"
   else:
-    ok client.httpAddress, getAddress(addresses[0])
+    uri.scheme = "http"
+  uri.hostname = address
+  uri.port = $port
+
+  let res = getAddress(client.httpSession, uri)
+  if res.isOk:
+    client.httpAddress = res
+  else:
+    raise newException(RpcAddressUnresolvableError, res.error)
+  
