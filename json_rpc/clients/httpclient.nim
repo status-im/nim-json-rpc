@@ -55,11 +55,8 @@ method call*(client: RpcHttpClient, name: string,
     res =
       try:
         await req.send()
-      except CancelledError as exc:
-        raise exc
-      except HttpError as exc:
-        raise exc
-      except AsyncStreamError as exc:
+      except CatchableError as exc:
+        error "Failed to send POST Request", message = exc.msg
         raise exc
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
@@ -72,9 +69,8 @@ method call*(client: RpcHttpClient, name: string,
   let resBytes =
     try:
       await res.getBodyBytes(client.maxBodySize)
-    except CancelledError as exc:
-      raise exc
-    except AsyncStreamError as exc:
+    except CatchableError as exc:
+      error "Failed to read POST Response", message = exc.msg
       raise exc
 
   let resText = string.fromBytes(resBytes)
