@@ -1,4 +1,5 @@
 import
+  stew/byteutils,
   std/[strutils],
   chronicles, httputils, chronos,
   chronos/apps/http/httpserver,
@@ -23,7 +24,7 @@ proc addHttpServer*(rpcServer: RpcHttpServer, address: TransportAddress) =
         let request = req.get()
         let body = await request.getBody()
 
-        let future = rpcServer.route(cast[string](body))
+        let future = rpcServer.route(string.fromBytes(body))
         yield future
         if future.failed:
           debug "Internal error while processing JSON-RPC call"
