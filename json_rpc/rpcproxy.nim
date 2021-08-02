@@ -10,14 +10,14 @@ type
     Http,
     WebSocket
 
-  ClientConfig = object
-    case kind: ClientKind
+  ClientConfig* = object
+    case kind*: ClientKind
     of Http:
-      httpUri: string
+      httpUri*: string
     of WebSocket:
-      wsUri: string
-      compression: bool
-      flags: set[TLSFlags]
+      wsUri*: string
+      compression*: bool
+      flags*: set[TLSFlags]
 
   RpcProxy* = ref object of RootRef
     rpcHttpServer*: RpcHttpServer
