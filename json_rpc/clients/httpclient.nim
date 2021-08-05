@@ -56,11 +56,10 @@ method call*(client: RpcHttpClient, name: string,
       try:
         await req.send()
       except CatchableError as exc:
-        error "Failed to send POST Request", message = exc.msg
-        raise exc
+        raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: exc)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
-    raise newException(HttpError, "POST Response: " & $res.status)
+    raise newException(ErrorResponse, "POST Response: " & $res.status)
 
   debug "Message sent to RPC server",
          address = client.httpAddress, msg_len = len(reqBody)
@@ -70,8 +69,7 @@ method call*(client: RpcHttpClient, name: string,
     try:
       await res.getBodyBytes(client.maxBodySize)
     except CatchableError as exc:
-      error "Failed to read POST Response", message = exc.msg
-      raise exc
+      raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC.", parent: exc)
 
   let resText = string.fromBytes(resBytes)
   trace "Response", text = resText
