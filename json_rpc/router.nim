@@ -1,7 +1,7 @@
 import
   std/[macros, options, strutils, tables],
   chronicles, chronos, json_serialization/writer,
-  ./jsonmarshal
+  ./jsonmarshal, ./errors
 
 export
   chronos, jsonmarshal
@@ -36,7 +36,7 @@ proc newRpcRouter*: RpcRouter {.deprecated.} =
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
   router.procs.add(path, call)
 
-proc clear*(router: var RpcRouter) = 
+proc clear*(router: var RpcRouter) =
   router.procs.clear
 
 proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasKey(methodName)
@@ -80,7 +80,8 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
     try:
       let res = await rpcProc(if params == nil: newJArray() else: params)
       return wrapReply(id, res)
-
+    except InvalidRequest as err:
+      return wrapError(err.code, err.msg)
     except CatchableError as err:
       debug "Error occurred within RPC", methodName = methodName, err = err.msg
       return wrapError(
