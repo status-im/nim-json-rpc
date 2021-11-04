@@ -1,6 +1,6 @@
 import
-  chronicles,
-  json_serialization/std/net,
+  chronicles/std/net as chroniclesNet,
+  json_serialization/std/net as jsonNet,
   ".."/[errors, server]
 
 export errors, server
