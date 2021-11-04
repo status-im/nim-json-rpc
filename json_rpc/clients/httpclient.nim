@@ -1,7 +1,8 @@
 import
   std/[strutils, tables, uri],
   stew/byteutils,
-  chronicles, httputils, json_serialization/std/net,
+  chronicles, chronicles/std/net as chroniclesNet,
+  httputils, json_serialization/std/net as jsonNet,
   ../client
 
 export client
