@@ -24,17 +24,18 @@ const
   MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
 
 proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false): T =
-  if secure:
-    T(
-      maxBodySize: maxBodySize,
-      httpSession: HttpSessionRef.new(flags={HttpClientFlag.NoVerifyHost,
-                          HttpClientFlag.NoVerifyServerName}),
-    )
+  let httpSessionFlags = if secure:
+    {
+      HttpClientFlag.NoVerifyHost,
+      HttpClientFlag.NoVerifyServerName
+    }
   else:
-    T(
-      maxBodySize: maxBodySize,
-      httpSession: HttpSessionRef.new(),
-    )
+    {}
+
+  T(
+    maxBodySize: maxBodySize,
+    httpSession: HttpSessionRef.new(flags = httpSessionFlags)
+  )
 
 proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize, secure = false): RpcHttpClient =
   RpcHttpClient.new(maxBodySize, secure)
@@ -55,8 +56,10 @@ method call*(client: RpcHttpClient, name: string,
     res =
       try:
         await req.send()
-      except CatchableError as exc:
-        raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: exc)
+      except CancelledError as e:
+        raise e
+      except CatchableError as e:
+        raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: e)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
     raise newException(ErrorResponse, "POST Response: " & $res.status)
@@ -68,6 +71,8 @@ method call*(client: RpcHttpClient, name: string,
   let resBytes =
     try:
       await res.getBodyBytes(client.maxBodySize)
+    except CancelledError as e:
+      raise e
     except CatchableError as exc:
       raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC.", parent: exc)
 
@@ -101,14 +106,11 @@ proc connect*(client: RpcHttpClient, url: string)
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
-proc connect*(client: RpcHttpClient, address: string, port: Port, secure=false) {.async.} =
-  var uri = initUri()
-  if secure:
-    uri.scheme = "https"
-  else:
-    uri.scheme = "http"
-  uri.hostname = address
-  uri.port = $port
+proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) {.async.} =
+  var uri = Uri(
+    scheme: if secure: "https" else: "http",
+    hostname: address,
+    port: $port)
 
   let res = getAddress(client.httpSession, uri)
   if res.isOk:

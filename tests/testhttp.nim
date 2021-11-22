@@ -6,7 +6,7 @@ const TestsCount = 100
 
 proc simpleTest(address: string, port: Port): Future[bool] {.async.} =
   var client = newRpcHttpClient()
-  await client.connect(address, port)
+  await client.connect(address, port, secure = false)
   var r = await client.call("noParamsProc", %[])
   if r.getStr == "Hello world":
     result = true
@@ -15,7 +15,7 @@ proc continuousTest(address: string, port: Port): Future[int] {.async.} =
   var client = newRpcHttpClient()
   result = 0
   for i in 0..<TestsCount:
-    await client.connect(address, port)
+    await client.connect(address, port, secure = false)
     var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
     if r.getStr == "Hello abc data: [1, 2, 3, " & $i & "]":
       result += 1
@@ -23,7 +23,7 @@ proc continuousTest(address: string, port: Port): Future[int] {.async.} =
 
 proc invalidTest(address: string, port: Port): Future[bool] {.async.} =
   var client = newRpcHttpClient()
-  await client.connect(address, port)
+  await client.connect(address, port, secure = false)
   var invalidA, invalidB: bool
   try:
     var r = await client.call("invalidProcA", %[])
