@@ -7,6 +7,7 @@ skipDirs      = @["tests"]
 
 ### Dependencies
 requires "nim >= 1.2.0",
+         "stew",
          "nimcrypto",
          "stint",
          "chronos",

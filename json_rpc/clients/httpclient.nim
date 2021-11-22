@@ -23,14 +23,21 @@ type
 const
   MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
 
-proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize): T =
-  T(
-    maxBodySize: maxBodySize,
-    httpSession: HttpSessionRef.new(),
-  )
+proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false): T =
+  if secure:
+    T(
+      maxBodySize: maxBodySize,
+      httpSession: HttpSessionRef.new(flags={HttpClientFlag.NoVerifyHost,
+                          HttpClientFlag.NoVerifyServerName}),
+    )
+  else:
+    T(
+      maxBodySize: maxBodySize,
+      httpSession: HttpSessionRef.new(),
+    )
 
-proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize): RpcHttpClient =
-  RpcHttpClient.new(maxBodySize)
+proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize, secure = false): RpcHttpClient =
+  RpcHttpClient.new(maxBodySize, secure)
 
 method call*(client: RpcHttpClient, name: string,
              params: JsonNode): Future[Response]
@@ -45,16 +52,27 @@ method call*(client: RpcHttpClient, name: string,
     req = HttpClientRequestRef.post(client.httpSession,
                                     client.httpAddress.get,
                                     body = reqBody.toOpenArrayByte(0, reqBody.len - 1))
-    res = await req.send()
+    res =
+      try:
+        await req.send()
+      except CatchableError as exc:
+        raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: exc)
+
+  if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
+    raise newException(ErrorResponse, "POST Response: " & $res.status)
 
   debug "Message sent to RPC server",
          address = client.httpAddress, msg_len = len(reqBody)
   trace "Message", msg = reqBody
-  echo "req body ", reqBody
 
-  let resText = string.fromBytes(await res.getBodyBytes(client.maxBodySize))
+  let resBytes =
+    try:
+      await res.getBodyBytes(client.maxBodySize)
+    except CatchableError as exc:
+      raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC.", parent: exc)
+
+  let resText = string.fromBytes(resBytes)
   trace "Response", text = resText
-  echo "response ", resText
 
   # completed by processMessage - the flow is quite weird here to accomodate
   # socket and ws clients, but could use a more thorough refactoring
@@ -83,9 +101,18 @@ proc connect*(client: RpcHttpClient, url: string)
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
-proc connect*(client: RpcHttpClient, address: string, port: Port) {.async.} =
-  let addresses = resolveTAddress(address, port)
-  if addresses.len == 0:
-    raise newException(RpcAddressUnresolvableError, "Failed to resolve address: " & address)
-  ok client.httpAddress, getAddress(addresses[0])
+proc connect*(client: RpcHttpClient, address: string, port: Port, secure=false) {.async.} =
+  var uri = initUri()
+  if secure:
+    uri.scheme = "https"
+  else:
+    uri.scheme = "http"
+  uri.hostname = address
+  uri.port = $port
 
+  let res = getAddress(client.httpSession, uri)
+  if res.isOk:
+    client.httpAddress = res
+  else:
+    raise newException(RpcAddressUnresolvableError, res.error)
+  
