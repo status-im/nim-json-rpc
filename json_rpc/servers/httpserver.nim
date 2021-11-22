@@ -134,7 +134,7 @@ proc new*(T: type RpcHttpServer): T =
   T(router: RpcRouter.init(), httpServers: @[])
 
 proc new*(T: type RpcHttpServer, router: RpcRouter): T =
-  T(router: router, servers: @[])
+  T(router: router, httpServers: @[])
 
 proc newRpcHttpServer*(): RpcHttpServer =
   RpcHttpServer.new()
@@ -155,12 +155,12 @@ proc newRpcHttpServer*(addresses: openArray[string]): RpcHttpServer =
 proc newRpcHttpServer*(addresses: openArray[string], router: RpcRouter): RpcHttpServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcHttpServer(router)
-  result.addStreamServers(addresses)
+  result.addHttpServers(addresses)
 
 proc newRpcHttpServer*(addresses: openArray[TransportAddress], router: RpcRouter): RpcHttpServer =
   ## Create new server and assign it to addresses ``addresses``.
   result = newRpcHttpServer(router)
-  result.addStreamServers(addresses)
+  result.addHttpServers(addresses)
 
 proc start*(server: RpcHttpServer) =
   ## Start the RPC server.

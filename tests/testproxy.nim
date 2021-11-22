@@ -40,7 +40,7 @@ suite "Proxy RPC through http":
     expect(CatchableError):
       discard waitFor client.call("missingMethod", %[%"abc"])
   
-  srv.stop()
+  waitFor srv.stop()
   waitFor srv.closeWait()
   waitFor proxy.stop()
   waitFor proxy.closeWait()

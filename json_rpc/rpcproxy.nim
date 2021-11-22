@@ -100,7 +100,7 @@ proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) =
 
 proc stop*(proxy: RpcProxy) {.async.} =
   await proxy.getClient().close()
-  proxy.rpcHttpServer.stop()
+  await proxy.rpcHttpServer.stop()
 
 proc closeWait*(proxy: RpcProxy) {.async.} =
   await proxy.rpcHttpServer.closeWait()

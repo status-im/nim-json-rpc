@@ -28,4 +28,7 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang 
   exec "nim " & lang & " --out:./build/" & name & " " & params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 task test, "run tests":
-  buildBinary "all", "tests/", "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR", getLang()
+  buildBinary "all", "tests/",
+    params = "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR",
+    cmdParams = "",
+    lang = getLang()
