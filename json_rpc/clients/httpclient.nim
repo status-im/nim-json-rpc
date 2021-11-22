@@ -117,4 +117,3 @@ proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) 
     client.httpAddress = res
   else:
     raise newException(RpcAddressUnresolvableError, res.error)
-  
