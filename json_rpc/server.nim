@@ -1,4 +1,5 @@
 import
+  std/tables,
   chronos,
   ./router,
   ./jsonmarshal
@@ -19,6 +20,11 @@ template rpc*(server: RpcServer, path: string, body: untyped): untyped =
 
 template hasMethod*(server: RpcServer, methodName: string): bool =
   server.router.hasMethod(methodName)
+
+proc executeMethod*(server: RpcServer,
+                    methodName: string,
+                    args: JsonNode): Future[StringOfJson] =
+  server.router.procs[methodName](args)
 
 # Wrapper for message processing
 

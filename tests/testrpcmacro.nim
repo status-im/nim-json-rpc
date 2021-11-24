@@ -37,37 +37,37 @@ let
 var s = newRpcSocketServer(["localhost:8545"])
 
 # RPC definitions
-s.rpc("rpc.simplepath"):
+s.rpc("rpc.simplePath"):
   return %1
 
-s.rpc("rpc.differentparams") do(a: int, b: string):
+s.rpc("rpc.differentParams") do(a: int, b: string):
   return %[%a, %b]
 
-s.rpc("rpc.arrayparam") do(arr: array[0..5, byte], b: string):
+s.rpc("rpc.arrayParam") do(arr: array[0..5, byte], b: string):
   var res = %arr
   res.add %b
   return %res
 
-s.rpc("rpc.seqparam") do(a: string, s: seq[int]):
+s.rpc("rpc.seqParam") do(a: string, s: seq[int]):
   var res = newJArray()
   res.add %a
   for item in s:
     res.add %int(item)
   return res
 
-s.rpc("rpc.objparam") do(a: string, obj: MyObject):
+s.rpc("rpc.objParam") do(a: string, obj: MyObject):
   return %obj
 
-s.rpc("rpc.returntypesimple") do(i: int) -> int:
+s.rpc("rpc.returnTypeSimple") do(i: int) -> int:
   return i
 
-s.rpc("rpc.returntypecomplex") do(i: int) -> Test2:
+s.rpc("rpc.returnTypeComplex") do(i: int) -> Test2:
   return Test2(x: [1, i, 3], y: "test")
 
-s.rpc("rpc.testreturns") do() -> int:
+s.rpc("rpc.testReturns") do() -> int:
   return 1234
 
-s.rpc("rpc.multivarsofonetype") do(a, b: string) -> string:
+s.rpc("rpc.multiVarsOfOneType") do(a, b: string) -> string:
   return a & " " & b
 
 s.rpc("rpc.optional") do(obj: MyOptional) -> MyOptional:
@@ -122,102 +122,102 @@ s.rpc("rpc.optInObj") do(data: string, options: Option[MaybeOptions]) -> int:
 # Tests
 suite "Server types":
   test "On macro registration":
-    check s.hasMethod("rpc.simplepath")
-    check s.hasMethod("rpc.differentparams")
-    check s.hasMethod("rpc.arrayparam")
-    check s.hasMethod("rpc.seqparam")
-    check s.hasMethod("rpc.objparam")
-    check s.hasMethod("rpc.returntypesimple")
-    check s.hasMethod("rpc.returntypecomplex")
-    check s.hasMethod("rpc.testreturns")
-    check s.hasMethod("rpc.multivarsofonetype")
+    check s.hasMethod("rpc.simplePath")
+    check s.hasMethod("rpc.differentParams")
+    check s.hasMethod("rpc.arrayParam")
+    check s.hasMethod("rpc.seqParam")
+    check s.hasMethod("rpc.objParam")
+    check s.hasMethod("rpc.returnTypeSimple")
+    check s.hasMethod("rpc.returnTypeComplex")
+    check s.hasMethod("rpc.testReturns")
+    check s.hasMethod("rpc.multiVarsOfOneType")
     check s.hasMethod("rpc.optionalArg")
     check s.hasMethod("rpc.mixedOptionalArg")
     check s.hasMethod("rpc.optionalArgNotBuiltin")
     check s.hasMethod("rpc.optInObj")
 
   test "Simple paths":
-    let r = waitFor rpcSimplePath(%[])
+    let r = waitFor s.executeMethod("rpc.simplePath", %[])
     check r == "1"
 
   test "Different param types":
     let
       inp = %[%1, %"abc"]
-      r = waitFor rpcDifferentParams(inp)
+      r = waitFor s.executeMethod("rpc.differentParams", inp)
     check r == inp
 
   test "Array parameters":
-    let r1 = waitfor rpcArrayParam(%[%[1, 2, 3], %"hello"])
+    let r1 = waitfor s.executeMethod("rpc.arrayParam", %[%[1, 2, 3], %"hello"])
     var ckR1 = %[1, 2, 3, 0, 0, 0]
     ckR1.elems.add %"hello"
     check r1 == ckR1
 
   test "Seq parameters":
-    let r2 = waitfor rpcSeqParam(%[%"abc", %[1, 2, 3, 4, 5]])
+    let r2 = waitfor s.executeMethod("rpc.seqParam", %[%"abc", %[1, 2, 3, 4, 5]])
     var ckR2 = %["abc"]
     for i in 0..4: ckR2.add %(i + 1)
     check r2 == ckR2
 
   test "Object parameters":
-    let r = waitfor rpcObjParam(%[%"abc", testObj])
+    let r = waitfor s.executeMethod("rpc.objParam", %[%"abc", testObj])
     check r == testObj
 
   test "Simple return types":
     let
       inp = %99
-      r1 = waitfor rpcReturnTypeSimple(%[%inp])
+      r1 = waitfor s.executeMethod("rpc.returnTypeSimple", %[%inp])
     check r1 == inp
 
   test "Complex return types":
     let
       inp = 99
-      r1 = waitfor rpcReturnTypeComplex(%[%inp])
+      r1 = waitfor s.executeMethod("rpc.returnTypeComplex", %[%inp])
     check r1 == %*{"x": %[1, inp, 3], "y": "test"}
 
   test "Option types":
     let
       inp1 = MyOptional(maybeInt: some(75))
       inp2 = MyOptional()
-      r1 = waitfor rpcOptional(%[%inp1])
-      r2 = waitfor rpcOptional(%[%inp2])
+      r1 = waitfor s.executeMethod("rpc.optional", %[%inp1])
+      r2 = waitfor s.executeMethod("rpc.optional", %[%inp2])
     check r1 == %inp1
     check r2 == %inp2
 
   test "Return statement":
-    let r = waitFor rpcTestReturns(%[])
+    let r = waitFor s.executeMethod("rpc.testReturns", %[])
     check r == %1234
 
   test "Runtime errors":
     expect ValueError:
       # root param not array
-      discard waitfor rpcArrayParam(%"test")
+      discard waitfor s.executeMethod("rpc.arrayParam", %"test")
     expect ValueError:
       # too big for array
-      discard waitfor rpcArrayParam(%[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
+      discard waitfor s.executeMethod("rpc.arrayParam", %[%[0, 1, 2, 3, 4, 5, 6], %"hello"])
     expect ValueError:
       # wrong sub parameter type
-      discard waitfor rpcArrayParam(%[%"test", %"hello"])
+      discard waitfor s.executeMethod("rpc.arrayParam", %[%"test", %"hello"])
     expect ValueError:
       # wrong param type
-      discard waitFor rpcDifferentParams(%[%"abc", %1])
+      discard waitFor s.executeMethod("rpc.differentParams", %[%"abc", %1])
 
   test "Multiple variables of one type":
-    let r = waitfor rpcMultiVarsOfOneType(%[%"hello", %"world"])
+    let r = waitfor s.executeMethod("rpc.multiVarsOfOneType", %[%"hello", %"world"])
     check r == %"hello world"
 
   test "Optional arg":
     let
       int1 = MyOptional(maybeInt: some(75))
       int2 = MyOptional(maybeInt: some(117))
-      r1 = waitFor rpcOptionalArg(%[%117, %int1])
-      r2 = waitFor rpcOptionalArg(%[%117])
+      r1 = waitFor s.executeMethod("rpc.optionalArg", %[%117, %int1])
+      r2 = waitFor s.executeMethod("rpc.optionalArg", %[%117])
     check r1 == %int1
     check r2 == %int2
 
   test "Mixed optional arg":
-    var ax = waitFor rpcMixedOptionalArg(%[%10, %11, %"hello", %12, %"world"])
+    var ax = waitFor s.executeMethod("rpc.mixedOptionalArg", %[%10, %11, %"hello", %12, %"world"])
     check ax == %OptionalFields(a: 10, b: some(11), c: "hello", d: some(12), e: some("world"))
-    var bx = waitFor rpcMixedOptionalArg(%[%10, newJNull(), %"hello"])
+    var bx = waitFor s.executeMethod("rpc.mixedOptionalArg", %[%10, newJNull(), %"hello"])
     check bx == %OptionalFields(a: 10, c: "hello")
 
   test "Non-built-in optional types":
@@ -225,33 +225,33 @@ suite "Server types":
       t2 = Test2(x: [1, 2, 3], y: "Hello")
       testOpts1 = MyOptionalNotBuiltin(val: some(t2))
       testOpts2 = MyOptionalNotBuiltin()
-    var r = waitFor rpcOptionalArgNotBuiltin(%[%testOpts1])
+    var r = waitFor s.executeMethod("rpc.optionalArgNotBuiltin", %[%testOpts1])
     check r == %t2.y
-    var r2 = waitFor rpcOptionalArgNotBuiltin(%[])
+    var r2 = waitFor s.executeMethod("rpc.optionalArgNotBuiltin", %[])
     check r2 == %"Empty1"
-    var r3 = waitFor rpcOptionalArgNotBuiltin(%[%testOpts2])
+    var r3 = waitFor s.executeMethod("rpc.optionalArgNotBuiltin", %[%testOpts2])
     check r3 == %"Empty2"
 
   test "Manually set up JSON for optionals":
     # Check manual set up json with optionals
     let opts1 = parseJson("""{"o1": true}""")
-    var r1 = waitFor rpcOptInObj(%[%"0x31ded", opts1])
+    var r1 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts1])
     check r1 == %1
     let opts2 = parseJson("""{"o2": true}""")
-    var r2 = waitFor rpcOptInObj(%[%"0x31ded", opts2])
+    var r2 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts2])
     check r2 == %2
     let opts3 = parseJson("""{"o3": true}""")
-    var r3 = waitFor rpcOptInObj(%[%"0x31ded", opts3])
+    var r3 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts3])
     check r3 == %4
     # Combinations
     let opts4 = parseJson("""{"o1": true, "o3": true}""")
-    var r4 = waitFor rpcOptInObj(%[%"0x31ded", opts4])
+    var r4 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts4])
     check r4 == %5
     let opts5 = parseJson("""{"o2": true, "o3": true}""")
-    var r5 = waitFor rpcOptInObj(%[%"0x31ded", opts5])
+    var r5 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts5])
     check r5 == %6
     let opts6 = parseJson("""{"o1": true, "o2": true}""")
-    var r6 = waitFor rpcOptInObj(%[%"0x31ded", opts6])
+    var r6 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts6])
     check r6 == %3
 
 s.stop()

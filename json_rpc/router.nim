@@ -141,14 +141,8 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     parameters = body.findChild(it.kind == nnkFormalParams)
     # all remote calls have a single parameter: `params: JsonNode`
     paramsIdent = newIdentNode"params"
-    # procs are generated from the stripped path
-    pathStr = $path
-    # strip non alphanumeric
-    procNameStr = pathStr.makeProcName
-    # public rpc proc
-    procName = newIdentNode(procNameStr)
-    # when parameters present: proc that contains our rpc body
-    doMain = newIdentNode(procNameStr & "DoMain")
+    rpcProcImpl = genSym(nskProc)
+    rpcProcWrapper = genSym(nskProc)
   var
     setup = jsonToNim(parameters, paramsIdent)
     procBody = if body.kind == nnkStmtList: body else: body.body
@@ -158,26 +152,26 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
 
   # delegate async proc allows return and setting of result as native type
   result.add quote do:
-    proc `doMain`(`paramsIdent`: JsonNode): Future[`ReturnType`] {.async.} =
+    proc `rpcProcImpl`(`paramsIdent`: JsonNode): Future[`ReturnType`] {.async.} =
       `setup`
       `procBody`
 
   if ReturnType == ident"JsonNode":
     # `JsonNode` results don't need conversion
     result.add quote do:
-      proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return StringOfJson($(await `doMain`(`paramsIdent`)))
+      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+        return StringOfJson($(await `rpcProcImpl`(`paramsIdent`)))
   elif ReturnType == ident"StringOfJson":
     result.add quote do:
-      proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return await `doMain`(`paramsIdent`)
+      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+        return await `rpcProcImpl`(`paramsIdent`)
   else:
     result.add quote do:
-      proc `procName`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return StringOfJson($(%(await `doMain`(`paramsIdent`))))
+      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+        return StringOfJson($(%(await `rpcProcImpl`(`paramsIdent`))))
 
   result.add quote do:
-    `server`.register(`path`, `procName`)
+    `server`.register(`path`, `rpcProcWrapper`)
 
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr
