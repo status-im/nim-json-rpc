@@ -1,20 +1,33 @@
 import
-  std/[strtabs, tables, uri, strutils],
-  pkg/[chronos, websock/websock, chronicles],
-  websock/extensions/compression/deflate,
+  std/[strtabs, tables],
+  pkg/[chronos, chronicles],
   stew/byteutils,
-  ../client
+  ../client, ./config
 
 export client
 
 logScope:
   topics = "JSONRPC-WS-CLIENT"
 
-type
-  RpcWebSocketClient* = ref object of RpcClient
-    transport*: WSSession
-    uri*: Uri
-    loop*: Future[void]
+when useNews:
+  const newsUseChronos = true
+  include pkg/news
+
+  type
+    RpcWebSocketClient* = ref object of RpcClient
+      transport*: WebSocket
+      uri*: string
+      loop*: Future[void]
+
+else:
+  import std/[uri, strutils]
+  import pkg/websock/[websock, extensions/compression/deflate]
+
+  type
+    RpcWebSocketClient* = ref object of RpcClient
+      transport*: WSSession
+      uri*: Uri
+      loop*: Future[void]
 
 proc new*(T: type RpcWebSocketClient): T =
   T()
@@ -43,20 +56,36 @@ method call*(self: RpcWebSocketClient, name: string,
 
 proc processData(client: RpcWebSocketClient) {.async.} =
   var error: ref CatchableError
-  let ws = client.transport
-  try:
-    while ws.readystate != ReadyState.Closed:
-      var value = await ws.recvMsg()
 
-      if value.len == 0:
-        # transmission ends
-        break
+  when useNews:
+    try:
+      while true:
+        var value = await client.transport.receiveString()
+        if value == "":
+          # transmission ends
+          break
 
-      client.processMessage(string.fromBytes(value))
-  except CatchableError as e:
-    error = e
+        client.processMessage(value)
+    except CatchableError as e:
+      error = e
 
-  await client.transport.close()
+    client.transport.close()
+  else:
+    let ws = client.transport
+    try:
+      while ws.readystate != ReadyState.Closed:
+        var value = await ws.recvMsg()
+
+        if value.len == 0:
+          # transmission ends
+          break
+
+        client.processMessage(string.fromBytes(value))
+    except CatchableError as e:
+      error = e
+
+    await client.transport.close()
+
   client.transport = nil
 
   if client.awaiting.len != 0:
@@ -68,28 +97,46 @@ proc processData(client: RpcWebSocketClient) {.async.} =
   if not client.onDisconnect.isNil:
     client.onDisconnect()
 
-proc connect*(client: RpcWebSocketClient, uri: string,
-              compression: bool = false,
-              flags: set[TLSFlags] = {
-                NoVerifyHost, NoVerifyServerName}) {.async.} =
+when useNews:
+  proc connect*(
+      client: RpcWebSocketClient,
+      uri: string,
+      headers: StringTableRef = nil,
+      compression = false) {.async.} =
+    if compression:
+      warn "compression is not supported with the news back-end"
+    var headers = headers
+    if headers.isNil:
+      headers = newStringTable({"Origin": "http://localhost"})
+    elif "Origin" notin headers:
+      # TODO: This is a hack, because the table might be case sensitive. Ideally strtabs module has
+      # to be extended with case insensitive accessors.
+      headers["Origin"] = "http://localhost"
+    client.transport = await newWebSocket(uri, headers)
+    client.uri = uri
+else:
+  proc connect*(
+      client: RpcWebSocketClient, uri: string,
+      compression = false,
+      flags: set[TLSFlags] = {NoVerifyHost, NoVerifyServerName}) {.async.} =
+    var ext: seq[ExtFactory] = if compression: @[deflateFactory()]
+                               else: @[]
+    let uri = parseUri(uri)
+    let ws = await WebSocket.connect(
+      uri=uri,
+      factories=ext,
+      flags=flags
+    )
+    client.transport = ws
+    client.uri = uri
 
-  var ext: seq[ExtFactory] = if compression:
-                               @[deflateFactory()]
-                             else:
-                               @[]
-  let uri = parseUri(uri)
-  let ws = await WebSocket.connect(
-    uri=uri,
-    factories=ext,
-    flags=flags
-  )
-  client.transport = ws
-  client.uri = uri
-
-  client.loop = processData(client)
+    client.loop = processData(client)
 
 method close*(client: RpcWebSocketClient) {.async.} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:
-    await client.transport.close()
+    when useNews:
+      client.transport.close()
+    else:
+      await client.transport.close()
     client.transport = nil

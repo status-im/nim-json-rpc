@@ -42,7 +42,7 @@ proc getWebSocketClientConfig*(
               flags: set[TLSFlags] = {
                 NoVerifyHost, NoVerifyServerName}): ClientConfig =
   ClientConfig(kind: WebSocket, wsUri: uri, compression: compression, flags: flags)
-    
+
 proc proxyCall(client: RpcClient, name: string): RpcProc =
   return proc (params: JsonNode): Future[StringOfJson] {.async.} =
           let res = await client.call(name, params)
@@ -63,14 +63,14 @@ proc new*(T: type RpcProxy, server: RpcHttpServer, cfg: ClientConfig): T =
   of WebSocket:
     let client = newRpcWebSocketClient()
     return T(
-              rpcHttpServer: server, 
-              kind: WebSocket, 
-              wsUri: cfg.wsUri, 
-              webSocketClient: client, 
-              compression: cfg.compression, 
+              rpcHttpServer: server,
+              kind: WebSocket,
+              wsUri: cfg.wsUri,
+              webSocketClient: client,
+              compression: cfg.compression,
               flags: cfg.flags
             )
- 
+
 proc new*(T: type RpcProxy, listenAddresses: openArray[TransportAddress], cfg: ClientConfig): T {.raises: [Defect, CatchableError].} =
   RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init()), cfg)
 

@@ -1,6 +1,9 @@
 import
   unittest, json, chronicles,
-  ../json_rpc/[rpcclient, rpcserver]
+  ../json_rpc/[rpcclient, rpcserver, clients/config]
+
+const
+  compressionSupported = useNews
 
 # Create RPC on server
 proc setupServer*(srv: RpcServer) =
@@ -57,12 +60,14 @@ suite "Websocket Server/Client RPC":
   waitFor srv.closeWait()
 
 suite "Websocket Server/Client RPC with Compression":
-  var srv = newRpcWebSocketServer("127.0.0.1", Port(8545), compression = true)
+  var srv = newRpcWebSocketServer("127.0.0.1", Port(8545),
+                                  compression = compressionSupported)
   var client = newRpcWebSocketClient()
 
   srv.setupServer()
   srv.start()
-  waitFor client.connect("ws://127.0.0.1:8545/", compression = true)
+  waitFor client.connect("ws://127.0.0.1:8545/",
+                         compression = compressionSupported)
 
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])

@@ -13,7 +13,8 @@ requires "nim >= 1.2.0",
          "chronos",
          "httputils",
          "chronicles#ba2817f1",
-         "https://github.com/status-im/nim-websock",
+         "https://github.com/status-im/news#status",
+         "websock",
          "json_serialization"
 
 proc getLang(): string =
@@ -29,6 +30,11 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang 
 
 task test, "run tests":
   buildBinary "all", "tests/",
-    params = "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR",
+    params = "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR -d:json_rpc_websocket_package=websock",
+    cmdParams = "",
+    lang = getLang()
+
+  buildBinary "all", "tests/",
+    params = "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR -d:json_rpc_websocket_package=news",
     cmdParams = "",
     lang = getLang()
