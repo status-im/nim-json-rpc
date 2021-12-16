@@ -17,24 +17,14 @@ requires "nim >= 1.2.0",
          "websock",
          "json_serialization"
 
-proc getLang(): string =
-  # Compilation language is controlled by TEST_LANG
-  result = "c"
-  if existsEnv"TEST_LANG":
-    result = getEnv"TEST_LANG"
-
-proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "", lang = "c") =
+proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "") =
   if not dirExists "build":
     mkDir "build"
-  exec "nim " & lang & " --out:./build/" & name & " " & params & " " & srcDir & name & ".nim" & " " & cmdParams
+  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") & " -r -f --skipUserCfg:on --skipParentCfg:on --verbosity:0 --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR --out:./build/" & name & " " & params & " " & srcDir & name & ".nim" & " " & cmdParams
 
 task test, "run tests":
   buildBinary "all", "tests/",
-    params = "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR -d:json_rpc_websocket_package=websock",
-    cmdParams = "",
-    lang = getLang()
+    params = "-d:json_rpc_websocket_package=websock"
 
   buildBinary "all", "tests/",
-    params = "-r -f --hints:off --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR -d:json_rpc_websocket_package=news",
-    cmdParams = "",
-    lang = getLang()
+    params = "-d:json_rpc_websocket_package=news"
