@@ -1,10 +1,10 @@
 import
   chronicles, httputils, chronos, websock/websock,
   websock/extensions/compression/deflate,
-  stew/byteutils,
+  stew/byteutils, json_serialization/std/net,
   ".."/[errors, server]
 
-export server
+export server, net
 
 logScope:
   topics = "JSONRPC-WS-SERVER"
