@@ -114,6 +114,8 @@ when useNews:
       headers["Origin"] = "http://localhost"
     client.transport = await newWebSocket(uri, headers)
     client.uri = uri
+    # We need to set "loop" here too to have news working
+    client.loop = processData(client)
 else:
   proc connect*(
       client: RpcWebSocketClient, uri: string,
