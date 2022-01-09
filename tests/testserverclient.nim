@@ -1,6 +1,6 @@
 import
-  unittest, json, chronicles,
-  ../json_rpc/[rpcclient, rpcserver, clients/config]
+  unittest, json, ../json_rpc/[rpcclient, rpcserver, clients/config],
+  faststreams/async_backend
 
 const
   compressionSupported = useNews

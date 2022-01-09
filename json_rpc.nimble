@@ -15,6 +15,8 @@ requires "nim >= 1.2.0",
          "chronicles",
          "https://github.com/status-im/news#status",
          "websock",
+         "asynctools",
+         "faststreams",
          "json_serialization"
 
 proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "") =
@@ -24,7 +26,10 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "") =
 
 task test, "run tests":
   buildBinary "all", "tests/",
-    params = "-d:json_rpc_websocket_package=websock"
+    params = "-d:json_rpc_websocket_package=websock -d:asyncBackend=chronos"
 
   buildBinary "all", "tests/",
-    params = "-d:json_rpc_websocket_package=news"
+    params = "-d:json_rpc_websocket_package=news -d:asyncBackend=chronos"
+
+  buildBinary "teststreamconnection", "tests/",
+    params = "-d:asyncBackend=asyncdispatch"

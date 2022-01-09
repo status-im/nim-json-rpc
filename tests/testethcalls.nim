@@ -1,7 +1,7 @@
 import
   unittest, json, tables,
   stint, ethtypes, ethprocs, stintjson, chronicles,
-  ../json_rpc/[rpcclient, rpcserver], ./helpers
+  ../json_rpc/[rpcclient, rpcserver], ./helpers, chronos
 
 from os import getCurrentDir, DirSep
 from strutils import rsplit

@@ -44,9 +44,9 @@ proc getWebSocketClientConfig*(
   ClientConfig(kind: WebSocket, wsUri: uri, compression: compression, flags: flags)
 
 proc proxyCall(client: RpcClient, name: string): RpcProc =
-  return proc (params: JsonNode): Future[StringOfJson] {.async.} =
-          let res = await client.call(name, params)
-          return StringOfJson($res)
+  return proc (params: JsonNode): Future[RpcResult] {.async, gcsafe, raises: [Defect, CatchableError, Exception].} =
+           let res = await client.call(name, params)
+           return some(StringOfJson($res))
 
 proc getClient(proxy: RpcProxy): RpcClient =
   case proxy.kind
@@ -91,7 +91,7 @@ proc start*(proxy: RpcProxy) {.async.} =
 template rpc*(server: RpcProxy, path: string, body: untyped): untyped =
   server.rpcHttpServer.rpc(path, body)
 
-proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) =
+proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) {.gcsafe, raises: [Defect, CatchableError, Exception].} =
   try:
     proxy.rpcHttpServer.register(methodName, proxyCall(proxy.getClient(), methodName))
   except CatchableError as err:

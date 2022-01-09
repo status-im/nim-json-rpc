@@ -1,7 +1,8 @@
 import
   chronicles,
   json_serialization/std/net,
-  ".."/[errors, server]
+  ".."/[errors, server],
+  chronos
 
 export errors, server
 
@@ -28,7 +29,8 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async, gc
     debug "Processing message", address = transport.remoteAddress(), line = value
 
     let res = await rpc.route(value)
-    discard await transport.write(res)
+    if res.isSome:
+      discard await transport.write(string(res.get))
 
 # Utility functions for setting up servers using stream transport addresses
 

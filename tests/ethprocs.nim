@@ -1,6 +1,7 @@
 import
   json,
   nimcrypto, stint,
+  chronos,
   ethtypes, ethhexstrings, stintjson, ../json_rpc/rpcserver
 
 #[
@@ -450,4 +451,3 @@ proc addEthRpcs*(server: RpcServer) =
     ## id: the filter id.
     ## Returns a list of messages received since last poll.
     discard
-
