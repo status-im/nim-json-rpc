@@ -53,7 +53,8 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
       var data = future.read()
       trace "RPC result has been sent", address = $request.uri
 
-      await ws.send(data)
+      if data.isSome:
+        await ws.send(string(data.get))
 
   except WebSocketError as exc:
     error "WebSocket error:", exception = exc.msg

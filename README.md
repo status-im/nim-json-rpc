@@ -346,8 +346,7 @@ waitFor client.connect("localhost", Port(8545))
 
 let response = waitFor client.call("hello", %[%"Daisy"])
 
-# the call returns a `Response` type which contains the result
-echo response.result
+echo response
 ```
 
 ### `createRpcSigs`

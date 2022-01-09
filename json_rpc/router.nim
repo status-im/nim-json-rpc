@@ -1,16 +1,17 @@
 import
-  std/[macros, options, strutils, tables],
-  chronicles, chronos, json_serialization/writer,
+  std/[macros, options, strutils, tables], sugar,
+  chronicles, faststreams/async_backend, json_serialization/writer,
   ./jsonmarshal, ./errors
 
-export
-  chronos, jsonmarshal
+export jsonmarshal
 
 type
   StringOfJson* = JsonString
 
+  RpcResult* = Option[JsonString]
+
   # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect, CatchableError].}
+  RpcProc* = proc(input: JsonNode): Future[RpcResult] {.gcsafe, raises: [Defect, CatchableError, Exception].}
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]
@@ -34,7 +35,7 @@ proc newRpcRouter*: RpcRouter {.deprecated.} =
   RpcRouter.init()
 
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
-  router.procs.add(path, call)
+  router.procs[path] = call
 
 proc clear*(router: var RpcRouter) =
   router.procs.clear
@@ -59,48 +60,54 @@ proc wrapError*(code: int, msg: string, id: JsonNode = newJNull(),
       $id, $code, escapeJson(msg), $data
     ] & "\r\n")
 
-proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+proc hasReturnType(params: NimNode): bool =
+  if params != nil and params.len > 0 and params[0] != nil and
+    params[0].kind != nnkEmpty:
+    result = true
+
+proc route*(router: RpcRouter, node: JsonNode): Future[RpcResult] {.async, gcsafe.} =
   if node{"jsonrpc"}.getStr() != "2.0":
-    return wrapError(INVALID_REQUEST, "'jsonrpc' missing or invalid")
+    return some(wrapError(INVALID_REQUEST, "'jsonrpc' missing or invalid"))
 
   let id = node{"id"}
-  if id == nil:
-    return wrapError(INVALID_REQUEST, "'id' missing or invalid")
+  # if id == nil:
+  #   return some(wrapError(INVALID_REQUEST, "'id' missing or invalid"))
 
   let methodName = node{"method"}.getStr()
   if methodName.len == 0:
-    return wrapError(INVALID_REQUEST, "'method' missing or invalid")
+    return some(wrapError(INVALID_REQUEST, "'method' missing or invalid"))
 
   let rpcProc = router.procs.getOrDefault(methodName)
   let params = node.getOrDefault("params")
 
   if rpcProc == nil:
-    return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
+    return some(wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id))
   else:
     try:
       let res = await rpcProc(if params == nil: newJArray() else: params)
-      return wrapReply(id, res)
+      return res.map((s) => wrapReply(id, s));
     except InvalidRequest as err:
-      return wrapError(err.code, err.msg)
+      debug "Error occurred within RPC", methodName = methodName, err = err.msg
+      return some(wrapError(err.code, err.msg))
     except CatchableError as err:
       debug "Error occurred within RPC", methodName = methodName, err = err.msg
-      return wrapError(
-        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
+      return some(wrapError(
+        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg)))
 
-proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
+proc route*(router: RpcRouter, data: string): Future[RpcResult] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
   ## Returns string of Json from RPC result/error node
   let node =
     try: parseJson(data)
     except CatchableError as err:
-      return string(wrapError(JSON_PARSE_ERROR, err.msg))
+      return some(wrapError(JSON_PARSE_ERROR, err.msg))
     except Exception as err:
       # TODO https://github.com/status-im/nimbus-eth2/issues/2430
-      return string(wrapError(JSON_PARSE_ERROR, err.msg))
+      return some(wrapError(JSON_PARSE_ERROR, err.msg))
 
-  return string(await router.route(node))
+  return await router.route(node);
 
-proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[StringOfJson]): bool =
+proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[RpcResult]): bool =
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
   let
@@ -108,23 +115,12 @@ proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[StringOfJson])
     jParams = data.getOrDefault(paramsField)
   if jPath.isEmpty or jParams.isEmpty:
     return false
-
   let
     path = jPath.getStr
     rpc = router.procs.getOrDefault(path)
   if rpc != nil:
     fut = rpc(jParams)
     return true
-
-proc makeProcName(s: string): string =
-  result = ""
-  for c in s:
-    if c.isAlphaNumeric: result.add c
-
-proc hasReturnType(params: NimNode): bool =
-  if params != nil and params.len > 0 and params[0] != nil and
-     params[0].kind != nnkEmpty:
-    result = true
 
 macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   ## Define a remote procedure call.
@@ -159,19 +155,21 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   if ReturnType == ident"JsonNode":
     # `JsonNode` results don't need conversion
     result.add quote do:
-      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return StringOfJson($(await `rpcProcImpl`(`paramsIdent`)))
+      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[RpcResult] {.async, raises: [Defect, CatchableError, Exception].} =
+        return some(StringOfJson($(await `rpcProcImpl`(`paramsIdent`))))
   elif ReturnType == ident"StringOfJson":
     result.add quote do:
-      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return await `rpcProcImpl`(`paramsIdent`)
+      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[RpcResult] {.async, raises: [Defect, CatchableError, Exception].} =
+        return some(await `rpcProcImpl`(`paramsIdent`))
   else:
     result.add quote do:
-      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return StringOfJson($(%(await `rpcProcImpl`(`paramsIdent`))))
+      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[RpcResult] {.async, raises: [Defect, CatchableError, Exception].} =
+        return some(StringOfJson($(%(await `rpcProcImpl`(`paramsIdent`)))))
 
   result.add quote do:
     `server`.register(`path`, `rpcProcWrapper`)
+
+  echo result.repr
 
   when defined(nimDumpRpcs):
     echo "\n", pathStr, ": ", result.repr

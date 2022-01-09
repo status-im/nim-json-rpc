@@ -1,12 +1,12 @@
 import
   std/[tables, macros],
-  chronos,
+  faststreams/async_backend,
   ./jsonmarshal
 
 from strutils import toLowerAscii, replace
 
 export
-  chronos, jsonmarshal, tables
+  jsonmarshal, tables
 
 type
   ClientId* = int64
@@ -28,11 +28,11 @@ proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
 
 method call*(client: RpcClient, name: string,
              params: JsonNode): Future[Response] {.
-    base, async, gcsafe, raises: [Defect, CatchableError].} =
+    base, async, gcsafe, raises: [Defect, CatchableError, Exception].} =
   discard
 
 method close*(client: RpcClient): Future[void] {.
-    base, async, gcsafe, raises: [Defect, CatchableError].} =
+    base, async, gcsafe, raises: [Defect, CatchableError, Exception].} =
   discard
 
 template `or`(a: JsonNode, b: typed): JsonNode =
