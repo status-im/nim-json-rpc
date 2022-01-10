@@ -4,10 +4,11 @@ import
   asynctools/asyncpipe,
   faststreams/inputs,
   faststreams/textio,
-  unittest,
   parseutils,
   faststreams/asynctools_adapters,
-  ../json_rpc/[server, client]
+  ./json_rpc/[server, client]
+
+export jsonmarshal, router, server
 
 type
   StreamClient* = ref object of RpcClient
@@ -94,31 +95,3 @@ proc start*(conn: StreamConnection): Future[void] {.async} =
 
 proc new*(T: type StreamConnection, input: AsyncPipe, output: AsyncPipe): T =
   T(input: asyncPipeInput(input), output: output, client: StreamClient(output: output))
-
-
-# for testing purposes
-var cachedInput: JsonNode;
-
-proc echo(params: JsonNode): Future[RpcResult] {.async,
-    raises: [CatchableError, Exception].} =
-  {.gcsafe.}:
-    cachedInput = params;
-  return some(StringOfJson($params))
-
-suite "Client/server over JSONRPC":
-  let pipeServer = createPipe();
-  let pipeClient = createPipe();
-
-  let serverConnection = StreamConnection.new(pipeClient, pipeServer);
-  serverConnection.router.register("echo", echo)
-  discard serverConnection.start();
-
-  let clientConnection = StreamConnection.new(pipeServer, pipeClient);
-  discard clientConnection.start();
-
-  test "Simple call.":
-    let response = clientConnection.call("echo", %"input").waitFor().getStr
-    doAssert (response == "input")
-    doAssert (cachedInput.getStr == "input")
-
-  echo "suite teardown: run once after the tests"

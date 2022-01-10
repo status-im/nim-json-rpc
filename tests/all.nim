@@ -4,7 +4,7 @@ import
   ../json_rpc/clients/config
 
 import
-  teststdio
+  teststreamconnection
 
 # when not useNews:
 #   # TODO The websock server doesn't interop properly
