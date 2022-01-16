@@ -14,12 +14,30 @@ proc echo(params: JsonNode): Future[RpcResult] {.async,
     cachedInput = params;
   return some(StringOfJson($params))
 
+type
+  DemoObject* = object
+    foo*: int
+    bar*: int
+
+  Mapper[T, U] = proc(input: T): Future[U] {.gcsafe, raises: [Defect, CatchableError, Exception].}
+
+
 suite "Client/server over JSONRPC":
   let pipeServer = createPipe();
   let pipeClient = createPipe();
 
+  proc echoDemoObject(params: DemoObject): Future[DemoObject] {.async,
+      raises: [CatchableError, Exception].} =
+    return params
+
+  proc wrap[T, Q](callback: Mapper[T, Q]): RpcProc =
+    return
+      proc(input: JsonNode): Future[RpcResult] {.async} =
+        return some(StringOfJson($(%(await callback(to(input, T))))))
+
   let serverConnection = StreamConnection.new(pipeClient, pipeServer);
-  serverConnection.router.register("echo", echo)
+  serverConnection.register("echo", echo)
+  serverConnection.register("echoDemoObject", wrap(echoDemoObject))
   discard serverConnection.start();
 
   let clientConnection = StreamConnection.new(pipeServer, pipeClient);
@@ -30,4 +48,10 @@ suite "Client/server over JSONRPC":
     doAssert (response == "input")
     doAssert (cachedInput.getStr == "input")
 
-  echo "suite teardown: run once after the tests"
+  test "Call with object":
+    let input =  DemoObject(foo: 1);
+    let response = clientConnection.call("echoDemoObject", %input).waitFor()
+    assert(to(response, DemoObject) == input)
+
+  pipeClient.close()
+  pipeServer.close()
