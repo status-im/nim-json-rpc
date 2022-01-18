@@ -101,3 +101,6 @@ proc new*(T: type StreamConnection, input: AsyncPipe, output: AsyncPipe): T =
   T(input: asyncPipeInput(input),
     output: asyncOutput,
     client: StreamClient(output: asyncOutput))
+
+proc new*(T: type StreamConnection, input: AsyncInputStream, output: AsyncOutputStream): T =
+  return T(input: input, output: output, client: StreamClient(output: output))
