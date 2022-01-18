@@ -12,10 +12,10 @@ export jsonmarshal, router, server
 
 type
   StreamClient* = ref object of RpcClient
-    output*: AsyncPipe
+    output*: AsyncOutputStream
   StreamConnection* = ref object of RpcServer
     input*: AsyncInputStream
-    output*: AsyncPipe
+    output*: AsyncOutputStream
     client*: StreamClient
 
 proc wrapJsonRpcResponse(s: string): string =
@@ -34,9 +34,11 @@ method call*(self: StreamClient,
   # add to awaiting responses
   self.awaiting[id] = newFut
 
-  let res = await self.output.write(value[0].addr, value.len)
-  doAssert(res == len(value))
+  write(OutputStream(self.output), value)
+  discard flushAsync(self.output)
+
   return await newFut
+
 
 proc call*(connection: StreamConnection, name: string,
           params: JsonNode): Future[Response] {.gcsafe, raises: [Exception].} =
@@ -87,11 +89,15 @@ proc start*(conn: StreamConnection): Future[void] {.async} =
       let res = await route(conn, message.get);
       if res.isSome:
         var resultMessage = wrapJsonRpcResponse(string(res.get));
-        discard conn.output.write(resultMessage[0].addr, resultMessage.len);
+        write(OutputStream(conn.output), string(resultMessage));
+        discard flushAsync(conn.output)
     else:
       conn.client.processMessage(message.get)
 
     message = await readMessage(conn.input);
 
 proc new*(T: type StreamConnection, input: AsyncPipe, output: AsyncPipe): T =
-  T(input: asyncPipeInput(input), output: output, client: StreamClient(output: output))
+  let asyncOutput =  asyncPipeOutput(pipe = output, allowWaitFor = true);
+  T(input: asyncPipeInput(input),
+    output: asyncOutput,
+    client: StreamClient(output: asyncOutput))

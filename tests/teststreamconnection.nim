@@ -21,6 +21,14 @@ type
 
   Mapper[T, U] = proc(input: T): Future[U] {.gcsafe, raises: [Defect, CatchableError, Exception].}
 
+proc wrap[T, Q](callback: Mapper[T, Q]): RpcProc =
+  return
+    proc(input: JsonNode): Future[RpcResult] {.async} =
+      return some(StringOfJson($(%(await callback(to(input, T))))))
+
+proc register*[T, Q](server: RpcServer, name: string, rpc: Mapper[T, Q]) =
+  ## Add a name/code pair to the RPC server.
+  server.register(name, wrap(rpc))
 
 suite "Client/server over JSONRPC":
   let pipeServer = createPipe();
@@ -30,14 +38,9 @@ suite "Client/server over JSONRPC":
       raises: [CatchableError, Exception].} =
     return params
 
-  proc wrap[T, Q](callback: Mapper[T, Q]): RpcProc =
-    return
-      proc(input: JsonNode): Future[RpcResult] {.async} =
-        return some(StringOfJson($(%(await callback(to(input, T))))))
-
   let serverConnection = StreamConnection.new(pipeClient, pipeServer);
   serverConnection.register("echo", echo)
-  serverConnection.register("echoDemoObject", wrap(echoDemoObject))
+  serverConnection.register("echoDemoObject", echoDemoObject)
   discard serverConnection.start();
 
   let clientConnection = StreamConnection.new(pipeServer, pipeClient);
