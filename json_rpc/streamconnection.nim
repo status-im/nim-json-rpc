@@ -55,8 +55,11 @@ proc readMessage(input: AsyncInputStream): Future[Option[string]] {.async.} =
     contentLen = -1
     headerStarted = false
 
+  echo "readMessage"
   while input.readable:
     let ln = await input.readLine()
+    echo "Line = ", ln
+
     if ln.len != 0:
       let sep = ln.find(':')
       if sep == -1:
@@ -78,7 +81,13 @@ proc readMessage(input: AsyncInputStream): Future[Option[string]] {.async.} =
       continue
     else:
       if contentLen != -1:
-        return some(cast[string](`@`(input.read(contentLen))))
+        if input.readable(contentLen):
+           echo "before read"
+           let res = some(cast[string](`@`(input.read(contentLen))))
+           echo "after read"
+           return res
+        else:
+           return none[string]();
       else:
         raise newException(Exception, "missing Content-Length header")
   return none[string]();
