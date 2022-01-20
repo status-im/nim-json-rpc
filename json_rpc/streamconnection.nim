@@ -37,9 +37,8 @@ method call*(self: StreamClient,
 
   # writeFile("/home/yyoncho/aa.txt", value)
   write(OutputStream(self.output), value)
-  discard flushAsync(self.output)
+  flush(self.output)
   return await newFut
-
 
 proc call*(connection: StreamConnection, name: string,
           params: JsonNode): Future[Response] {.gcsafe, raises: [Exception].} =
@@ -102,7 +101,7 @@ proc start*(conn: StreamConnection): Future[void] {.async} =
       if res.isSome:
         var resultMessage = wrapJsonRpcResponse(string(res.get));
         write(OutputStream(conn.output), string(resultMessage));
-        discard flushAsync(conn.output)
+        flush(conn.output)
     else:
       conn.client.processMessage(message.get)
 
