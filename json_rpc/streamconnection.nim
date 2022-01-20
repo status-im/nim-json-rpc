@@ -26,17 +26,18 @@ method call*(self: StreamClient,
              name: string,
              params: JsonNode): Future[Response] {.async} =
   ## Remotely calls the specified RPC method.
-  let id = self.getNextId()
-  var value = wrapJsonRpcResponse($rpcCallNode(name, params, id))
+  let
+    id = self.getNextId()
+    value = wrapJsonRpcResponse($rpcCallNode(name, params, id))
+    # completed by processMessage.
+    newFut = newFuture[Response]()
 
-  # completed by processMessage.
-  var newFut = newFuture[Response]()
   # add to awaiting responses
   self.awaiting[id] = newFut
 
+  # writeFile("/home/yyoncho/aa.txt", value)
   write(OutputStream(self.output), value)
   discard flushAsync(self.output)
-
   return await newFut
 
 
@@ -50,8 +51,10 @@ proc skipWhitespace(x: string, pos: int): int =
     inc result
 
 proc readMessage(input: AsyncInputStream): Future[Option[string]] {.async.} =
-  var contentLen = -1
-  var headerStarted = false
+  var
+    contentLen = -1
+    headerStarted = false
+
   while input.readable:
     let ln = await input.readLine()
     if ln.len != 0:
