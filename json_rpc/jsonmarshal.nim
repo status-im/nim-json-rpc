@@ -243,26 +243,33 @@ proc jsonToNim*(params, jsonIdent: NimNode): NimNode =
         jsonElement = quote do:
           `jsonIdent`.elems[`pos`]
 
-      inc pos
       # declare variable before assignment
       result.add(quote do:
         var `paramIdent`: `paramType`
       )
 
+      # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
       if paramType.isOptionalArg:
         let
-          nullAble  = pos < minLength
           innerType = paramType[1]
           innerNode = jsonToNim(paramIdent, innerType, jsonElement, paramName, true)
 
-        if nullAble:
+        if pos >= minLength:
+          # allow both empty and null after mandatory args
+          # D & E fall into this category
+          result.add(quote do:
+            if `jsonIdent`.len > `pos` and `jsonElement`.kind != JNull: `innerNode`
+          )
+        else:
+          # allow null param for optional args between/before mandatory args
+          # B fall into this category
           result.add(quote do:
             if `jsonElement`.kind != JNull: `innerNode`
           )
-        else:
-          result.add(quote do:
-            if `jsonIdent`.len >= `pos`: `innerNode`
-          )
       else:
+        # mandatory args
+        # A and C fall into this category
         # unpack Nim type and assign from json
         result.add jsonToNim(paramIdent, paramType, jsonElement, paramName)
+
+      inc pos

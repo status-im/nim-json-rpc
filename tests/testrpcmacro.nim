@@ -79,6 +79,12 @@ s.rpc("rpc.optionalArg") do(val: int, obj: Option[MyOptional]) -> MyOptional:
   else:
     MyOptional(maybeInt: some(val))
 
+s.rpc("rpc.optionalArg2") do(a, b: string, c, d: Option[string]) -> string:
+  var ret = a & b
+  if c.isSome: ret.add c.get()
+  if d.isSome: ret.add d.get()
+  return ret
+
 type
   OptionalFields = object
     a: int
@@ -211,8 +217,32 @@ suite "Server types":
       int2 = MyOptional(maybeInt: some(117))
       r1 = waitFor s.executeMethod("rpc.optionalArg", %[%117, %int1])
       r2 = waitFor s.executeMethod("rpc.optionalArg", %[%117])
+      r3 = waitFor s.executeMethod("rpc.optionalArg", %[%117, newJNull()])
     check r1 == %int1
     check r2 == %int2
+    check r3 == %int2
+
+  test "Optional arg2":
+    let r1 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B"])
+    check r1 == %"AB"
+
+    let r2 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", newJNull()])
+    check r2 == %"AB"
+
+    let r3 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", newJNull(), newJNull()])
+    check r3 == %"AB"
+
+    let r4 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", newJNull(), %"D"])
+    check r4 == %"ABD"
+
+    let r5 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", %"C", %"D"])
+    check r5 == %"ABCD"
+
+    let r6 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", %"C", newJNull()])
+    check r6 == %"ABC"
+
+    let r7 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", %"C"])
+    check r7 == %"ABC"
 
   test "Mixed optional arg":
     var ax = waitFor s.executeMethod("rpc.mixedOptionalArg", %[%10, %11, %"hello", %12, %"world"])
