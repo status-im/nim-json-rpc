@@ -3,7 +3,7 @@ import
   chronos,
   ../client
 
-export client
+export client, chronos
 
 type
   RpcSocketClient* = ref object of RpcClient

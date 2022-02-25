@@ -1,5 +1,5 @@
-import unittest, json, strutils
-import httputils
+import unittest, json
+import chronos
 import ../json_rpc/[rpcserver, rpcclient]
 
 const TestsCount = 100

@@ -1,7 +1,6 @@
 import
-  std/[strtabs, tables],
+  std/[tables],
   pkg/[chronos, chronicles],
-  stew/byteutils,
   ../client, ./config
 
 export client
@@ -21,6 +20,7 @@ when useNews:
 
 else:
   import std/[uri, strutils]
+  import stew/byteutils
   import pkg/websock/[websock, extensions/compression/deflate]
 
   type

@@ -1,10 +1,10 @@
 import
   std/tables,
-  chronos,
+  faststreams/async_backend,
   ./router,
   ./jsonmarshal
 
-export chronos, jsonmarshal, router
+export jsonmarshal, router
 
 type
   RpcServer* = ref object of RootRef
@@ -23,12 +23,12 @@ template hasMethod*(server: RpcServer, methodName: string): bool =
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    args: JsonNode): Future[StringOfJson] =
-  server.router.procs[methodName](args)
+                    args: JsonNode): Future[StringOfJson] {.async} =
+  return (await server.router.procs[methodName](args)).get
 
 # Wrapper for message processing
 
-proc route*(server: RpcServer, line: string): Future[string] {.gcsafe.} =
+proc route*(server: RpcServer, line: string): Future[RpcResult] {.gcsafe.} =
   server.router.route(line)
 
 # Server registration

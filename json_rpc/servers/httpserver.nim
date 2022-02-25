@@ -1,6 +1,5 @@
 import
   stew/byteutils,
-  std/[strutils],
   chronicles, httputils, chronos,
   chronos/apps/http/[httpserver, shttpserver],
   ".."/[errors, server]
@@ -30,9 +29,14 @@ proc processClientRpc(rpcServer: RpcServer): HttpProcessCallback =
         return await request.respond(Http503, "Internal error while processing JSON-RPC call")
       else:
         var data = future.read()
-        let res = await request.respond(Http200, data)
-        trace "JSON-RPC result has been sent"
-        return res
+        if data.isSome:
+          let res = await request.respond(Http200, string(data.get))
+          trace "JSON-RPC result has been sent"
+          return res
+        else:
+          let res = await request.respond(Http204)
+          trace "No-content has been sent"
+          return res
     else:
       return dumbResponse()
 

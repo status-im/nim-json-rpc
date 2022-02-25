@@ -1,5 +1,6 @@
 import unittest, json, chronicles, options
 import ../json_rpc/rpcserver, ./helpers
+import chronos
 
 type
   # some nested types to check object parsing
