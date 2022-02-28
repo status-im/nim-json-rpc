@@ -13,6 +13,9 @@ proc setupServer*(srv: RpcServer) =
   srv.rpc("myError") do(input: string, data: array[0..3, int]):
     raise (ref ValueError)(msg: "someMessage")
 
+  srv.rpc("invalidRequest") do():
+    raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
+
 suite "Socket Server/Client RPC":
   var srv = newRpcSocketServer(["localhost:8545"])
   var client = newRpcSocketClient()
@@ -32,6 +35,13 @@ suite "Socket Server/Client RPC":
   test "Error RPC call":
     expect(CatchableError): # The error type wont be translated
       discard waitFor client.call("myError", %[%"abc", %[1, 2, 3, 4]])
+
+  test "Invalid request exception":
+    try:
+      discard waitFor client.call("invalidRequest", %[])
+      check false
+    except CatchableError as e:
+      check e.msg == """{"code":-32001,"message":"Unknown payload","data":null}"""
 
   srv.stop()
   waitFor srv.closeWait()
@@ -55,6 +65,13 @@ suite "Websocket Server/Client RPC":
   test "Error RPC call":
     expect(CatchableError): # The error type wont be translated
       discard waitFor client.call("myError", %[%"abc", %[1, 2, 3, 4]])
+
+  test "Invalid request exception":
+    try:
+      discard waitFor client.call("invalidRequest", %[])
+      check false
+    except CatchableError as e:
+      check e.msg == """{"code":-32001,"message":"Unknown payload","data":null}"""
 
   srv.stop()
   waitFor srv.closeWait()
@@ -80,6 +97,13 @@ suite "Websocket Server/Client RPC with Compression":
   test "Error RPC call":
     expect(CatchableError): # The error type wont be translated
       discard waitFor client.call("myError", %[%"abc", %[1, 2, 3, 4]])
+
+  test "Invalid request exception":
+    try:
+      discard waitFor client.call("invalidRequest", %[])
+      check false
+    except CatchableError as e:
+      check e.msg == """{"code":-32001,"message":"Unknown payload","data":null}"""
 
   srv.stop()
   waitFor srv.closeWait()
