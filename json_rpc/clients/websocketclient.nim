@@ -116,8 +116,9 @@ when useNews:
       # TODO: This is a hack, because the table might be case sensitive. Ideally strtabs module has
       # to be extended with case insensitive accessors.
       headers["Origin"] = "http://localhost"
-    for header in client.getHeaders():
-      headers[header[0]] = header[1]
+    if not isNil(client.getHeaders):
+      for header in client.getHeaders():
+        headers[header[0]] = header[1]
     client.transport = await newWebSocket(uri, headers)
     client.uri = uri
     client.loop = processData(client)
