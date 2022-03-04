@@ -19,11 +19,14 @@ type
     httpSession: HttpSessionRef
     httpAddress: HttpResult[HttpAddress]
     maxBodySize: int
+    getHeaders: GetJsonRpcRequestHeaders
 
 const
   MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
 
-proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false): T =
+proc new(
+    T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false,
+    getHeaders: GetJsonRpcRequestHeaders = nil): T =
   let httpSessionFlags = if secure:
     {
       HttpClientFlag.NoVerifyHost,
@@ -34,11 +37,14 @@ proc new(T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false
 
   T(
     maxBodySize: maxBodySize,
-    httpSession: HttpSessionRef.new(flags = httpSessionFlags)
+    httpSession: HttpSessionRef.new(flags = httpSessionFlags),
+    getHeaders: getHeaders
   )
 
-proc newRpcHttpClient*(maxBodySize = MaxHttpRequestSize, secure = false): RpcHttpClient =
-  RpcHttpClient.new(maxBodySize, secure)
+proc newRpcHttpClient*(
+    maxBodySize = MaxHttpRequestSize, secure = false,
+    getHeaders: GetJsonRpcRequestHeaders = nil): RpcHttpClient =
+  RpcHttpClient.new(maxBodySize, secure, getHeaders)
 
 method call*(client: RpcHttpClient, name: string,
              params: JsonNode): Future[Response]
@@ -47,13 +53,20 @@ method call*(client: RpcHttpClient, name: string,
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
+  var headers =
+    if not isNil(client.getHeaders):
+      client.getHeaders()
+    else:
+      @[]
+  headers.add(("Content-Type", "application/json"))
+
   let
     id = client.getNextId()
     reqBody = $rpcCallNode(name, params, id)
     req = HttpClientRequestRef.post(client.httpSession,
                                     client.httpAddress.get,
                                     body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
-                                    headers = [("Content-Type", "application/json")])
+                                    headers = headers)
     res =
       try:
         await req.send()

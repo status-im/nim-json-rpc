@@ -19,6 +19,8 @@ type
 
   Response* = JsonNode
 
+  GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe.}
+
 proc getNextId*(client: RpcClient): ClientId =
   client.lastId += 1
   client.lastId
