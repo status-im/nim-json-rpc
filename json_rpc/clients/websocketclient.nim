@@ -18,6 +18,7 @@ when useNews:
       transport*: WebSocket
       uri*: string
       loop*: Future[void]
+      getHeaders*: GetJsonRpcRequestHeaders
 
 else:
   import std/[uri, strutils]
@@ -28,13 +29,16 @@ else:
       transport*: WSSession
       uri*: Uri
       loop*: Future[void]
+      getHeaders*: GetJsonRpcRequestHeaders
 
-proc new*(T: type RpcWebSocketClient): T =
-  T()
+proc new*(
+    T: type RpcWebSocketClient, getHeaders: GetJsonRpcRequestHeaders = nil): T =
+  T(getHeaders: getHeaders)
 
-proc newRpcWebSocketClient*: RpcWebSocketClient =
+proc newRpcWebSocketClient*(
+    getHeaders: GetJsonRpcRequestHeaders = nil): RpcWebSocketClient =
   ## Creates a new client instance.
-  RpcWebSocketClient.new()
+  RpcWebSocketClient.new(getHeaders)
 
 method call*(self: RpcWebSocketClient, name: string,
              params: JsonNode): Future[Response] {.
@@ -112,6 +116,9 @@ when useNews:
       # TODO: This is a hack, because the table might be case sensitive. Ideally strtabs module has
       # to be extended with case insensitive accessors.
       headers["Origin"] = "http://localhost"
+    if not isNil(client.getHeaders):
+      for header in client.getHeaders():
+        headers[header[0]] = header[1]
     client.transport = await newWebSocket(uri, headers)
     client.uri = uri
     client.loop = processData(client)
