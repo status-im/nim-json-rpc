@@ -3,6 +3,8 @@ import
   chronos,
   ../client
 
+{.push raises: [Defect].}
+
 export client
 
 type
@@ -21,8 +23,7 @@ proc newRpcSocketClient*: RpcSocketClient =
   RpcSocketClient.new()
 
 method call*(self: RpcSocketClient, name: string,
-             params: JsonNode): Future[Response] {.
-    async, gcsafe, raises: [Defect, CatchableError].} =
+             params: JsonNode): Future[Response] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
   var value = $rpcCallNode(name, params, id) & "\r\n"
