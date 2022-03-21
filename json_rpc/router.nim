@@ -10,7 +10,7 @@ type
   StringOfJson* = JsonString
 
   # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect, CatchableError].}
+  RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect].}
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]

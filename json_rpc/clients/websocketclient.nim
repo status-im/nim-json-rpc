@@ -6,6 +6,9 @@ import
 
 export client
 
+# TODO needs fixes in news
+# {.push raises: [Defect].}
+
 logScope:
   topics = "JSONRPC-WS-CLIENT"
 
@@ -41,8 +44,7 @@ proc newRpcWebSocketClient*(
   RpcWebSocketClient.new(getHeaders)
 
 method call*(self: RpcWebSocketClient, name: string,
-             params: JsonNode): Future[Response] {.
-    async, gcsafe, raises: [Defect, CatchableError].} =
+             params: JsonNode): Future[Response] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
   var value = $rpcCallNode(name, params, id) & "\r\n"

@@ -19,7 +19,7 @@ type
 
   Response* = JsonNode
 
-  GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe.}
+  GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [Defect].}
 
 proc getNextId*(client: RpcClient): ClientId =
   client.lastId += 1
@@ -30,11 +30,11 @@ proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
 
 method call*(client: RpcClient, name: string,
              params: JsonNode): Future[Response] {.
-    base, async, gcsafe, raises: [Defect, CatchableError].} =
+    base, async, gcsafe, raises: [Defect].} =
   discard
 
 method close*(client: RpcClient): Future[void] {.
-    base, async, gcsafe, raises: [Defect, CatchableError].} =
+    base, async, gcsafe, raises: [Defect].} =
   discard
 
 template `or`(a: JsonNode, b: typed): JsonNode =

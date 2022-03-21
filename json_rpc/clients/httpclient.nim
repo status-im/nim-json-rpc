@@ -8,6 +8,8 @@ import
 export
   client
 
+{.push raises: [Defect].}
+
 logScope:
   topics = "JSONRPC-HTTP-CLIENT"
 
@@ -48,7 +50,7 @@ proc newRpcHttpClient*(
 
 method call*(client: RpcHttpClient, name: string,
              params: JsonNode): Future[Response]
-            {.async, gcsafe, raises: [Defect, CatchableError].} =
+            {.async, gcsafe.} =
   doAssert client.httpSession != nil
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
@@ -114,8 +116,7 @@ method call*(client: RpcHttpClient, name: string,
     # TODO: Provide more clarity regarding the failure here
     raise newException(InvalidResponse, "Invalid response")
 
-proc connect*(client: RpcHttpClient, url: string)
-             {.async, raises: [Defect].} =
+proc connect*(client: RpcHttpClient, url: string) {.async.} =
   client.httpAddress = client.httpSession.getAddress(url)
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
