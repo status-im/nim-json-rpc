@@ -87,7 +87,7 @@ proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # make proc async
   result.addPragma ident"async"
   # export this proc
-  result[0] = nnkPostFix.newTree(ident"*", newIdentNode($procName))
+  result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 
 proc toJsonArray(parameters: NimNode): NimNode =
   # outputs an array of jsonified parameters

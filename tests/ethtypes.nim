@@ -13,9 +13,9 @@ type
     gasPrice*: int            # (optional, default: To-Be-Determined) integer of the gasPrice used for each paid gas.
     value*: int               # (optional) integer of the value sent with this transaction.
     data*: int                # the compiled code of a contract OR the hash of the invoked method signature and encoded parameters. For details see Ethereum Contract ABI.
-    nonce*: int               # (optional) integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce 
+    nonce*: int               # (optional) integer of a nonce. This allows to overwrite your own pending transactions that use the same nonce
 
-  EthCall* = object  
+  EthCall* = object
     source*: array[20, byte]  # (optional) The address the transaction is send from.
     to*: array[20, byte]      # The address the transaction is directed to.
     gas*: int                 # (optional) Integer of the gas provided for the transaction execution. eth_call consumes zero gas, but this parameter may be needed by some executions.
@@ -42,8 +42,8 @@ type
     gasLimit*: int                # the maximum gas allowed in this block.
     gasUsed*: int                 # the total used gas by all transactions in this block.
     timestamp*: int               # the unix timestamp for when the block was collated.
-    transactions*: seq[Uint256]   # list of transaction objects, or 32 Bytes transaction hashes depending on the last given parameter.
-    uncles*: seq[Uint256]         # list of uncle hashes.
+    transactions*: seq[UInt256]   # list of transaction objects, or 32 Bytes transaction hashes depending on the last given parameter.
+    uncles*: seq[UInt256]         # list of uncle hashes.
 
   TransactionObject* = object     # A transaction object, or null when no transaction was found:
     hash*: UInt256                # hash of the transaction.
@@ -70,7 +70,7 @@ type
     contractAddress*: array[20, byte] # the contract address created, if the transaction was a contract creation, otherwise null.
     logs*: seq[string]                # TODO: See Wiki for details. list of log objects, which this transaction generated.
     logsBloom*: array[256, byte]      # bloom filter for light clients to quickly retrieve related logs.
-    # TODO: 
+    # TODO:
     #case kind*: ReceiptKind
     #of rkRoot: root*: UInt256         # post-transaction stateroot (pre Byzantium).
     #of rkStatus: status*: int         # 1 = success, 0 = failure.
