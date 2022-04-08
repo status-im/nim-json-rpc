@@ -79,7 +79,7 @@ proc processData(client: RpcWebSocketClient) {.async.} =
   else:
     let ws = client.transport
     try:
-      while ws.readystate != ReadyState.Closed:
+      while ws.readyState != ReadyState.Closed:
         var value = await ws.recvMsg()
 
         if value.len == 0:

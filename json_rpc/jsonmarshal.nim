@@ -69,7 +69,7 @@ proc fromJson*(n: JsonNode, argName: string, result: var int) =
 proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   result = new T
-  for k, v in fieldpairs(result[]):
+  for k, v in fieldPairs(result[]):
     fromJson(n[k], k, v)
 
 proc fromJson*(n: JsonNode, argName: string, result: var int64) =
@@ -165,7 +165,7 @@ iterator paramsIter(params: NimNode): tuple[name, ntype: NimNode] =
       yield (arg[j], argType)
 
 iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
-  for i in countDown(params.len-1,1):
+  for i in countdown(params.len-1,1):
     let arg = params[i]
     let argType = arg[^2]
     for j in 0 ..< arg.len-2:

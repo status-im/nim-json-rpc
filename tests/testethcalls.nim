@@ -22,7 +22,7 @@ func rpcDynamicName(name: string): string =
 
 ## Create custom RPC with StUint input parameter
 server.rpc(rpcDynamicName "uint256Param") do(i: UInt256):
-  let r = i + 1.stUint(256)
+  let r = i + 1.stuint(256)
   return %r
 
 ## Create custom RPC with StUInt return parameter

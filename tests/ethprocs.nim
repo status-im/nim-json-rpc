@@ -43,7 +43,7 @@ proc addEthRpcs*(server: RpcServer) =
     var rawData: seq[byte]
     rawData = nimcrypto.fromHex(data.string)
     # data will have 0x prefix
-    result = hexDataStr "0x" & $keccak_256.digest(rawData)
+    result = hexDataStr "0x" & $keccak256.digest(rawData)
 
   server.rpc("net_version") do() -> string:
     ## Returns string of the current network id:
