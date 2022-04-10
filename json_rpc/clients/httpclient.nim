@@ -65,17 +65,38 @@ method call*(client: RpcHttpClient, name: string,
   let
     id = client.getNextId()
     reqBody = $rpcCallNode(name, params, id)
-    req = HttpClientRequestRef.post(client.httpSession,
-                                    client.httpAddress.get,
-                                    body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
-                                    headers = headers)
-    res =
-      try:
-        await req.send()
-      except CancelledError as e:
-        raise e
-      except CatchableError as e:
-        raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: e)
+
+  var req: HttpClientRequestRef
+  var res: HttpClientResponseRef
+
+  defer:
+    # BEWARE!
+    # Using multiple defer statements in this function or multiple
+    # try/except blocks within a single defer statement doesn't
+    # produce the desired run-time code, so we use slightly bizzare
+    # code to ensure the exceptions safety of this function:
+    try:
+      var closeFutures = newSeq[Future[void]]()
+      if req != nil: closeFutures.add req.closeWait()
+      if res != nil: closeFutures.add res.closeWait()
+      if closeFutures.len > 0: await allFutures(closeFutures)
+    except CatchableError as err:
+      # TODO
+      # `close` functions shouldn't raise in general, but we first
+      # need to ensure this through exception tracking in Chronos
+      debug "Error closing JSON-RPC HTTP resuest/response", err = err.msg
+
+  req = HttpClientRequestRef.post(client.httpSession,
+                                  client.httpAddress.get,
+                                  body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
+                                  headers = headers)
+  res =
+    try:
+      await req.send()
+    except CancelledError as e:
+      raise e
+    except CatchableError as e:
+      raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: e)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
     raise newException(ErrorResponse, "POST Response: " & $res.status)
