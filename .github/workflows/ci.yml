@@ -153,10 +153,6 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          if [[ "${{ matrix.target.os }}" == "windows" ]]; then
-            # https://github.com/status-im/nimbus-eth2/issues/3121
-            export NIMFLAGS="-d:nimRawSetjmp"
-          fi
           nim --version
           nimble --version
           nimble install -y --depsOnly
