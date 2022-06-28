@@ -1,5 +1,5 @@
 const
-  json_rpc_websocket_package {.strdefine.} = "websock"
+  json_rpc_websocket_package {.strdefine.} = "news"
   useNews* = json_rpc_websocket_package == "news"
 
 when json_rpc_websocket_package notin ["websock", "news"]:
