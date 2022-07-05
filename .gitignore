@@ -18,3 +18,5 @@ nimcache/
 .vscode
 
 
+nimble.develop
+nimble.paths
