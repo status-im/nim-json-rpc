@@ -293,9 +293,9 @@ The `RpcServer` type is given as a simple inheritable wrapper/container that sim
 Currently there are plans for the following transports to be implemented:
 
 * [x] Sockets
-* [ ] HTTP
+* [x] HTTP
 * [ ] IPC
-* [ ] Websockets
+* [x] Websockets
 
 Transport specific server need only call the `route` procedure using a string fetched from the transport in order to invoke the requested RPC.
 
