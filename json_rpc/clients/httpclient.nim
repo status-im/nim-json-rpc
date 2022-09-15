@@ -75,24 +75,23 @@ method call*(client: RpcHttpClient, name: string,
     # try/except blocks within a single defer statement doesn't
     # produce the desired run-time code, so we use slightly bizzare
     # code to ensure the exceptions safety of this function:
-    try:
-      var closeFutures = newSeq[Future[void]]()
-      if req != nil: closeFutures.add req.closeWait()
-      if res != nil: closeFutures.add res.closeWait()
-      if closeFutures.len > 0: await allFutures(closeFutures)
-    except CatchableError as err:
-      # TODO
-      # `close` functions shouldn't raise in general, but we first
-      # need to ensure this through exception tracking in Chronos
-      debug "Error closing JSON-RPC HTTP resuest/response", err = err.msg
+    var closeFutures = newSeq[Future[void]]()
+    if req != nil: closeFutures.add req.closeWait()
+    if res != nil: closeFutures.add res.closeWait()
+    if closeFutures.len > 0:
+      # allFutures cannot raise
+      asyncSpawn allFutures(closeFutures)
 
   req = HttpClientRequestRef.post(client.httpSession,
                                   client.httpAddress.get,
                                   body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
                                   headers = headers)
+
+  # avoid using await inside try
+  let resFut = awaitne req.send()
   res =
     try:
-      await req.send()
+      resFut.read()
     except CancelledError as e:
       raise e
     except CatchableError as e:
@@ -105,13 +104,16 @@ method call*(client: RpcHttpClient, name: string,
          address = client.httpAddress, msg_len = len(reqBody)
   trace "Message", msg = reqBody
 
-  let resBytes =
-    try:
-      await res.getBodyBytes(client.maxBodySize)
-    except CancelledError as e:
-      raise e
-    except CatchableError as exc:
-      raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC.", parent: exc)
+  # avoid using await inside try
+  let
+    resBytesFut = awaitne res.getBodyBytes(client.maxBodySize)
+    resBytes =
+      try:
+        resBytesFut.read()
+      except CancelledError as e:
+        raise e
+      except CatchableError as exc:
+        raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC.", parent: exc)
 
   let resText = string.fromBytes(resBytes)
   trace "Response", text = resText
