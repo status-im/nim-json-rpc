@@ -35,11 +35,9 @@ proc fromJson*[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
 
   let v = n.getBiggestInt()
-  if v notin T:
+  if not checkedEnumAssign(result, v):
     raise (ref ValueError)(
       msg: "Unknown enum ordinal for " & name(T) & ": " & $v)
-
-  result = T(v)
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson*[T: object|tuple](n: JsonNode, argName: string, result: var T) =
