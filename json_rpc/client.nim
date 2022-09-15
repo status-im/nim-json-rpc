@@ -160,7 +160,10 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
   else:
     # native json expected so no work
     callBody.add quote do:
-      `procRes` = `rpcResult`
+      `procRes` = if `rpcResult` == nil:
+        newJNull()
+      else:
+        `rpcResult`
 
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr

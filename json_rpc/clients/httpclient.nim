@@ -69,22 +69,19 @@ method call*(client: RpcHttpClient, name: string,
   var req: HttpClientRequestRef
   var res: HttpClientResponseRef
 
-  defer:
-    # BEWARE!
-    # Using multiple defer statements in this function or multiple
-    # try/except blocks within a single defer statement doesn't
-    # produce the desired run-time code, so we use slightly bizzare
-    # code to ensure the exceptions safety of this function:
-    try:
-      var closeFutures = newSeq[Future[void]]()
-      if req != nil: closeFutures.add req.closeWait()
-      if res != nil: closeFutures.add res.closeWait()
-      if closeFutures.len > 0: await allFutures(closeFutures)
-    except CatchableError as err:
-      # TODO
-      # `close` functions shouldn't raise in general, but we first
-      # need to ensure this through exception tracking in Chronos
-      debug "Error closing JSON-RPC HTTP resuest/response", err = err.msg
+  template closeRefs() =
+    # We can't trust try/finally in async/await in all nim versions, so we
+    # do it manually instead
+    if req != nil:
+      try:
+        await req.closeWait()
+      except CatchableError as exc: # shouldn't happen
+        debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
+    if res != nil:
+      try:
+        await res.closeWait()
+      except CatchableError as exc: # shouldn't happen
+        debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
 
   req = HttpClientRequestRef.post(client.httpSession,
                                   client.httpAddress.get,
@@ -94,11 +91,14 @@ method call*(client: RpcHttpClient, name: string,
     try:
       await req.send()
     except CancelledError as e:
+      closeRefs()
       raise e
     except CatchableError as e:
-      raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC.", parent: e)
+      closeRefs()
+      raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC: " & e.msg, parent: e)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
+    closeRefs()
     raise newException(ErrorResponse, "POST Response: " & $res.status)
 
   debug "Message sent to RPC server",
@@ -109,9 +109,11 @@ method call*(client: RpcHttpClient, name: string,
     try:
       await res.getBodyBytes(client.maxBodySize)
     except CancelledError as e:
+      closeRefs()
       raise e
-    except CatchableError as exc:
-      raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC.", parent: exc)
+    except CatchableError as e:
+      closeRefs()
+      raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC: " & e.msg, parent: e)
 
   let resText = string.fromBytes(resBytes)
   trace "Response", text = resText
@@ -125,9 +127,15 @@ method call*(client: RpcHttpClient, name: string,
   try:
     # Might raise for all kinds of reasons
     client.processMessage(resText)
-  finally:
+  except CatchableError as e:
     # Need to clean up in case the answer was invalid
     client.awaiting.del(id)
+    closeRefs()
+    raise e
+
+  client.awaiting.del(id)
+
+  closeRefs()
 
   # processMessage should have completed this future - if it didn't, `read` will
   # raise, which is reasonable
