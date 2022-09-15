@@ -1,7 +1,8 @@
 import
   std/tables,
   chronos,
-  ../client
+  ../client,
+  ../errors
 
 {.push raises: [Defect].}
 
@@ -28,7 +29,7 @@ method call*(self: RpcSocketClient, name: string,
   let id = self.getNextId()
   var value = $rpcCallNode(name, params, id) & "\r\n"
   if self.transport.isNil:
-    raise newException(ValueError,
+    raise newException(JsonRpcError,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.

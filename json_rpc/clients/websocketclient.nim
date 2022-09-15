@@ -1,7 +1,7 @@
 import
   pkg/[chronos, chronos/apps/http/httptable, chronicles],
   stew/byteutils,
-  ../client, ./config
+  ../client, ../errors, ./config
 
 export client
 
@@ -48,7 +48,7 @@ method call*(self: RpcWebSocketClient, name: string,
   let id = self.getNextId()
   var value = $rpcCallNode(name, params, id) & "\r\n"
   if self.transport.isNil:
-    raise newException(ValueError,
+    raise newException(JsonRpcError,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.

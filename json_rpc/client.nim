@@ -1,6 +1,7 @@
 import
   std/[tables, macros],
   chronos,
+  ./errors,
   ./jsonmarshal
 
 from strutils import toLowerAscii, replace
@@ -46,24 +47,24 @@ proc processMessage*(self: RpcClient, line: string) =
   let node = try: parseJson(line)
   except CatchableError as exc: raise exc
   # TODO https://github.com/status-im/nimbus-eth2/issues/2430
-  except Exception as exc: raise (ref ValueError)(msg: exc.msg, parent: exc)
+  except Exception as exc: raise (ref JsonRpcError)(msg: exc.msg, parent: exc)
 
   if "id" in node:
     let id = node{"id"} or newJNull()
 
     var requestFut: Future[Response]
     if not self.awaiting.pop(id.getInt(-1), requestFut):
-      raise newException(ValueError, "Cannot find message id \"" & $id & "\"")
+      raise newException(JsonRpcError, "Cannot find message id \"" & $id & "\"")
 
     let version = node{"jsonrpc"}.getStr()
     if version != "2.0":
-      requestFut.fail(newException(ValueError,
+      requestFut.fail(newException(JsonRpcError,
         "Unsupported version of JSON, expected 2.0, received \"" & version & "\""))
     else:
       let result = node{"result"}
       if result.isNil:
         let error = node{"error"} or newJNull()
-        requestFut.fail(newException(ValueError, $error))
+        requestFut.fail(newException(JsonRpcError, $error))
       else:
         requestFut.complete(result)
   elif "method" in node:
@@ -73,7 +74,7 @@ proc processMessage*(self: RpcClient, line: string) =
     if not handler.isNil:
       handler(node{"params"} or newJArray())
   else:
-    raise newException(ValueError, "Invalid jsonrpc message: " & $node)
+    raise newException(JsonRpcError, "Invalid jsonrpc message: " & $node)
 
 # Signature processing
 

@@ -89,12 +89,12 @@ proc invalidTest(address: string, port: Port): Future[bool] {.async.} =
   try:
     var r = await client.call("invalidProcA", %[])
     discard r
-  except ValueError:
+  except JsonRpcError:
     invalidA = true
   try:
     var r = await client.call("invalidProcB", %[1, 2, 3])
     discard r
-  except ValueError:
+  except JsonRpcError:
     invalidB = true
   if invalidA and invalidB:
     result = true
