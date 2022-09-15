@@ -22,6 +22,10 @@ type
   MyOptionalNotBuiltin = object
     val: Option[Test2]
 
+  MyEnum = enum
+    Enum0
+    Enum1
+
 let
   testObj = %*{
     "a": %1,
@@ -39,6 +43,9 @@ var s = newRpcSocketServer(["localhost:8545"])
 # RPC definitions
 s.rpc("rpc.simplePath"):
   return %1
+
+s.rpc("rpc.enumParam") do(e: MyEnum):
+  return %[$e]
 
 s.rpc("rpc.differentParams") do(a: int, b: string):
   return %[%a, %b]
@@ -145,6 +152,14 @@ suite "Server types":
   test "Simple paths":
     let r = waitFor s.executeMethod("rpc.simplePath", %[])
     check r == "1"
+
+  test "Enum param paths":
+    block:
+      let r = waitFor s.executeMethod("rpc.enumParam", %[(int64(Enum1))])
+      check r == "[\"Enum1\"]"
+
+    expect(ValueError):
+      discard waitFor s.executeMethod("rpc.enumParam", %[(int64(42))])
 
   test "Different param types":
     let

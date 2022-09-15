@@ -1,6 +1,6 @@
 import
   std/[macros, json, options, typetraits],
-  stew/byteutils
+  stew/[byteutils, objects]
 
 export json, options
 
@@ -33,7 +33,11 @@ proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T])
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson*[T: enum](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JInt, argName)
-  result = n.getBiggestInt().T
+
+  let v = n.getBiggestInt()
+  if not checkedEnumAssign(result, v):
+    raise (ref ValueError)(
+      msg: "Unknown enum ordinal for " & name(T) & ": " & $v)
 
 # This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
 proc fromJson*[T: object|tuple](n: JsonNode, argName: string, result: var T) =
@@ -145,6 +149,8 @@ proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
 
 proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
   mixin fromJson
+  if args == nil:
+    raise (ref ValueError)(msg: argName & ": unexpected null value")
   fromJson(args, argName, result)
 
 proc expectArrayLen(node, jsonIdent: NimNode, length: int) =

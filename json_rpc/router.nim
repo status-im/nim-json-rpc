@@ -174,4 +174,4 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
     `server`.register(`path`, `rpcProcWrapper`)
 
   when defined(nimDumpRpcs):
-    echo "\n", pathStr, ": ", result.repr
+    echo "\n", path, ": ", result.repr
