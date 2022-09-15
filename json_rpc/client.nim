@@ -152,6 +152,8 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
   callBody.add(quote do:
     # `rpcResult` is of type `Response`
     let `rpcResult` = await `clientIdent`.call(`pathStr`, `jsonParamIdent`)
+    if isNil(`rpcResult`):
+      raise newException(InvalidResponse, "client.call returned nil")
   )
 
   if customReturnType:
