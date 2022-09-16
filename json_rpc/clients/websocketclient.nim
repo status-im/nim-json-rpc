@@ -144,7 +144,7 @@ else:
       extraHeaders: HttpTable = default(HttpTable),
       compression = false,
       hooks: seq[Hook] = @[],
-      flags: set[TLSFlags] = {NoVerifyHost, NoVerifyServerName}) {.async.} =
+      flags: set[TLSFlags] = {}) {.async.} =
     proc headersHook(ctx: Hook, headers: var HttpTable): Result[void, string] =
       headers.addExtraHeaders(client, extraHeaders)
       ok()
