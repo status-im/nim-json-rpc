@@ -73,8 +73,7 @@ proc fromJson*(n: JsonNode, argName: string, result: var int) =
 proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
   n.kind.expect(JObject, argName)
   result = new T
-  for k, v in fieldPairs(result[]):
-    fromJson(n[k], k, v)
+  fromJson(n, argName, result[])
 
 proc fromJson*(n: JsonNode, argName: string, result: var int64) =
   n.kind.expect(JInt, argName)
