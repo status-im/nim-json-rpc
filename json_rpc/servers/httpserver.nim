@@ -10,9 +10,10 @@ export server, shttpserver
 logScope:
   topics = "JSONRPC-HTTP-SERVER"
 
+const
+  JsonRpcIdent = "nim-json-rpc"
+
 type
-  ReqStatus = enum
-    Success, Error, ErrorFailure
 
   # HttpAuthHook: handle CORS, JWT auth, etc. in HTTP header
   # before actual request processed
@@ -54,53 +55,70 @@ proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback =
     else:
       return dumbResponse()
 
-proc addHttpServer*(rpcServer: RpcHttpServer, address: TransportAddress) =
-  let initialServerCount = len(rpcServer.httpServers)
-  try:
-    info "Starting JSON-RPC HTTP server", url = "http://" & $address
-    var res = HttpServerRef.new(address, processClientRpc(rpcServer))
-    if res.isOk():
-      rpcServer.httpServers.add(res.get())
-    else:
-      raise newException(RpcBindError, "Unable to create server!")
-
-  except CatchableError as exc:
+proc addHttpServer*(
+    rpcServer: RpcHttpServer,
+    address: TransportAddress,
+    socketFlags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+    serverUri = Uri(),
+    serverIdent = "",
+    maxConnections: int = -1,
+    bufferSize: int = 4096,
+    backlogSize: int = 100,
+    httpHeadersTimeout = 10.seconds,
+    maxHeadersSize: int = 8192,
+    maxRequestBodySize: int = 1_048_576) =
+  let server = HttpServerRef.new(
+      address,
+      processClientRpc(rpcServer),
+      {},
+      socketFlags,
+      serverUri, JsonRpcIdent, maxConnections, backlogSize,
+      bufferSize, httpHeadersTimeout, maxHeadersSize, maxRequestBodySize
+      ).valueOr:
     error "Failed to create server", address = $address,
-                                     message = exc.msg
+                                     message = error
+    raise newException(RpcBindError, "Unable to create server: " & $error)
+  info "Starting JSON-RPC HTTP server", url = "http://" & $address
 
-  if len(rpcServer.httpServers) != initialServerCount + 1:
-    # Server was not bound, critical error.
-    raise newException(RpcBindError, "Unable to create server!")
+  rpcServer.httpServers.add server
 
-proc addSecureHttpServer*(rpcServer: RpcHttpServer,
-                          address: TransportAddress,
-                          tlsPrivateKey: TLSPrivateKey,
-                          tlsCertificate: TLSCertificate) =
-  let initialServerCount = len(rpcServer.httpServers)
-  try:
-    info "Starting JSON-RPC HTTPS server", url = "https://" & $address
-    var res = SecureHttpServerRef.new(address,
-                                      processClientRpc(rpcServer),
-                                      tlsPrivateKey,
-                                      tlsCertificate,
-                                      serverFlags = {HttpServerFlags.Secure},
-                                      socketFlags = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr})
-    if res.isOk():
-      rpcServer.httpServers.add(res.get())
-    else:
-      raise newException(RpcBindError, "Unable to create server!")
-
-  except CatchableError as exc:
+proc addSecureHttpServer*(
+    rpcServer: RpcHttpServer,
+    address: TransportAddress,
+    tlsPrivateKey: TLSPrivateKey,
+    tlsCertificate: TLSCertificate,
+    socketFlags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+    serverUri = Uri(),
+    serverIdent: string = JsonRpcIdent,
+    secureFlags: set[TLSFlags] = {},
+    maxConnections: int = -1,
+    backlogSize: int = 100,
+    bufferSize: int = 4096,
+    httpHeadersTimeout = 10.seconds,
+    maxHeadersSize: int = 8192,
+    maxRequestBodySize: int = 1_048_576) =
+  let server = SecureHttpServerRef.new(
+      address,
+      processClientRpc(rpcServer),
+      tlsPrivateKey,
+      tlsCertificate,
+      {HttpServerFlags.Secure},
+      socketFlags,
+      serverUri, JsonRpcIdent, secureFlags, maxConnections, backlogSize,
+      bufferSize, httpHeadersTimeout, maxHeadersSize, maxRequestBodySize
+      ).valueOr:
     error "Failed to create server", address = $address,
-                                     message = exc.msg
+                                     message = error
+    raise newException(RpcBindError, "Unable to create server: " & $error)
 
-  if len(rpcServer.httpServers) != initialServerCount + 1:
-    # Server was not bound, critical error.
-    raise newException(RpcBindError, "Unable to create server!")
+  info "Starting JSON-RPC HTTPS server", url = "https://" & $address
+
+  rpcServer.httpServers.add server
 
 proc addHttpServers*(server: RpcHttpServer,
                        addresses: openArray[TransportAddress]) =
   for item in addresses:
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addHttpServer(item)
 
 proc addSecureHttpServers*(server: RpcHttpServer,
@@ -108,6 +126,7 @@ proc addSecureHttpServers*(server: RpcHttpServer,
                            tlsPrivateKey: TLSPrivateKey,
                            tlsCertificate: TLSCertificate) =
   for item in addresses:
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addSecureHttpServer(item, tlsPrivateKey, tlsCertificate)
 
 template processResolvedAddresses =
@@ -126,7 +145,6 @@ iterator resolvedAddresses(address: string): TransportAddress =
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
-    added = 0
 
   # Attempt to resolve `address` for IPv4 address space.
   try:
@@ -146,7 +164,6 @@ iterator resolvedAddresses(address: string, port: Port): TransportAddress =
   var
     tas4: seq[TransportAddress]
     tas6: seq[TransportAddress]
-    added = 0
 
   # Attempt to resolve `address` for IPv4 address space.
   try:
@@ -165,6 +182,7 @@ iterator resolvedAddresses(address: string, port: Port): TransportAddress =
 proc addHttpServer*(server: RpcHttpServer, address: string) =
   ## Create new server and assign it to addresses ``addresses``.
   for a in resolvedAddresses(address):
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addHttpServer(a)
 
 proc addSecureHttpServer*(server: RpcHttpServer,
@@ -172,20 +190,18 @@ proc addSecureHttpServer*(server: RpcHttpServer,
                           tlsPrivateKey: TLSPrivateKey,
                           tlsCertificate: TLSCertificate) =
   for a in resolvedAddresses(address):
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addSecureHttpServer(a, tlsPrivateKey, tlsCertificate)
 
 proc addHttpServers*(server: RpcHttpServer, addresses: openArray[string]) =
   for address in addresses:
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addHttpServer(address)
 
 proc addHttpServer*(server: RpcHttpServer, address: string, port: Port) =
   for a in resolvedAddresses(address, port):
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addHttpServer(a)
-
-  if len(server.httpServers) == 0:
-    # Server was not bound, critical error.
-    raise newException(RpcBindError,
-                      "Could not setup server on " & address & ":" & $int(port))
 
 proc addSecureHttpServer*(server: RpcHttpServer,
                           address: string,
@@ -193,6 +209,7 @@ proc addSecureHttpServer*(server: RpcHttpServer,
                           tlsPrivateKey: TLSPrivateKey,
                           tlsCertificate: TLSCertificate) =
   for a in resolvedAddresses(address, port):
+    # TODO handle partial failures, ie when 1/N addresses fail
     server.addSecureHttpServer(a, tlsPrivateKey, tlsCertificate)
 
 proc new*(T: type RpcHttpServer, authHooks: seq[HttpAuthHook] = @[]): T =
@@ -230,6 +247,7 @@ proc newRpcHttpServer*(addresses: openArray[TransportAddress], router: RpcRouter
 proc start*(server: RpcHttpServer) =
   ## Start the RPC server.
   for item in server.httpServers:
+    # TODO handle partial failures, ie when 1/N addresses fail
     debug "HTTP RPC server started" # (todo: fix this),  address = item
     item.start()
 
