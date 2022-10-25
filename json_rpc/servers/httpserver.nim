@@ -58,6 +58,7 @@ proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback =
 proc addHttpServer*(
     rpcServer: RpcHttpServer,
     address: TransportAddress,
+    socketFlags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
     serverUri = Uri(),
     serverIdent = "",
     maxConnections: int = -1,
@@ -70,7 +71,7 @@ proc addHttpServer*(
       address,
       processClientRpc(rpcServer),
       {},
-      {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+      socketFlags,
       serverUri, JsonRpcIdent, maxConnections, backlogSize,
       bufferSize, httpHeadersTimeout, maxHeadersSize, maxRequestBodySize
       ).valueOr:
@@ -81,26 +82,28 @@ proc addHttpServer*(
 
   rpcServer.httpServers.add server
 
-proc addSecureHttpServer*(rpcServer: RpcHttpServer,
-                          address: TransportAddress,
-                          tlsPrivateKey: TLSPrivateKey,
-                          tlsCertificate: TLSCertificate,
-                          serverUri = Uri(),
-                          serverIdent: string = JsonRpcIdent,
-                          secureFlags: set[TLSFlags] = {},
-                          maxConnections: int = -1,
-                          backlogSize: int = 100,
-                          bufferSize: int = 4096,
-                          httpHeadersTimeout = 10.seconds,
-                          maxHeadersSize: int = 8192,
-                          maxRequestBodySize: int = 1_048_576) =
+proc addSecureHttpServer*(
+    rpcServer: RpcHttpServer,
+    address: TransportAddress,
+    tlsPrivateKey: TLSPrivateKey,
+    tlsCertificate: TLSCertificate,
+    socketFlags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+    serverUri = Uri(),
+    serverIdent: string = JsonRpcIdent,
+    secureFlags: set[TLSFlags] = {},
+    maxConnections: int = -1,
+    backlogSize: int = 100,
+    bufferSize: int = 4096,
+    httpHeadersTimeout = 10.seconds,
+    maxHeadersSize: int = 8192,
+    maxRequestBodySize: int = 1_048_576) =
   let server = SecureHttpServerRef.new(
       address,
       processClientRpc(rpcServer),
       tlsPrivateKey,
       tlsCertificate,
       {HttpServerFlags.Secure},
-      {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+      socketFlags,
       serverUri, JsonRpcIdent, secureFlags, maxConnections, backlogSize,
       bufferSize, httpHeadersTimeout, maxHeadersSize, maxRequestBodySize
       ).valueOr:
