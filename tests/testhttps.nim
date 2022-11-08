@@ -1,4 +1,4 @@
-import unittest, json, strutils
+import unittest, strutils
 import httputils
 import ../json_rpc/[rpcsecureserver, rpcclient]
 import chronos/[streams/tlsstream, apps/http/httpcommon]

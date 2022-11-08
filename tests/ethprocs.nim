@@ -1,5 +1,4 @@
 import
-  json,
   nimcrypto, stint,
   ethtypes, ethhexstrings, stintjson, ../json_rpc/rpcserver
 

@@ -1,11 +1,11 @@
 import
-  unittest, json, chronicles,
+  unittest, chronicles,
   ../json_rpc/[rpcclient, rpcserver, rpcproxy]
 
 let srvAddress = initTAddress("127.0.0.1",  Port(8545))
 let proxySrvAddress = "localhost:8546"
 let proxySrvAddressForClient = "http://"&proxySrvAddress
-  
+
 template registerMethods(srv: RpcServer, proxy: RpcProxy) =
   srv.rpc("myProc") do(input: string, data: array[0..3, int]):
     return %("Hello " & input & " data: " & $data)
@@ -39,7 +39,7 @@ suite "Proxy RPC through http":
   test "Method missing on server and proxy server":
     expect(CatchableError):
       discard waitFor client.call("missingMethod", %[%"abc"])
-  
+
   waitFor srv.stop()
   waitFor srv.closeWait()
   waitFor proxy.stop()
@@ -68,7 +68,7 @@ suite "Proxy RPC through websockets":
   test "Method missing on server and proxy server":
     expect(CatchableError):
       discard waitFor client.call("missingMethod", %[%"abc"])
-  
+
   srv.stop()
   waitFor srv.closeWait()
   waitFor proxy.stop()
