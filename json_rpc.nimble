@@ -13,7 +13,6 @@ requires "nim >= 1.2.0",
          "chronos",
          "httputils",
          "chronicles",
-         "https://github.com/status-im/news#status",
          "websock",
          "json_serialization"
 
@@ -30,7 +29,4 @@ proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "") =
 
 task test, "run tests":
   buildBinary "all", "tests/",
-    params = "-d:json_rpc_websocket_package=websock"
-
-  buildBinary "all", "tests/",
-    params = "-d:json_rpc_websocket_package=news"
+    params = ""

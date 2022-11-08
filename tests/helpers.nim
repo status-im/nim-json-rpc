@@ -1,5 +1,5 @@
 import
-  json, ../json_rpc/router
+  ../json_rpc/router
 
 template `==`*(a, b: distinct (string|StringOfJson)): bool =
   string(a) == string(b)

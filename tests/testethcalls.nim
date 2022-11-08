@@ -1,5 +1,5 @@
 import
-  unittest, json, tables,
+  unittest, tables,
   stint, ethtypes, ethprocs, stintjson, chronicles,
   ../json_rpc/[rpcclient, rpcserver], ./helpers
 

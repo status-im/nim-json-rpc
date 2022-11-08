@@ -1,7 +1,7 @@
 import
-  unittest, json, chronicles,
+  unittest,
   websock/websock,
-  ../json_rpc/[rpcclient, rpcserver, clients/config]
+  ../json_rpc/[rpcclient, rpcserver]
 
 const
   serverHost    = "localhost"
