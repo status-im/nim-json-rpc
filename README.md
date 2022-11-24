@@ -11,7 +11,7 @@ Json-Rpc is a library designed to provide an easier interface for working with r
 
 ```nim
 # In your nimble file
-require "json_rpc"
+requires "json_rpc"
 ```
 
 # Introduction
