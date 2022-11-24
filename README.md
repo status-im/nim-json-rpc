@@ -7,14 +7,12 @@
 
 Json-Rpc is a library designed to provide an easier interface for working with remote procedure calls.
 
-# Installation
+# Usage
 
-`git clone https://github.com/status-im/nim-json-rpc`
-
-
-### Requirements
-* Nim 17.3 and up
-
+```nim
+# In your nimble file
+require "json_rpc"
+```
 
 # Introduction
 
