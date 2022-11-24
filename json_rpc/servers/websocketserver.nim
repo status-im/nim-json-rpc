@@ -91,7 +91,7 @@ proc newRpcWebSocketServer*(
   compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,ServerFlags.ReuseAddr},
   authHooks: seq[WsAuthHook] = @[],
-  rng = newRng()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer =
 
   var server = new(RpcWebSocketServer)
   proc processCallback(request: HttpRequest): Future[void] =
@@ -112,7 +112,7 @@ proc newRpcWebSocketServer*(
   compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
   authHooks: seq[WsAuthHook] = @[],
-  rng = newRng()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer =
 
   newRpcWebSocketServer(
     initTAddress(host, port),
@@ -133,7 +133,7 @@ proc newRpcWebSocketServer*(
   tlsMinVersion = TLSVersion.TLS12,
   tlsMaxVersion = TLSVersion.TLS12,
   authHooks: seq[WsAuthHook] = @[],
-  rng = newRng()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer =
 
   var server = new(RpcWebSocketServer)
   proc processCallback(request: HttpRequest): Future[void] =
@@ -165,7 +165,7 @@ proc newRpcWebSocketServer*(
   tlsMinVersion = TLSVersion.TLS12,
   tlsMaxVersion = TLSVersion.TLS12,
   authHooks: seq[WsAuthHook] = @[],
-  rng = newRng()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer =
 
   newRpcWebSocketServer(
     initTAddress(host, port),
