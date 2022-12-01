@@ -1,4 +1,4 @@
-import unittest, chronicles, options
+import unittest2, chronicles, options
 import ../json_rpc/rpcserver, ./helpers
 
 type

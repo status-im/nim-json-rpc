@@ -1,6 +1,5 @@
 import
   stew/byteutils,
-  std/[strutils],
   chronicles, httputils, chronos,
   chronos/apps/http/[httpserver, shttpserver],
   ".."/[errors, server]

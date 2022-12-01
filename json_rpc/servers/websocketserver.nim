@@ -1,8 +1,8 @@
 import
-  chronicles, httputils, chronos, websock/[websock, types],
+  chronicles, chronos, websock/[websock, types],
   websock/extensions/compression/deflate,
   stew/byteutils, json_serialization/std/net,
-  ".."/[errors, server]
+  ".."/[server]
 
 export server, net
 

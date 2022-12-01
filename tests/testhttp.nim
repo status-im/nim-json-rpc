@@ -1,5 +1,4 @@
-import unittest, strutils
-import httputils
+import unittest2
 import ../json_rpc/[rpcserver, rpcclient]
 
 const TestsCount = 100
