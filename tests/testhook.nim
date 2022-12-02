@@ -1,5 +1,5 @@
 import
-  unittest,
+  unittest2,
   websock/websock,
   ../json_rpc/[rpcclient, rpcserver]
 

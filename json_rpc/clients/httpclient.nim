@@ -1,5 +1,5 @@
 import
-  std/[strutils, tables, uri],
+  std/[tables, uri],
   stew/[byteutils, results],
   chronos/apps/http/httpclient as chronosHttpClient,
   chronicles, httputils, json_serialization/std/net,

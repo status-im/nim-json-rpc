@@ -1,5 +1,5 @@
 import
-  unittest, chronicles,
+  unittest2, chronicles,
   ../json_rpc/[rpcclient, rpcserver]
 
 # Create RPC on server

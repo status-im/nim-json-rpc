@@ -1,5 +1,5 @@
 import
-  unittest, chronicles,
+  unittest2, chronicles,
   ../json_rpc/[rpcclient, rpcserver, rpcproxy]
 
 let srvAddress = initTAddress("127.0.0.1",  Port(8545))
