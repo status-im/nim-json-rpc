@@ -96,7 +96,7 @@ jobs:
       - name: Restore Nim DLLs dependencies (Windows) from cache
         if: runner.os == 'Windows'
         id: windows-dlls-cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: external/dlls-${{ matrix.target.cpu }}
           key: 'dlls-${{ matrix.target.cpu }}'
@@ -156,6 +156,9 @@ jobs:
           nim --version
           nimble --version
           nimble install -y --depsOnly
+          # remove nimble.lock and allow nim 1.2 to nim devel have the same behaviour
+          # when compiling
+          rm -f nimble.lock
           env TEST_LANG="c" nimble test
           # C++ is unsupported: https://github.com/status-im/nim-json-rpc/issues/119
           #env TEST_LANG="cpp" nimble test

@@ -34,7 +34,7 @@ proc newRpcRouter*: RpcRouter {.deprecated.} =
   RpcRouter.init()
 
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
-  router.procs.add(path, call)
+  router.procs[path] = call
 
 proc clear*(router: var RpcRouter) =
   router.procs.clear
@@ -90,6 +90,9 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
   ## Returns string of Json from RPC result/error node
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:off.}
+
   let node =
     try: parseJson(data)
     except CatchableError as err:
@@ -97,6 +100,9 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
     except Exception as err:
       # TODO https://github.com/status-im/nimbus-eth2/issues/2430
       return string(wrapError(JSON_PARSE_ERROR, err.msg))
+
+  when (NimMajor, NimMinor) >= (1, 6):
+    {.warning[BareExcept]:on.}
 
   return string(await router.route(node))
 

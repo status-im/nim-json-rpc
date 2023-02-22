@@ -82,8 +82,13 @@ proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   var paramList = newSeq[NimNode]()
   for p in parameters: paramList.add(p)
 
+  let body = quote do:
+    {.gcsafe.}:
+      `callBody`
+
   # build proc
-  result = newProc(procName, paramList, callBody)
+  result = newProc(procName, paramList, body)
+
   # make proc async
   result.addPragma ident"async"
   # export this proc
@@ -138,8 +143,6 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
 
   # convert return type to Future
   parameters[0] = nnkBracketExpr.newTree(ident"Future", returnType)
-  # create rpc proc
-  result = createRpcProc(procName, parameters, callBody)
 
   let
     # temporary variable to hold `Response` from rpc call
@@ -165,6 +168,8 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
       else:
         `rpcResult`
 
+  # create rpc proc
+  result = createRpcProc(procName, parameters, callBody)
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
 

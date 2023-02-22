@@ -20,3 +20,5 @@ nimcache/
 
 nimble.develop
 nimble.paths
+
+/vendor

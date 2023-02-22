@@ -58,13 +58,17 @@ proc addStreamServer*(server: RpcSocketServer, address: string) =
   # Attempt to resolve `address` for IPv4 address space.
   try:
     tas4 = resolveTAddress(address, AddressFamily.IPv4)
-  except:
+  except CatchableError:
+    discard
+  except Defect:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
     tas6 = resolveTAddress(address, AddressFamily.IPv6)
-  except:
+  except CatchableError:
+    discard
+  except Defect:
     discard
 
   for r in tas4:
@@ -91,13 +95,17 @@ proc addStreamServer*(server: RpcSocketServer, address: string, port: Port) =
   # Attempt to resolve `address` for IPv4 address space.
   try:
     tas4 = resolveTAddress(address, port, AddressFamily.IPv4)
-  except:
+  except CatchableError:
+    discard
+  except Defect:
     discard
 
   # Attempt to resolve `address` for IPv6 address space.
   try:
     tas6 = resolveTAddress(address, port, AddressFamily.IPv6)
-  except:
+  except CatchableError:
+    discard
+  except Defect:
     discard
 
   if len(tas4) == 0 and len(tas6) == 0:

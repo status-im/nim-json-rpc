@@ -150,7 +150,8 @@ proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
   mixin fromJson
   if args == nil:
     raise (ref ValueError)(msg: argName & ": unexpected null value")
-  fromJson(args, argName, result)
+  {.gcsafe.}:
+    fromJson(args, argName, result)
 
 proc expectArrayLen(node, jsonIdent: NimNode, length: int) =
   let
