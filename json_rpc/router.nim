@@ -90,7 +90,7 @@ proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gc
 proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
   ## Route to RPC from string data. Data is expected to be able to be converted to Json.
   ## Returns string of Json from RPC result/error node
-  when (NimMajor, NimMinor) >= (1, 6):
+  when defined(nimHasWarnBareExcept):
     {.warning[BareExcept]:off.}
 
   let node =
@@ -101,7 +101,7 @@ proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
       # TODO https://github.com/status-im/nimbus-eth2/issues/2430
       return string(wrapError(JSON_PARSE_ERROR, err.msg))
 
-  when (NimMajor, NimMinor) >= (1, 6):
+  when defined(nimHasWarnBareExcept):
     {.warning[BareExcept]:on.}
 
   return string(await router.route(node))
