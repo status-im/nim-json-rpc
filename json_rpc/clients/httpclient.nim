@@ -99,7 +99,7 @@ method call*(client: RpcHttpClient, name: string,
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
     closeRefs()
-    raise newException(ErrorResponse, "POST Response: " & $res.status)
+    raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
   debug "Message sent to RPC server",
          address = client.httpAddress, msg_len = len(reqBody)

@@ -3,6 +3,7 @@ type
     ## Base type of all nim-json-rpc errors
 
   ErrorResponse* = object of JsonRpcError
+    status*: int
     ## raised when the server responded with an error
 
   InvalidResponse* = object of JsonRpcError
