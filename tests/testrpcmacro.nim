@@ -162,6 +162,15 @@ s.rpc("rpc.optInObj") do(data: string, options: Option[MaybeOptions]) -> int:
     if o.o2.isSome: result += 2
     if o.o3.isSome: result += 4
 
+proc installMoreApiHandlers*(s: RpcServer, prefix: static string) =
+  s.rpc(prefix & ".optionalStringArg") do(a: Option[string]) -> string:
+    if a.isSome:
+      return a.get()
+    else:
+      return "nope"
+
+s.installMoreApiHandlers("rpc")
+
 # Tests
 suite "Server types":
   test "On macro registration":
@@ -178,6 +187,7 @@ suite "Server types":
     check s.hasMethod("rpc.mixedOptionalArg")
     check s.hasMethod("rpc.optionalArgNotBuiltin")
     check s.hasMethod("rpc.optInObj")
+    check s.hasMethod("rpc.optionalStringArg")
 
   test "Simple paths":
     let r = waitFor s.executeMethod("rpc.simplePath", %[])
@@ -328,6 +338,19 @@ suite "Server types":
     let opts6 = parseJson("""{"o1": true, "o2": true}""")
     var r6 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts6])
     check r6 == JrpcConv.encode 3
+
+  test "Optional String Arg":
+    let
+      data = some("some string")
+      r1 = waitFor s.executeMethod("rpc.optionalStringArg", %[%data])
+      r2 = waitFor s.executeMethod("rpc.optionalStringArg", %[])
+      r3 = waitFor s.executeMethod("rpc.optionalStringArg", %[newJNull()])
+    echo r1
+    echo r2
+    echo r3
+    check r1 == %data.get()
+    check r2 == %"nope"
+    check r3 == %"nope"
 
 s.stop()
 waitFor s.closeWait()
