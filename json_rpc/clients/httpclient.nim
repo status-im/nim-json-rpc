@@ -6,7 +6,7 @@ import
   ".."/[client, errors]
 
 export
-  client
+  client, HttpClientFlag, HttpClientFlags
 
 {.push raises: [Defect].}
 
@@ -28,25 +28,18 @@ const
 
 proc new(
     T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false,
-    getHeaders: GetJsonRpcRequestHeaders = nil): T =
-  let httpSessionFlags = if secure:
-    {
-      HttpClientFlag.NoVerifyHost,
-      HttpClientFlag.NoVerifyServerName
-    }
-  else:
-    {}
-
+    getHeaders: GetJsonRpcRequestHeaders = nil, flags: HttpClientFlags = {}): T =
   T(
     maxBodySize: maxBodySize,
-    httpSession: HttpSessionRef.new(flags = httpSessionFlags),
+    httpSession: HttpSessionRef.new(flags = flags),
     getHeaders: getHeaders
   )
 
 proc newRpcHttpClient*(
     maxBodySize = MaxHttpRequestSize, secure = false,
-    getHeaders: GetJsonRpcRequestHeaders = nil): RpcHttpClient =
-  RpcHttpClient.new(maxBodySize, secure, getHeaders)
+    getHeaders: GetJsonRpcRequestHeaders = nil,
+    flags: HttpClientFlags = {}): RpcHttpClient =
+  RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
 
 method call*(client: RpcHttpClient, name: string,
              params: JsonNode): Future[Response]
