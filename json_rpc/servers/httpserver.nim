@@ -41,8 +41,8 @@ proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback =
 
       let body = await request.getBody()
 
-      var headers = HttpTable.init()
-      headers.add("Content-Type", "application/json; charset=utf-8")
+      let headers = HttpTable.init([("Content-Type",
+                                    "application/json; charset=utf-8")])
 
       let future = rpcServer.route(string.fromBytes(body))
       yield future
