@@ -38,7 +38,7 @@ method close*(client: RpcClient): Future[void] {.
   discard
 
 template `or`(a: JsonNode, b: typed): JsonNode =
-  if a == nil: b else: a
+  if a.isNil: b else: a
 
 proc processMessage*(self: RpcClient, line: string) =
   # Note: this doesn't use any transport code so doesn't need to be
@@ -163,7 +163,7 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode): NimNode =
   else:
     # native json expected so no work
     callBody.add quote do:
-      `procRes` = if `rpcResult` == nil:
+      `procRes` = if `rpcResult`.isNil:
         newJNull()
       else:
         `rpcResult`
