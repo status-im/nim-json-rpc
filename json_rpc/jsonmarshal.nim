@@ -148,7 +148,7 @@ proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
 
 proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
   mixin fromJson
-  if args == nil:
+  if args.isNil:
     raise (ref ValueError)(msg: argName & ": unexpected null value")
   {.gcsafe.}:
     fromJson(args, argName, result)
