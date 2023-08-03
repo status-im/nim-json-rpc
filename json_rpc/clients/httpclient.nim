@@ -42,11 +42,10 @@ proc newRpcHttpClient*(
   RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
 
 method call*(client: RpcHttpClient, name: string,
-             params: JsonNode): Future[Response]
-            {.async, gcsafe.} =
+             params: JsonNode): Future[Response] {.async.} =
   doAssert client.httpSession != nil
-  if client.httpAddress.isErr:
-    raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
+  let address = client.httpAddress.valueOr:
+    raise newException(RpcAddressUnresolvableError, error)
 
   var headers =
     if not isNil(client.getHeaders):
@@ -57,7 +56,7 @@ method call*(client: RpcHttpClient, name: string,
 
   let
     id = client.getNextId()
-    reqBody = $rpcCallNode(name, params, id)
+    message = $rpcCallNode(name, params, id)
 
   var req: HttpClientRequestRef
   var res: HttpClientResponseRef
@@ -76,9 +75,8 @@ method call*(client: RpcHttpClient, name: string,
       except CatchableError as exc: # shouldn't happen
         debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
 
-  req = HttpClientRequestRef.post(client.httpSession,
-                                  client.httpAddress.get,
-                                  body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
+  req = HttpClientRequestRef.post(client.httpSession, address,
+                                  body = message.toOpenArrayByte(0, message.high),
                                   headers = headers)
   res =
     try:
@@ -94,9 +92,8 @@ method call*(client: RpcHttpClient, name: string,
     closeRefs()
     raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
-  debug "Message sent to RPC server",
-         address = client.httpAddress, msg_len = len(reqBody)
-  trace "Message", msg = reqBody
+  debug "Message sent to RPC server", name, msg_len = len(message)
+  trace "Message", msg = message
 
   let resBytes =
     try:

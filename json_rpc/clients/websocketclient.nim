@@ -32,18 +32,24 @@ proc newRpcWebSocketClient*(
 method call*(self: RpcWebSocketClient, name: string,
              params: JsonNode): Future[Response] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
-  let id = self.getNextId()
-  var value = $rpcCallNode(name, params, id) & "\r\n"
   if self.transport.isNil:
     raise newException(ValueError,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.
-  var newFut = newFuture[Response]()
+  let
+    newFut = newFuture[Response]()
+    id = self.getNextId()
+    message = $rpcCallNode(name, params, id) & "\r\n"
+
   # add to awaiting responses
   self.awaiting[id] = newFut
 
-  await self.transport.send(value)
+  await self.transport.send(message)
+
+  debug "Message sent to RPC server", name, msg_len = len(message)
+  trace "Message", msg = message
+
   return await newFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
