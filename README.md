@@ -44,8 +44,8 @@ import json_rpc/rpcserver
 
 var router = newRpcRouter()
 
-router.rpc:
-  result = %"Hello"
+router.rpc("hello") do() -> string:
+  result = "Hello"
 ```
 
 As no return type was specified in this example, `result` defaults to the `JsonNode` type.

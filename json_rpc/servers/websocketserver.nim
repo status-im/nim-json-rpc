@@ -78,7 +78,7 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
 
 proc initWebsocket(rpc: RpcWebSocketServer, compression: bool,
                    authHooks: seq[WsAuthHook],
-                   rng: Rng) =
+                   rng: ref HmacDrbgContext) =
   if compression:
     let deflateFactory = deflateFactory()
     rpc.wsserver = WSServer.new(factories = [deflateFactory], rng = rng)
