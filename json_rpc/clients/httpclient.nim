@@ -44,8 +44,11 @@ proc newRpcHttpClient*(
 method call*(client: RpcHttpClient, name: string,
              params: JsonNode): Future[Response]
             {.async, gcsafe.} =
+  error "Starting RPC call", name
+
   doAssert client.httpSession != nil
   if client.httpAddress.isErr:
+    error "RpcAddressUnresolvableError"
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
   var headers =
@@ -76,6 +79,7 @@ method call*(client: RpcHttpClient, name: string,
       except CatchableError as exc: # shouldn't happen
         debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
 
+  error "Sending RPC post", name
   req = HttpClientRequestRef.post(client.httpSession,
                                   client.httpAddress.get,
                                   body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
@@ -84,13 +88,16 @@ method call*(client: RpcHttpClient, name: string,
     try:
       await req.send()
     except CancelledError as e:
+      error "CancelledError", e = e.msg
       closeRefs()
       raise e
     except CatchableError as e:
+      error "CatchableError", e = e.msg
       closeRefs()
       raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC: " & e.msg, parent: e)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
+    error "status", s = res.status
     closeRefs()
     raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
