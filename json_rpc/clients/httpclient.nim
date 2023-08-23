@@ -76,6 +76,10 @@ method call*(client: RpcHttpClient, name: string,
       except CatchableError as exc: # shouldn't happen
         debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
 
+  debug "Sending message to RPC server",
+         address = client.httpAddress, msg_len = len(reqBody), name
+  trace "Message", msg = reqBody
+
   req = HttpClientRequestRef.post(client.httpSession,
                                   client.httpAddress.get,
                                   body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
@@ -84,27 +88,29 @@ method call*(client: RpcHttpClient, name: string,
     try:
       await req.send()
     except CancelledError as e:
+      debug "Cancelled POST Request with JSON-RPC", e = e.msg
       closeRefs()
       raise e
     except CatchableError as e:
+      debug "Failed to send POST Request with JSON-RPC", e = e.msg
       closeRefs()
       raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC: " & e.msg, parent: e)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
+    debug "Unsuccessful POST Request with JSON-RPC",
+      status = res.status, reason = res.reason
     closeRefs()
     raise (ref ErrorResponse)(status: res.status, msg: res.reason)
-
-  debug "Message sent to RPC server",
-         address = client.httpAddress, msg_len = len(reqBody)
-  trace "Message", msg = reqBody
 
   let resBytes =
     try:
       await res.getBodyBytes(client.maxBodySize)
     except CancelledError as e:
+      debug "Cancelled POST Response for JSON-RPC", e = e.msg
       closeRefs()
       raise e
     except CatchableError as e:
+      debug "Failed to read POST Response for JSON-RPC", e = e.msg
       closeRefs()
       raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC: " & e.msg, parent: e)
 
@@ -122,6 +128,7 @@ method call*(client: RpcHttpClient, name: string,
     client.processMessage(resText)
   except CatchableError as e:
     # Need to clean up in case the answer was invalid
+    debug "Failed to process POST Response for JSON-RPC", e = e.msg
     client.awaiting.del(id)
     closeRefs()
     raise e
@@ -136,6 +143,7 @@ method call*(client: RpcHttpClient, name: string,
     return newFut.read()
   else:
     # TODO: Provide more clarity regarding the failure here
+    debug "Invalid POST Response for JSON-RPC"
     raise newException(InvalidResponse, "Invalid response")
 
 proc connect*(client: RpcHttpClient, url: string) {.async.} =
