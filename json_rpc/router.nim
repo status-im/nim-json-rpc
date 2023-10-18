@@ -1,5 +1,5 @@
 import
-  std/[macros, options, strutils, tables],
+  std/[macros, strutils, tables],
   chronicles, chronos, json_serialization/writer,
   ./jsonmarshal, ./errors
 
@@ -122,11 +122,6 @@ proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[StringOfJson])
     fut = rpc(jParams)
     return true
 
-proc makeProcName(s: string): string =
-  result = ""
-  for c in s:
-    if c.isAlphaNumeric: result.add c
-
 proc hasReturnType(params: NimNode): bool =
   if params != nil and params.len > 0 and params[0] != nil and
      params[0].kind != nnkEmpty:
@@ -162,21 +157,20 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
       `setup`
       `procBody`
 
-  if ReturnType == ident"JsonNode":
-    # `JsonNode` results don't need conversion
-    result.add quote do:
-      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return StringOfJson($(await `rpcProcImpl`(`paramsIdent`)))
-  elif ReturnType == ident"StringOfJson":
-    result.add quote do:
-      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return await `rpcProcImpl`(`paramsIdent`)
-  else:
-    result.add quote do:
-      proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-        return StringOfJson($(%(await `rpcProcImpl`(`paramsIdent`))))
+  let
+    awaitedResult = ident "awaitedResult"
+    doEncode = quote do: encode(Eth1JsonRpc, `awaitedResult`)
+    maybeWrap =
+      if ReturnType == ident"StringOfJson": doEncode
+      else: ident"StringOfJson".newCall doEncode
 
   result.add quote do:
+    proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
+      # Avoid 'yield in expr not lowered' with an intermediate variable.
+      # See: https://github.com/nim-lang/Nim/issues/17849
+      let `awaitedResult` = await `rpcProcImpl`(`paramsIdent`)
+      return `maybeWrap`
+
     `server`.register(`path`, `rpcProcWrapper`)
 
   when defined(nimDumpRpcs):
