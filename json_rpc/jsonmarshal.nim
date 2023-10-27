@@ -9,39 +9,87 @@ export json, options, json_serialization
 
 Json.createFlavor Eth1JsonRpc
 
-proc expect*(actual, expected: JsonNodeKind, argName: string) =
-  if actual != expected:
-    raise newException(
-      ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
+# Avoid templates duplicating the string in the executable.
+const errDeserializePrefix = "Error deserializing stream for type '"
 
-const errDeserializePrefix = "Error deserializing stream for '"
-
-proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var byte) =
+template wrapErrors(reader, value, actions: untyped): untyped =
+  ## Convert read errors to `UnexpectedValue` for the purpose of marshalling.
   try:
-    v = byte readValue(r, int64)
+    actions
   except Exception as err:
-    r.raiseUnexpectedValue(errDeserializePrefix & $type(v) & "': " & err.msg)
+    reader.raiseUnexpectedValue(errDeserializePrefix & $type(value) & "': " & err.msg)
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var (enum)) =
-  try:
-    v = type(v) readValue(r, int64)
-  except Exception as err:
-    r.raiseUnexpectedValue(errDeserializePrefix & $type(v) & "': " & err.msg)
+# Bytes.
 
-proc readValue*[N: static[int]](r: var JsonReader[Eth1JsonRpc], v: var array[N, byte]) =
+proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var byte) =
+  ## Implement separate read serialization for `byte` to avoid
+  ## 'can raise Exception' for `readValue(value, uint8)`.
+  wrapErrors r, value:
+    case r.lexer.tok
+    of tkInt:
+      if r.lexer.absIntVal in 0'u32 .. byte.high:
+        value = byte(r.lexer.absIntVal)
+      else:
+        r.raiseIntOverflow r.lexer.absIntVal, true
+    of tkNegativeInt:
+      r.raiseIntOverflow r.lexer.absIntVal, true
+    else:
+      r.raiseUnexpectedToken etInt
+    r.lexer.next()
+
+proc writeValue*(w: var JsonWriter[Eth1JsonRpc], value: byte) =
+  json_serialization.writeValue(w, uint8(value))
+
+# Enums.
+
+proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var (enum)) =
+  wrapErrors r, value:
+    value = type(value) json_serialization.readValue(r, uint64)
+
+proc writeValue*(w: var JsonWriter[Eth1JsonRpc], value: (enum)) =
+  json_serialization.writeValue(w, uint64(value))
+
+# Other base types.
+
+macro genDistinctSerializers(types: varargs[untyped]): untyped =
+  ## Implements distinct serialization pass-throughs for `types`.
+  result = newStmtList()
+  for ty in types:
+    result.add(quote do:
+
+      proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var `ty`) =
+        wrapErrors r, value:
+          json_serialization.readValue(r, value)
+
+      proc writeValue*(w: var JsonWriter[Eth1JsonRpc], value: `ty`) {.raises: [IOError].} =
+        json_serialization.writeValue(w, value)
+    )
+
+genDistinctSerializers bool, int, float, string, int64, uint64, uint32, ref int64, ref int
+
+# Sequences and arrays.
+
+proc readValue*[T](r: var JsonReader[Eth1JsonRpc], value: var seq[T]) =
+  wrapErrors r, value:
+    json_serialization.readValue(r, value)
+
+proc writeValue*[T](w: var JsonWriter[Eth1JsonRpc], value: seq[T]) =
+  json_serialization.writeValue(w, value)
+
+proc readValue*[N: static[int]](r: var JsonReader[Eth1JsonRpc], value: var array[N, byte]) =
   ## Read an array while allowing partial data.
-  try:
+  wrapErrors r, value:
     r.skipToken tkBracketLe
     if r.lexer.tok != tkBracketRi:
-      for i in low(v) .. high(v):
-        readValue(r, v[i])
+      for i in low(value) .. high(value):
+        readValue(r, value[i])
         if r.lexer.tok == tkBracketRi:
           break
         else:
           r.skipToken tkComma
     r.skipToken tkBracketRi
-  except Exception as err:
-    r.raiseUnexpectedValue(errDeserializePrefix & $type(v) & "': " & err.msg)
+
+# High level generic unpacking.
 
 proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T {.raises: [ValueError].} =
   if args.isNil:
@@ -51,6 +99,11 @@ proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T {.ra
   except CatchableError as err:
     raise newException(ValueError,
       "Parameter [" & argName & "] of type '" & $argType & "' could not be decoded: " & err.msg)
+
+proc expect*(actual, expected: JsonNodeKind, argName: string) =
+  if actual != expected:
+    raise newException(
+      ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
 
 proc expectArrayLen(node, jsonIdent: NimNode, length: int) =
   let
