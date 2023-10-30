@@ -3,9 +3,6 @@ import
 
 converter toStr*(value: distinct (string|StringOfJson)): string = string(value)
 
-template `==`*(a: distinct string, b: StringOfJson): bool =
-  string(a) == string(b)
-
 template `==`*(a: StringOfJson, b: JsonNode): bool =
   parseJson(string a) == b
 
