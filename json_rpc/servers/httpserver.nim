@@ -39,23 +39,27 @@ proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback =
         if not res.isNil:
           return res
 
-      let body = await request.getBody()
-
-      let headers = HttpTable.init([("Content-Type",
+      let
+        body = await request.getBody()
+        headers = HttpTable.init([("Content-Type",
                                     "application/json; charset=utf-8")])
 
-      let future = rpcServer.route(string.fromBytes(body))
-      yield future
-      if future.failed:
-        debug "Internal error while processing JSON-RPC call"
-        return await request.respond(Http503,
-                              "Internal error while processing JSON-RPC call",
-                              headers)
-      else:
-        var data = future.read()
-        let res = await request.respond(Http200, data, headers)
-        trace "JSON-RPC result has been sent"
-        return res
+        data =
+          try:
+            await rpcServer.route(string.fromBytes(body))
+          except CancelledError as exc:
+            raise exc
+          except CatchableError as exc:
+            debug "Internal error while processing JSON-RPC call"
+            return await request.respond(
+              Http503,
+              "Internal error while processing JSON-RPC call: " & exc.msg,
+              headers)
+
+        res = await request.respond(Http200, data, headers)
+
+      trace "JSON-RPC result has been sent"
+      return res
     else:
       return dumbResponse()
 
