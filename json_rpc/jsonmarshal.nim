@@ -71,6 +71,9 @@ proc fromJson*(n: JsonNode, argName: string, result: var int) =
   result = n.getInt()
 
 proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
+  if n.kind == JNull:
+    result = nil
+    return
   n.kind.expect(JObject, argName)
   result = new T
   fromJson(n, argName, result[])
