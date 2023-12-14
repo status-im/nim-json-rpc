@@ -29,12 +29,10 @@ proc rpcCallNode*(path: string, params: JsonNode, id: ClientId): JsonNode =
   %{"jsonrpc": %"2.0", "method": %path, "params": params, "id": %id}
 
 method call*(client: RpcClient, name: string,
-             params: JsonNode): Future[Response] {.
-    base, async, gcsafe, raises: [Defect].} =
+             params: JsonNode): Future[Response] {.base, async.} =
   discard
 
-method close*(client: RpcClient): Future[void] {.
-    base, async, gcsafe, raises: [Defect].} =
+method close*(client: RpcClient): Future[void] {.base, async.} =
   discard
 
 template `or`(a: JsonNode, b: typed): JsonNode =
