@@ -10,13 +10,13 @@ proc `%`*(n: UInt256): JsonNode = n.stintStr
 
 proc `%`*(n: Int256): JsonNode = n.stintStr
 
-proc writeValue*(w: var JsonWriter[Eth1JsonRpc], val: UInt256) =
+proc writeValue*(w: var JsonWriter[JsonRpc], val: UInt256) =
   writeValue(w, val.stintStr)
 
-proc writeValue*(w: var JsonWriter[Eth1JsonRpc], val: ref UInt256) =
+proc writeValue*(w: var JsonWriter[JsonRpc], val: ref UInt256) =
   writeValue(w, val[].stintStr)
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var UInt256) =
+proc readValue*(r: var JsonReader[JsonRpc], v: var UInt256) =
   ## Allows UInt256 to be passed as a json string.
   ## Expects base 16 string, starting with "0x".
   try:
@@ -27,7 +27,7 @@ proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var UInt256) =
   except Exception as err:
     r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var ref UInt256) =
+proc readValue*(r: var JsonReader[JsonRpc], v: var ref UInt256) =
   ## Allows ref UInt256 to be passed as a json string.
   ## Expects base 16 string, starting with "0x".
   readValue(r, v[])

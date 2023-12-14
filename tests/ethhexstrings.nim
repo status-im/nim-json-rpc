@@ -75,13 +75,13 @@ proc `%`*(value: HexQuantityStr): JsonNode =
   else:
     result = %(value.string)
 
-proc writeValue*(w: var JsonWriter[Eth1JsonRpc], val: HexDataStr) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter[JsonRpc], val: HexDataStr) {.raises: [IOError].} =
   writeValue(w, val.string)
 
-proc writeValue*(w: var JsonWriter[Eth1JsonRpc], val: HexQuantityStr) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter[JsonRpc], val: HexQuantityStr) {.raises: [IOError].} =
   writeValue(w, $val.string)
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var HexDataStr) =
+proc readValue*(r: var JsonReader[JsonRpc], v: var HexDataStr) =
   # Note that '0x' is stripped after validation
   try:
     let hexStr = readValue(r, string)
@@ -91,7 +91,7 @@ proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var HexDataStr) =
   except Exception as err:
     r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], v: var HexQuantityStr) =
+proc readValue*(r: var JsonReader[JsonRpc], v: var HexQuantityStr) =
   # Note that '0x' is stripped after validation
   try:
     let hexStr = readValue(r, string)
@@ -138,7 +138,7 @@ when isMainModule:
           source = "x1234"
           x = hexQuantityStr source
         check %x != %source
-      
+
   suite "Hex data":
     test "Even length":
       let

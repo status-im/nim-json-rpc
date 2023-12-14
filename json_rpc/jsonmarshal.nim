@@ -7,7 +7,7 @@ import
 
 export json, options, json_serialization
 
-Json.createFlavor Eth1JsonRpc
+Json.createFlavor JsonRpc
 
 # Avoid templates duplicating the string in the executable.
 const errDeserializePrefix = "Error deserializing stream for type '"
@@ -21,7 +21,7 @@ template wrapErrors(reader, value, actions: untyped): untyped =
 
 # Bytes.
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var byte) =
+proc readValue*(r: var JsonReader[JsonRpc], value: var byte) =
   ## Implement separate read serialization for `byte` to avoid
   ## 'can raise Exception' for `readValue(value, uint8)`.
   wrapErrors r, value:
@@ -37,16 +37,16 @@ proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var byte) =
       r.raiseUnexpectedToken etInt
     r.lexer.next()
 
-proc writeValue*(w: var JsonWriter[Eth1JsonRpc], value: byte) =
+proc writeValue*(w: var JsonWriter[JsonRpc], value: byte) =
   json_serialization.writeValue(w, uint8(value))
 
 # Enums.
 
-proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var (enum)) =
+proc readValue*(r: var JsonReader[JsonRpc], value: var (enum)) =
   wrapErrors r, value:
     value = type(value) json_serialization.readValue(r, uint64)
 
-proc writeValue*(w: var JsonWriter[Eth1JsonRpc], value: (enum)) =
+proc writeValue*(w: var JsonWriter[JsonRpc], value: (enum)) =
   json_serialization.writeValue(w, uint64(value))
 
 # Other base types.
@@ -57,11 +57,11 @@ macro genDistinctSerializers(types: varargs[untyped]): untyped =
   for ty in types:
     result.add(quote do:
 
-      proc readValue*(r: var JsonReader[Eth1JsonRpc], value: var `ty`) =
+      proc readValue*(r: var JsonReader[JsonRpc], value: var `ty`) =
         wrapErrors r, value:
           json_serialization.readValue(r, value)
 
-      proc writeValue*(w: var JsonWriter[Eth1JsonRpc], value: `ty`) {.raises: [IOError].} =
+      proc writeValue*(w: var JsonWriter[JsonRpc], value: `ty`) {.raises: [IOError].} =
         json_serialization.writeValue(w, value)
     )
 
@@ -69,14 +69,14 @@ genDistinctSerializers bool, int, float, string, int64, uint64, uint32, ref int6
 
 # Sequences and arrays.
 
-proc readValue*[T](r: var JsonReader[Eth1JsonRpc], value: var seq[T]) =
+proc readValue*[T](r: var JsonReader[JsonRpc], value: var seq[T]) =
   wrapErrors r, value:
     json_serialization.readValue(r, value)
 
-proc writeValue*[T](w: var JsonWriter[Eth1JsonRpc], value: seq[T]) =
+proc writeValue*[T](w: var JsonWriter[JsonRpc], value: seq[T]) =
   json_serialization.writeValue(w, value)
 
-proc readValue*[N: static[int]](r: var JsonReader[Eth1JsonRpc], value: var array[N, byte]) =
+proc readValue*[N: static[int]](r: var JsonReader[JsonRpc], value: var array[N, byte]) =
   ## Read an array while allowing partial data.
   wrapErrors r, value:
     r.skipToken tkBracketLe
@@ -95,7 +95,7 @@ proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T {.ra
   if args.isNil:
     raise newException(ValueError, argName & ": unexpected null value")
   try:
-    result = Eth1JsonRpc.decode($args, argType)
+    result = JsonRpc.decode($args, argType)
   except CatchableError as err:
     raise newException(ValueError,
       "Parameter [" & argName & "] of type '" & $argType & "' could not be decoded: " & err.msg)

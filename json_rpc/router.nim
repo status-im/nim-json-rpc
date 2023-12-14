@@ -159,7 +159,7 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
 
   let
     awaitedResult = ident "awaitedResult"
-    doEncode = quote do: encode(Eth1JsonRpc, `awaitedResult`)
+    doEncode = quote do: encode(JsonRpc, `awaitedResult`)
     maybeWrap =
       if ReturnType == ident"StringOfJson": doEncode
       else: ident"StringOfJson".newCall doEncode
