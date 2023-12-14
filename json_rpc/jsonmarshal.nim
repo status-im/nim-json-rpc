@@ -91,7 +91,7 @@ proc readValue*[N: static[int]](r: var JsonReader[JsonRpc], value: var array[N, 
 
 # High level generic unpacking.
 
-proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T {.raises: [ValueError].} =
+proc unpackArg[T](args: JsonNode, argName: string, argType: typedesc[T]): T {.raises: [ValueError].} =
   if args.isNil:
     raise newException(ValueError, argName & ": unexpected null value")
   try:
