@@ -1,8 +1,7 @@
 import
   ../json_rpc/router
 
-template `==`*(a, b: distinct (string|StringOfJson)): bool =
-  string(a) == string(b)
+converter toStr*(value: distinct (string|StringOfJson)): string = string(value)
 
 template `==`*(a: StringOfJson, b: JsonNode): bool =
   parseJson(string a) == b

@@ -36,7 +36,7 @@ let
         "y": %"test"
       }
     },
-    "c": %1.23}
+    "c": %1.0}
 
 var s = newRpcSocketServer(["localhost:8545"])
 
@@ -201,12 +201,12 @@ suite "Server types":
       inp2 = MyOptional()
       r1 = waitFor s.executeMethod("rpc.optional", %[%inp1])
       r2 = waitFor s.executeMethod("rpc.optional", %[%inp2])
-    check r1 == %inp1
-    check r2 == %inp2
+    check r1 == JsonRpc.encode inp1
+    check r2 == JsonRpc.encode inp2
 
   test "Return statement":
     let r = waitFor s.executeMethod("rpc.testReturns", %[])
-    check r == %1234
+    check r == JsonRpc.encode 1234
 
   test "Runtime errors":
     expect ValueError:
@@ -224,7 +224,7 @@ suite "Server types":
 
   test "Multiple variables of one type":
     let r = waitFor s.executeMethod("rpc.multiVarsOfOneType", %[%"hello", %"world"])
-    check r == %"hello world"
+    check r == JsonRpc.encode "hello world"
 
   test "Optional arg":
     let
@@ -233,37 +233,37 @@ suite "Server types":
       r1 = waitFor s.executeMethod("rpc.optionalArg", %[%117, %int1])
       r2 = waitFor s.executeMethod("rpc.optionalArg", %[%117])
       r3 = waitFor s.executeMethod("rpc.optionalArg", %[%117, newJNull()])
-    check r1 == %int1
-    check r2 == %int2
-    check r3 == %int2
+    check r1 == JsonRpc.encode int1
+    check r2 == JsonRpc.encode int2
+    check r3 == JsonRpc.encode int2
 
   test "Optional arg2":
     let r1 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B"])
-    check r1 == %"AB"
+    check r1 == JsonRpc.encode "AB"
 
     let r2 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", newJNull()])
-    check r2 == %"AB"
+    check r2 == JsonRpc.encode "AB"
 
     let r3 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", newJNull(), newJNull()])
-    check r3 == %"AB"
+    check r3 == JsonRpc.encode "AB"
 
     let r4 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", newJNull(), %"D"])
-    check r4 == %"ABD"
+    check r4 == JsonRpc.encode "ABD"
 
     let r5 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", %"C", %"D"])
-    check r5 == %"ABCD"
+    check r5 == JsonRpc.encode "ABCD"
 
     let r6 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", %"C", newJNull()])
-    check r6 == %"ABC"
+    check r6 == JsonRpc.encode "ABC"
 
     let r7 = waitFor s.executeMethod("rpc.optionalArg2", %[%"A", %"B", %"C"])
-    check r7 == %"ABC"
+    check r7 == JsonRpc.encode "ABC"
 
   test "Mixed optional arg":
     var ax = waitFor s.executeMethod("rpc.mixedOptionalArg", %[%10, %11, %"hello", %12, %"world"])
-    check ax == %OptionalFields(a: 10, b: some(11), c: "hello", d: some(12), e: some("world"))
+    check ax == JsonRpc.encode OptionalFields(a: 10, b: some(11), c: "hello", d: some(12), e: some("world"))
     var bx = waitFor s.executeMethod("rpc.mixedOptionalArg", %[%10, newJNull(), %"hello"])
-    check bx == %OptionalFields(a: 10, c: "hello")
+    check bx == JsonRpc.encode OptionalFields(a: 10, c: "hello")
 
   test "Non-built-in optional types":
     let
@@ -271,33 +271,33 @@ suite "Server types":
       testOpts1 = MyOptionalNotBuiltin(val: some(t2))
       testOpts2 = MyOptionalNotBuiltin()
     var r = waitFor s.executeMethod("rpc.optionalArgNotBuiltin", %[%testOpts1])
-    check r == %t2.y
+    check r == JsonRpc.encode t2.y
     var r2 = waitFor s.executeMethod("rpc.optionalArgNotBuiltin", %[])
-    check r2 == %"Empty1"
+    check r2 == JsonRpc.encode "Empty1"
     var r3 = waitFor s.executeMethod("rpc.optionalArgNotBuiltin", %[%testOpts2])
-    check r3 == %"Empty2"
+    check r3 == JsonRpc.encode "Empty2"
 
   test "Manually set up JSON for optionals":
     # Check manual set up json with optionals
     let opts1 = parseJson("""{"o1": true}""")
     var r1 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts1])
-    check r1 == %1
+    check r1 == JsonRpc.encode 1
     let opts2 = parseJson("""{"o2": true}""")
     var r2 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts2])
-    check r2 == %2
+    check r2 == JsonRpc.encode 2
     let opts3 = parseJson("""{"o3": true}""")
     var r3 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts3])
-    check r3 == %4
+    check r3 == JsonRpc.encode 4
     # Combinations
     let opts4 = parseJson("""{"o1": true, "o3": true}""")
     var r4 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts4])
-    check r4 == %5
+    check r4 == JsonRpc.encode 5
     let opts5 = parseJson("""{"o2": true, "o3": true}""")
     var r5 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts5])
-    check r5 == %6
+    check r5 == JsonRpc.encode 6
     let opts6 = parseJson("""{"o1": true, "o2": true}""")
     var r6 = waitFor s.executeMethod("rpc.optInObj", %[%"0x31ded", opts6])
-    check r6 == %3
+    check r6 == JsonRpc.encode 3
 
 s.stop()
 waitFor s.closeWait()

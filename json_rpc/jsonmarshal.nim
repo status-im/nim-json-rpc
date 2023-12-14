@@ -1,160 +1,109 @@
 import
-  std/[macros, json, options, typetraits],
-  stew/[byteutils, objects]
+  std/[macros, json, typetraits],
+  stew/[byteutils, objects],
+  json_serialization,
+  json_serialization/lexer,
+  json_serialization/std/[options, sets, tables]
 
-export json, options
+export json, options, json_serialization
+
+Json.createFlavor JsonRpc
+
+# Avoid templates duplicating the string in the executable.
+const errDeserializePrefix = "Error deserializing stream for type '"
+
+template wrapErrors(reader, value, actions: untyped): untyped =
+  ## Convert read errors to `UnexpectedValue` for the purpose of marshalling.
+  try:
+    actions
+  except Exception as err:
+    reader.raiseUnexpectedValue(errDeserializePrefix & $type(value) & "': " & err.msg)
+
+# Bytes.
+
+proc readValue*(r: var JsonReader[JsonRpc], value: var byte) =
+  ## Implement separate read serialization for `byte` to avoid
+  ## 'can raise Exception' for `readValue(value, uint8)`.
+  wrapErrors r, value:
+    case r.lexer.tok
+    of tkInt:
+      if r.lexer.absIntVal in 0'u32 .. byte.high:
+        value = byte(r.lexer.absIntVal)
+      else:
+        r.raiseIntOverflow r.lexer.absIntVal, true
+    of tkNegativeInt:
+      r.raiseIntOverflow r.lexer.absIntVal, true
+    else:
+      r.raiseUnexpectedToken etInt
+    r.lexer.next()
+
+proc writeValue*(w: var JsonWriter[JsonRpc], value: byte) =
+  json_serialization.writeValue(w, uint8(value))
+
+# Enums.
+
+proc readValue*(r: var JsonReader[JsonRpc], value: var (enum)) =
+  wrapErrors r, value:
+    value = type(value) json_serialization.readValue(r, uint64)
+
+proc writeValue*(w: var JsonWriter[JsonRpc], value: (enum)) =
+  json_serialization.writeValue(w, uint64(value))
+
+# Other base types.
+
+macro genDistinctSerializers(types: varargs[untyped]): untyped =
+  ## Implements distinct serialization pass-throughs for `types`.
+  result = newStmtList()
+  for ty in types:
+    result.add(quote do:
+
+      proc readValue*(r: var JsonReader[JsonRpc], value: var `ty`) =
+        wrapErrors r, value:
+          json_serialization.readValue(r, value)
+
+      proc writeValue*(w: var JsonWriter[JsonRpc], value: `ty`) {.raises: [IOError].} =
+        json_serialization.writeValue(w, value)
+    )
+
+genDistinctSerializers bool, int, float, string, int64, uint64, uint32, ref int64, ref int
+
+# Sequences and arrays.
+
+proc readValue*[T](r: var JsonReader[JsonRpc], value: var seq[T]) =
+  wrapErrors r, value:
+    json_serialization.readValue(r, value)
+
+proc writeValue*[T](w: var JsonWriter[JsonRpc], value: seq[T]) =
+  json_serialization.writeValue(w, value)
+
+proc readValue*[N: static[int]](r: var JsonReader[JsonRpc], value: var array[N, byte]) =
+  ## Read an array while allowing partial data.
+  wrapErrors r, value:
+    r.skipToken tkBracketLe
+    if r.lexer.tok != tkBracketRi:
+      for i in low(value) .. high(value):
+        readValue(r, value[i])
+        if r.lexer.tok == tkBracketRi:
+          break
+        else:
+          r.skipToken tkComma
+    r.skipToken tkBracketRi
+
+# High level generic unpacking.
+
+proc unpackArg[T](args: JsonNode, argName: string, argType: typedesc[T]): T {.raises: [ValueError].} =
+  if args.isNil:
+    raise newException(ValueError, argName & ": unexpected null value")
+  try:
+    result = JsonRpc.decode($args, argType)
+  except CatchableError as err:
+    raise newException(ValueError,
+      "Parameter [" & argName & "] of type '" & $argType & "' could not be decoded: " & err.msg)
 
 proc expect*(actual, expected: JsonNodeKind, argName: string) =
   if actual != expected:
     raise newException(
       ValueError, "Parameter [" & argName & "] expected " & $expected & " but got " & $actual)
-
-proc `%`*(n: ref SomeInteger): JsonNode =
-  if n.isNil:
-    newJNull()
-  else:
-    newJInt(n[])
-
-# Compiler requires forward decl when processing out of module
-proc fromJson*(n: JsonNode, argName: string, result: var bool)
-proc fromJson*(n: JsonNode, argName: string, result: var int)
-proc fromJson*(n: JsonNode, argName: string, result: var byte)
-proc fromJson*(n: JsonNode, argName: string, result: var float)
-proc fromJson*(n: JsonNode, argName: string, result: var string)
-proc fromJson*[T](n: JsonNode, argName: string, result: var seq[T])
-proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T])
-proc fromJson*(n: JsonNode, argName: string, result: var int64)
-proc fromJson*(n: JsonNode, argName: string, result: var uint64)
-proc fromJson*(n: JsonNode, argName: string, result: var uint32)
-proc fromJson*(n: JsonNode, argName: string, result: var ref int64)
-proc fromJson*(n: JsonNode, argName: string, result: var ref int)
-proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T])
-
-# This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
-proc fromJson*[T: enum](n: JsonNode, argName: string, result: var T) =
-  n.kind.expect(JInt, argName)
-
-  let v = n.getBiggestInt()
-  if not checkedEnumAssign(result, v):
-    raise (ref ValueError)(
-      msg: "Unknown enum ordinal for " & name(T) & ": " & $v)
-
-# This can't be forward declared: https://github.com/nim-lang/Nim/issues/7868
-proc fromJson*[T: object|tuple](n: JsonNode, argName: string, result: var T) =
-  n.kind.expect(JObject, argName)
-  for k, v in fieldPairs(result):
-    if v is Option and not n.hasKey(k):
-      fromJson(newJNull(), k, v)
-    else:
-      fromJson(n[k], k, v)
-
-# same as `proc `%`*[T: object](o: T): JsonNode` in json.nim from the stdlib
-# TODO this PR removes the need for this: https://github.com/nim-lang/Nim/pull/14638
-proc `%`*[T: tuple](o: T): JsonNode =
-  ## Construct JsonNode from tuples and objects.
-  result = newJObject()
-  for k, v in o.fieldPairs: result[k] = %v
-
-proc fromJson*[T](n: JsonNode, argName: string, result: var Option[T]) =
-  # Allow JNull for options
-  if n.kind != JNull:
-    var val: T
-    fromJson(n, argName, val)
-    result = some(val)
-
-proc fromJson*(n: JsonNode, argName: string, result: var bool) =
-  n.kind.expect(JBool, argName)
-  result = n.getBool()
-
-proc fromJson*(n: JsonNode, argName: string, result: var int) =
-  n.kind.expect(JInt, argName)
-  result = n.getInt()
-
-proc fromJson*[T: ref object](n: JsonNode, argName: string, result: var T) =
-  if n.kind == JNull:
-    result = nil
-    return
-  n.kind.expect(JObject, argName)
-  result = new T
-  fromJson(n, argName, result[])
-
-proc fromJson*(n: JsonNode, argName: string, result: var int64) =
-  n.kind.expect(JInt, argName)
-  result = n.getBiggestInt().int64
-
-proc fromJson*(n: JsonNode, argName: string, result: var uint64) =
-  n.kind.expect(JInt, argName)
-  let asInt = n.getBiggestInt()
-  # signed -> unsigned conversions are unchecked
-  # https://github.com/nim-lang/RFCs/issues/175
-  if asInt < 0:
-    raise newException(
-      ValueError, "JSON-RPC input is an unexpected negative value")
-  result = uint64(asInt)
-
-proc fromJson*(n: JsonNode, argName: string, result: var uint32) =
-  n.kind.expect(JInt, argName)
-  let asInt = n.getBiggestInt()
-  # signed -> unsigned conversions are unchecked
-  # https://github.com/nim-lang/RFCs/issues/175
-  if asInt < 0:
-    raise newException(
-      ValueError, "JSON-RPC input is an unexpected negative value")
-  if asInt > BiggestInt(uint32.high()):
-    raise newException(
-      ValueError, "JSON-RPC input is too large for uint32")
-
-  result = uint32(asInt)
-
-proc fromJson*(n: JsonNode, argName: string, result: var ref int64) =
-  n.kind.expect(JInt, argName)
-  new result
-  result[] = n.getInt()
-
-proc fromJson*(n: JsonNode, argName: string, result: var ref int) =
-  n.kind.expect(JInt, argName)
-  new result
-  result[] = n.getInt()
-
-proc fromJson*(n: JsonNode, argName: string, result: var byte) =
-  n.kind.expect(JInt, argName)
-  let v = n.getInt()
-  if v > 255 or v < 0:
-    raise newException(ValueError, "Parameter \"" & argName & "\" value out of range for byte: " & $v)
-  result = byte(v)
-
-proc fromJson*(n: JsonNode, argName: string, result: var float) =
-  n.kind.expect(JFloat, argName)
-  result = n.getFloat()
-
-proc fromJson*(n: JsonNode, argName: string, result: var string) =
-  n.kind.expect(JString, argName)
-  result = n.getStr()
-
-proc fromJson*[T](n: JsonNode, argName: string, result: var seq[T]) =
-  when T is byte:
-    if n.kind == JString:
-      result = hexToSeqByte n.getStr()
-      return
-
-  n.kind.expect(JArray, argName)
-  result = newSeq[T](n.len)
-  for i in 0 ..< n.len:
-    fromJson(n[i], argName, result[i])
-
-proc fromJson*[N, T](n: JsonNode, argName: string, result: var array[N, T]) =
-  n.kind.expect(JArray, argName)
-  if n.len > result.len:
-    raise newException(ValueError, "Parameter \"" & argName & "\" item count is too big for array")
-  for i in 0 ..< n.len:
-    fromJson(n[i], argName, result[i])
-
-proc unpackArg[T](args: JsonNode, argName: string, argtype: typedesc[T]): T =
-  mixin fromJson
-  if args.isNil:
-    raise (ref ValueError)(msg: argName & ": unexpected null value")
-  {.gcsafe.}:
-    fromJson(args, argName, result)
 
 proc expectArrayLen(node, jsonIdent: NimNode, length: int) =
   let
@@ -218,7 +167,7 @@ proc jsonToNim*(assignIdent, paramType, jsonIdent: NimNode, paramNameStr: string
     `unpackArg`(`jsonIdent`, `paramNameStr`, type(`paramType`))
 
   if optional:
-    result.add(quote do: `assignIdent` = `some`(`unpackNode`))
+    result.add(quote do: `assignIdent` = some(`unpackNode`))
   else:
     result.add(quote do: `assignIdent` = `unpackNode`)
 

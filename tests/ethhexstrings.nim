@@ -61,7 +61,7 @@ template hexQuantityStr*(value: string): HexQuantityStr = value.HexQuantityStr
 # Converters
 
 import json
-from ../json_rpc/rpcserver import expect
+import ../json_rpc/jsonmarshal
 
 proc `%`*(value: HexDataStr): JsonNode =
   if not value.validate:
@@ -75,21 +75,31 @@ proc `%`*(value: HexQuantityStr): JsonNode =
   else:
     result = %(value.string)
 
-proc fromJson*(n: JsonNode, argName: string, result: var HexDataStr) =
-  # Note that '0x' is stripped after validation
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if not hexStr.hexDataStr.validate:
-    raise newException(ValueError, "Parameter \"" & argName & "\" value is not valid as a Ethereum data \"" & hexStr & "\"")
-  result = hexStr[2..hexStr.high].hexDataStr
+proc writeValue*(w: var JsonWriter[JsonRpc], val: HexDataStr) {.raises: [IOError].} =
+  writeValue(w, val.string)
 
-proc fromJson*(n: JsonNode, argName: string, result: var HexQuantityStr) =
+proc writeValue*(w: var JsonWriter[JsonRpc], val: HexQuantityStr) {.raises: [IOError].} =
+  writeValue(w, $val.string)
+
+proc readValue*(r: var JsonReader[JsonRpc], v: var HexDataStr) =
   # Note that '0x' is stripped after validation
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if not hexStr.hexQuantityStr.validate:
-    raise newException(ValueError, "Parameter \"" & argName & "\" value is not valid as an Ethereum hex quantity \"" & hexStr & "\"")
-  result = hexStr[2..hexStr.high].hexQuantityStr
+  try:
+    let hexStr = readValue(r, string)
+    if not hexStr.hexDataStr.validate:
+      raise newException(ValueError, "Value for '" & $v.type & "' is not valid as a Ethereum data \"" & hexStr & "\"")
+    v = hexStr[2..hexStr.high].hexDataStr
+  except Exception as err:
+    r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
+
+proc readValue*(r: var JsonReader[JsonRpc], v: var HexQuantityStr) =
+  # Note that '0x' is stripped after validation
+  try:
+    let hexStr = readValue(r, string)
+    if not hexStr.hexQuantityStr.validate:
+      raise newException(ValueError, "Value for '" & $v.type & "' is not valid as a Ethereum data \"" & hexStr & "\"")
+    v = hexStr[2..hexStr.high].hexQuantityStr
+  except Exception as err:
+    r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
 
 # testing
 
@@ -128,7 +138,7 @@ when isMainModule:
           source = "x1234"
           x = hexQuantityStr source
         check %x != %source
-      
+
   suite "Hex data":
     test "Even length":
       let

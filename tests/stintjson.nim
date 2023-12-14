@@ -1,5 +1,4 @@
-import json, stint
-from ../json_rpc/rpcserver import expect
+import stint, ../json_rpc/jsonmarshal
 
 template stintStr(n: UInt256|Int256): JsonNode =
   var s = n.toHex
@@ -11,22 +10,25 @@ proc `%`*(n: UInt256): JsonNode = n.stintStr
 
 proc `%`*(n: Int256): JsonNode = n.stintStr
 
-# allows UInt256 to be passed as a json string
-proc fromJson*(n: JsonNode, argName: string, result: var UInt256) =
-  # expects base 16 string, starting with "0x"
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if hexStr.len > 64 + 2: # including "0x"
-    raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
-  result = hexStr.parse(StUint[256], 16) # TODO: Handle errors
+proc writeValue*(w: var JsonWriter[JsonRpc], val: UInt256) =
+  writeValue(w, val.stintStr)
 
-# allows ref UInt256 to be passed as a json string
-proc fromJson*(n: JsonNode, argName: string, result: var ref UInt256) =
-  # expects base 16 string, starting with "0x"
-  n.kind.expect(JString, argName)
-  let hexStr = n.getStr()
-  if hexStr.len > 64 + 2: # including "0x"
-    raise newException(ValueError, "Parameter \"" & argName & "\" value too long for UInt256: " & $hexStr.len)
-  new result
-  result[] = hexStr.parse(StUint[256], 16) # TODO: Handle errors
+proc writeValue*(w: var JsonWriter[JsonRpc], val: ref UInt256) =
+  writeValue(w, val[].stintStr)
+
+proc readValue*(r: var JsonReader[JsonRpc], v: var UInt256) =
+  ## Allows UInt256 to be passed as a json string.
+  ## Expects base 16 string, starting with "0x".
+  try:
+    let hexStr = r.readValue string
+    if hexStr.len > 64 + 2: # including "0x"
+      raise newException(ValueError, "Value for '" & $v.type & "' too long for UInt256: " & $hexStr.len)
+    v = hexStr.parse(StUint[256], 16) # TODO: Handle errors
+  except Exception as err:
+    r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
+
+proc readValue*(r: var JsonReader[JsonRpc], v: var ref UInt256) =
+  ## Allows ref UInt256 to be passed as a json string.
+  ## Expects base 16 string, starting with "0x".
+  readValue(r, v[])
 
