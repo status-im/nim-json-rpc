@@ -31,3 +31,10 @@ type
     ## This could be raised by request handlers when the server
     ## needs to respond with a custom error code.
     code*: int
+
+  RequestDecodeError* = object of JsonRpcError
+    ## raised when fail to decode RequestRx
+
+  ParamsEncodeError* = object of JsonRpcError
+    ## raised when fail to encode RequestParamsTx
+

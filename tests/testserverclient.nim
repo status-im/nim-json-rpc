@@ -1,5 +1,14 @@
+# json-rpc
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed under either of
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
+# at your option.
+# This file may not be copied, modified, or distributed except according to
+# those terms.
+
 import
-  unittest2, 
+  unittest2,
   ../json_rpc/[rpcclient, rpcserver]
 
 # Create RPC on server
@@ -14,16 +23,16 @@ proc setupServer*(srv: RpcServer) =
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
 
 suite "Socket Server/Client RPC":
-  var srv = newRpcSocketServer(["localhost:8545"])
+  var srv = newRpcSocketServer(["127.0.0.1:8545"])
   var client = newRpcSocketClient()
 
   srv.setupServer()
   srv.start()
-  waitFor client.connect("localhost", Port(8545))
+  waitFor client.connect("127.0.0.1", Port(8545))
 
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
 
   test "Missing params":
     expect(CatchableError):
@@ -38,7 +47,7 @@ suite "Socket Server/Client RPC":
       discard waitFor client.call("invalidRequest", %[])
       check false
     except CatchableError as e:
-      check e.msg == """{"code":-32001,"message":"Unknown payload","data":null}"""
+      check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
 
   srv.stop()
   waitFor srv.closeWait()
@@ -53,7 +62,7 @@ suite "Websocket Server/Client RPC":
 
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
 
   test "Missing params":
     expect(CatchableError):
@@ -68,7 +77,7 @@ suite "Websocket Server/Client RPC":
       discard waitFor client.call("invalidRequest", %[])
       check false
     except CatchableError as e:
-      check e.msg == """{"code":-32001,"message":"Unknown payload","data":null}"""
+      check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
 
   srv.stop()
   waitFor srv.closeWait()
@@ -85,7 +94,7 @@ suite "Websocket Server/Client RPC with Compression":
 
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
 
   test "Missing params":
     expect(CatchableError):
@@ -100,7 +109,8 @@ suite "Websocket Server/Client RPC with Compression":
       discard waitFor client.call("invalidRequest", %[])
       check false
     except CatchableError as e:
-      check e.msg == """{"code":-32001,"message":"Unknown payload","data":null}"""
+      check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
 
   srv.stop()
   waitFor srv.closeWait()
+

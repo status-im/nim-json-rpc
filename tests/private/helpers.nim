@@ -7,15 +7,13 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-{. warning[UnusedImport]:off .}
-
 import
-  testrpcmacro,
-  testethcalls,
-  testhttp,
-  testserverclient,
-  testproxy,
-  testhook,
-  test_jrpc_sys,
-  test_router_rpc,
-  test_callsigs
+  ../../json_rpc/router
+
+converter toStr*(value: distinct (string|StringOfJson)): string = string(value)
+
+template `==`*(a: StringOfJson, b: JsonNode): bool =
+  parseJson(string a) == b
+
+template `==`*(a: JsonNode, b: StringOfJson): bool =
+  a == parseJson(string b)

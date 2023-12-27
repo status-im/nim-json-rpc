@@ -61,7 +61,7 @@ template hexQuantityStr*(value: string): HexQuantityStr = value.HexQuantityStr
 # Converters
 
 import json
-import ../json_rpc/jsonmarshal
+import ../../json_rpc/private/jrpc_conv
 
 proc `%`*(value: HexDataStr): JsonNode =
   if not value.validate:
@@ -75,13 +75,13 @@ proc `%`*(value: HexQuantityStr): JsonNode =
   else:
     result = %(value.string)
 
-proc writeValue*(w: var JsonWriter[JsonRpc], val: HexDataStr) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter[JrpcConv], val: HexDataStr) {.raises: [IOError].} =
   writeValue(w, val.string)
 
-proc writeValue*(w: var JsonWriter[JsonRpc], val: HexQuantityStr) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter[JrpcConv], val: HexQuantityStr) {.raises: [IOError].} =
   writeValue(w, $val.string)
 
-proc readValue*(r: var JsonReader[JsonRpc], v: var HexDataStr) =
+proc readValue*(r: var JsonReader[JrpcConv], v: var HexDataStr) =
   # Note that '0x' is stripped after validation
   try:
     let hexStr = readValue(r, string)
@@ -91,7 +91,7 @@ proc readValue*(r: var JsonReader[JsonRpc], v: var HexDataStr) =
   except Exception as err:
     r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
 
-proc readValue*(r: var JsonReader[JsonRpc], v: var HexQuantityStr) =
+proc readValue*(r: var JsonReader[JrpcConv], v: var HexQuantityStr) =
   # Note that '0x' is stripped after validation
   try:
     let hexStr = readValue(r, string)

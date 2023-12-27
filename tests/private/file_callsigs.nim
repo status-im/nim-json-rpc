@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -7,6 +7,4 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-import server
-import servers/[socketserver, shttpserver]
-export server, socketserver, shttpserver
+proc shh_uninstallFilter(id: int): bool

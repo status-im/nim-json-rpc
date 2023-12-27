@@ -9,10 +9,12 @@
 
 import
   std/tables,
+  chronicles,
+  results,
   chronos,
-  ../client
-
-{.push raises: [Defect].}
+  ../client,
+  ../private/errors,
+  ../private/jrpc_sys
 
 export client
 
@@ -24,6 +26,8 @@ type
 
 const defaultMaxRequestLength* = 1024 * 128
 
+{.push gcsafe, raises: [].}
+
 proc new*(T: type RpcSocketClient): T =
   T()
 
@@ -32,16 +36,16 @@ proc newRpcSocketClient*: RpcSocketClient =
   RpcSocketClient.new()
 
 method call*(self: RpcSocketClient, name: string,
-             params: JsonNode): Future[Response] {.async, gcsafe.} =
+             params: RequestParamsTx): Future[StringOfJson] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
-  var value = $rpcCallNode(name, params, id) & "\r\n"
+  var value = requestTxEncode(name, params, id) & "\r\n"
   if self.transport.isNil:
-    raise newException(ValueError,
+    raise newException(JsonRpcError,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.
-  var newFut = newFuture[Response]()
+  var newFut = newFuture[StringOfJson]()
   # add to awaiting responses
   self.awaiting[id] = newFut
 
@@ -60,8 +64,10 @@ proc processData(client: RpcSocketClient) {.async.} =
         await client.transport.closeWait()
         break
 
-      # TODO handle exceptions
-      client.processMessage(value)
+      let res = client.processMessage(value)
+      if res.isErr:
+        error "error when processing message", msg=res.error
+        raise newException(JsonRpcError, res.error)
 
     # async loop reconnection and waiting
     client.transport = await connect(client.address)

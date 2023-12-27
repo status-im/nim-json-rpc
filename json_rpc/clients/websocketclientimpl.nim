@@ -11,12 +11,11 @@ import
   std/[uri, strutils],
   pkg/websock/[websock, extensions/compression/deflate],
   pkg/[chronos, chronos/apps/http/httptable, chronicles],
-  stew/byteutils
+  stew/byteutils,
+  ../private/errors  
 
 # avoid clash between Json.encode and Base64Pad.encode
 import ../client except encode
-
-{.push raises: [Defect].}
 
 logScope:
   topics = "JSONRPC-WS-CLIENT"
@@ -28,6 +27,8 @@ type
     loop*: Future[void]
     getHeaders*: GetJsonRpcRequestHeaders
 
+{.push gcsafe, raises: [].}
+
 proc new*(
     T: type RpcWebSocketClient, getHeaders: GetJsonRpcRequestHeaders = nil): T =
   T(getHeaders: getHeaders)
@@ -38,16 +39,16 @@ proc newRpcWebSocketClient*(
   RpcWebSocketClient.new(getHeaders)
 
 method call*(self: RpcWebSocketClient, name: string,
-             params: JsonNode): Future[Response] {.async, gcsafe.} =
+             params: RequestParamsTx): Future[StringOfJson] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
-  var value = $rpcCallNode(name, params, id) & "\r\n"
+  var value = requestTxEncode(name, params, id) & "\r\n"
   if self.transport.isNil:
-    raise newException(ValueError,
+    raise newException(JsonRpcError,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.
-  var newFut = newFuture[Response]()
+  var newFut = newFuture[StringOfJson]()
   # add to awaiting responses
   self.awaiting[id] = newFut
 
@@ -66,7 +67,10 @@ proc processData(client: RpcWebSocketClient) {.async.} =
         # transmission ends
         break
 
-      client.processMessage(string.fromBytes(value))
+      let res = client.processMessage(string.fromBytes(value))
+      if res.isErr:
+        raise newException(JsonRpcError, res.error)
+
   except CatchableError as e:
     error = e
 

@@ -1,9 +1,18 @@
+# json-rpc
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed under either of
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
+# at your option.
+# This file may not be copied, modified, or distributed except according to
+# those terms.
+
 import
   unittest2, chronicles,
   ../json_rpc/[rpcclient, rpcserver, rpcproxy]
 
 let srvAddress = initTAddress("127.0.0.1",  Port(8545))
-let proxySrvAddress = "localhost:8546"
+let proxySrvAddress = "127.0.0.1:8546"
 let proxySrvAddressForClient = "http://"&proxySrvAddress
 
 template registerMethods(srv: RpcServer, proxy: RpcProxy) =
@@ -29,10 +38,10 @@ suite "Proxy RPC through http":
 
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
   test "Successful RPC call no proxy":
     let r = waitFor client.call("myProc1", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
   test "Missing params":
     expect(CatchableError):
       discard waitFor client.call("myProc", %[%"abc"])
@@ -58,10 +67,10 @@ suite "Proxy RPC through websockets":
 
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
   test "Successful RPC call no proxy":
     let r = waitFor client.call("myProc1", %[%"abc", %[1, 2, 3, 4]])
-    check r.getStr == "Hello abc data: [1, 2, 3, 4]"
+    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
   test "Missing params":
     expect(CatchableError):
       discard waitFor client.call("myProc", %[%"abc"])

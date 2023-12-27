@@ -8,135 +8,202 @@
 # those terms.
 
 import
-  std/[macros, strutils, tables],
-  chronicles, chronos, json_serialization/writer,
-  ./jsonmarshal, ./errors
+  std/[macros, tables, json],
+  chronicles,
+  chronos,
+  ./private/server_handler_wrapper,
+  ./private/errors,
+  ./private/jrpc_sys
 
 export
-  chronos, jsonmarshal
+  chronos,
+  jrpc_conv,
+  json
 
 type
-  StringOfJson* = JsonString
-
   # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(input: JsonNode): Future[StringOfJson] {.gcsafe, raises: [Defect].}
+  RpcProc* = proc(params: RequestParamsRx): Future[StringOfJson]
+              {.gcsafe, raises: [CatchableError].}
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]
 
 const
-  methodField = "method"
-  paramsField = "params"
-
   JSON_PARSE_ERROR* = -32700
   INVALID_REQUEST* = -32600
   METHOD_NOT_FOUND* = -32601
   INVALID_PARAMS* = -32602
   INTERNAL_ERROR* = -32603
   SERVER_ERROR* = -32000
+  JSON_ENCODE_ERROR* = -32001
 
   defaultMaxRequestLength* = 1024 * 128
 
+{.push gcsafe, raises: [].}
+
+# ------------------------------------------------------------------------------
+# Private helpers
+# ------------------------------------------------------------------------------
+
+func invalidRequest(msg: string): ResponseError =
+  ResponseError(code: INVALID_REQUEST, message: msg)
+
+func methodNotFound(msg: string): ResponseError =
+  ResponseError(code: METHOD_NOT_FOUND, message: msg)
+
+func serverError(msg: string, data: StringOfJson): ResponseError =
+  ResponseError(code: SERVER_ERROR, message: msg, data: Opt.some(data))
+
+func somethingError(code: int, msg: string): ResponseError =
+  ResponseError(code: code, message: msg)
+
+proc validateRequest(router: RpcRouter, req: RequestRx):
+                       Result[RpcProc, ResponseError] =
+  if req.jsonrpc.isNone:
+    return invalidRequest("'jsonrpc' missing or invalid").err
+
+  if req.id.kind == riNull:
+    return invalidRequest("'id' missing or invalid").err
+
+  if req.meth.isNone:
+    return invalidRequest("'method' missing or invalid").err
+
+  let
+    methodName = req.meth.get
+    rpcProc = router.procs.getOrDefault(methodName)
+
+  if rpcProc.isNil:
+    return methodNotFound("'" & methodName &
+      "' is not a registered RPC method").err
+
+  ok(rpcProc)
+
+proc wrapError(err: ResponseError, id: RequestId): ResponseTx =
+  ResponseTx(
+    id: id,
+    kind: rkError,
+    error: err,
+  )
+
+proc wrapError(code: int, msg: string, id: RequestId): ResponseTx =
+  ResponseTx(
+    id: id,
+    kind: rkError,
+    error: somethingError(code, msg),
+  )
+
+proc wrapReply(res: StringOfJson, id: RequestId): ResponseTx =
+  ResponseTx(
+    id: id,
+    kind: rkResult,
+    result: res,
+  )
+
+proc wrapError(code: int, msg: string): string =
+  """{"jsonrpc":"2.0","id":null,"error":{"code":""" & $code &
+    ""","message":""" & escapeJson(msg) & "}}"
+
+# ------------------------------------------------------------------------------
+# Public functions
+# ------------------------------------------------------------------------------
+
 proc init*(T: type RpcRouter): T = discard
 
-proc newRpcRouter*: RpcRouter {.deprecated.} =
-  RpcRouter.init()
-
-proc register*(router: var RpcRouter, path: string, call: RpcProc) =
+proc register*(router: var RpcRouter, path: string, call: RpcProc)
+                {.gcsafe, raises: [CatchableError].} =
   router.procs[path] = call
 
 proc clear*(router: var RpcRouter) =
   router.procs.clear
 
-proc hasMethod*(router: RpcRouter, methodName: string): bool = router.procs.hasKey(methodName)
+proc hasMethod*(router: RpcRouter, methodName: string): bool =
+  router.procs.hasKey(methodName)
 
-func isEmpty(node: JsonNode): bool = node.isNil or node.kind == JNull
+proc route*(router: RpcRouter, req: RequestRx):
+             Future[ResponseTx] {.gcsafe, async: (raises: []).} =
+  let rpcProc = router.validateRequest(req).valueOr:
+    return wrapError(error, req.id)
 
-# Json reply wrappers
+  try:
+    let res = await rpcProc(req.params)
+    return wrapReply(res, req.id)
+  except InvalidRequest as err:
+    return wrapError(err.code, err.msg, req.id)
+  except CatchableError as err:
+    let methodName = req.meth.get # this Opt already validated
+    debug "Error occurred within RPC",
+      methodName = methodName, err = err.msg
+    return serverError(methodName & " raised an exception",
+      escapeJson(err.msg).StringOfJson).
+      wrapError(req.id)
 
-# https://www.jsonrpc.org/specification#response_object
-proc wrapReply*(id: JsonNode, value: StringOfJson): StringOfJson =
-  # Success response carries version, id and result fields only
-  StringOfJson(
-    """{"jsonrpc":"2.0","id":$1,"result":$2}""" % [$id, string(value)] & "\r\n")
+proc wrapErrorAsync*(code: int, msg: string):
+       Future[StringOfJson] {.gcsafe, async: (raises: []).} =
+  return wrapError(code, msg).StringOfJson
 
-proc wrapError*(code: int, msg: string, id: JsonNode = newJNull(),
-                data: JsonNode = newJNull()): StringOfJson =
-  # Error reply that carries version, id and error object only
-  StringOfJson(
-    """{"jsonrpc":"2.0","id":$1,"error":{"code":$2,"message":$3,"data":$4}}""" % [
-      $id, $code, escapeJson(msg), $data
-    ] & "\r\n")
-
-proc route*(router: RpcRouter, node: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-  if node{"jsonrpc"}.getStr() != "2.0":
-    return wrapError(INVALID_REQUEST, "'jsonrpc' missing or invalid")
-
-  let id = node{"id"}
-  if id == nil:
-    return wrapError(INVALID_REQUEST, "'id' missing or invalid")
-
-  let methodName = node{"method"}.getStr()
-  if methodName.len == 0:
-    return wrapError(INVALID_REQUEST, "'method' missing or invalid")
-
-  let rpcProc = router.procs.getOrDefault(methodName)
-  let params = node.getOrDefault("params")
-
-  if rpcProc == nil:
-    return wrapError(METHOD_NOT_FOUND, "'" & methodName & "' is not a registered RPC method", id)
-  else:
-    try:
-      let res = await rpcProc(if params == nil: newJArray() else: params)
-      return wrapReply(id, res)
-    except InvalidRequest as err:
-      return wrapError(err.code, err.msg, id)
-    except CatchableError as err:
-      debug "Error occurred within RPC", methodName = methodName, err = err.msg
-      return wrapError(
-        SERVER_ERROR, methodName & " raised an exception", id, newJString(err.msg))
-
-proc route*(router: RpcRouter, data: string): Future[string] {.async, gcsafe.} =
-  ## Route to RPC from string data. Data is expected to be able to be converted to Json.
+proc route*(router: RpcRouter, data: string):
+       Future[string] {.gcsafe, async: (raises: []).} =
+  ## Route to RPC from string data. Data is expected to be able to be
+  ## converted to Json.
   ## Returns string of Json from RPC result/error node
   when defined(nimHasWarnBareExcept):
     {.warning[BareExcept]:off.}
 
-  let node =
-    try: parseJson(data)
+  let request =
+    try:
+      JrpcSys.decode(data, RequestRx)
     except CatchableError as err:
-      return string(wrapError(JSON_PARSE_ERROR, err.msg))
+      return wrapError(JSON_PARSE_ERROR, err.msg)
     except Exception as err:
       # TODO https://github.com/status-im/nimbus-eth2/issues/2430
-      return string(wrapError(JSON_PARSE_ERROR, err.msg))
+      return wrapError(JSON_PARSE_ERROR, err.msg)
+
+  let reply =
+    try:
+      let response = await router.route(request)
+      JrpcSys.encode(response)
+    except CatchableError as err:
+      return wrapError(JSON_ENCODE_ERROR, err.msg)
+    except Exception as err:
+      return wrapError(JSON_ENCODE_ERROR, err.msg)
 
   when defined(nimHasWarnBareExcept):
     {.warning[BareExcept]:on.}
 
-  return string(await router.route(node))
+  return reply
 
-proc tryRoute*(router: RpcRouter, data: JsonNode, fut: var Future[StringOfJson]): bool =
+proc tryRoute*(router: RpcRouter, data: StringOfJson,
+               fut: var Future[StringOfJson]): Result[void, string] =
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
-  let
-    jPath = data.getOrDefault(methodField)
-    jParams = data.getOrDefault(paramsField)
-  if jPath.isEmpty or jParams.isEmpty:
-    return false
+  when defined(nimHasWarnBareExcept):
+    {.warning[BareExcept]:off.}
 
-  let
-    path = jPath.getStr
-    rpc = router.procs.getOrDefault(path)
-  if rpc != nil:
-    fut = rpc(jParams)
-    return true
+  try:
+    let req = JrpcSys.decode(data.string, RequestRx)
 
-proc hasReturnType(params: NimNode): bool =
-  if params != nil and params.len > 0 and params[0] != nil and
-     params[0].kind != nnkEmpty:
-    result = true
+    if req.jsonrpc.isNone:
+      return err("`jsonrpc` missing or invalid")
 
-macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
+    if req.meth.isNone:
+      return err("`method` missing or invalid")
+
+    let rpc = router.procs.getOrDefault(req.meth.get)
+    if rpc.isNil:
+      return err("rpc method not found: " & req.meth.get)
+
+    fut = rpc(req.params)
+    return ok()
+
+  except CatchableError as ex:
+    return err(ex.msg)
+  except Exception as ex:
+    return err(ex.msg)
+
+  when defined(nimHasWarnBareExcept):
+    {.warning[BareExcept]:on.}
+
+macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.
   ## Input and return parameters are defined using the ``do`` notation.
   ## For example:
@@ -146,41 +213,17 @@ macro rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   ##    ```
   ## Input parameters are automatically marshalled from json to Nim types,
   ## and output parameters are automatically marshalled to json for transport.
-  result = newStmtList()
   let
-    parameters = body.findChild(it.kind == nnkFormalParams)
-    # all remote calls have a single parameter: `params: JsonNode`
-    paramsIdent = newIdentNode"params"
-    rpcProcImpl = genSym(nskProc)
-    rpcProcWrapper = genSym(nskProc)
-  var
-    setup = jsonToNim(parameters, paramsIdent)
+    params = body.findChild(it.kind == nnkFormalParams)
     procBody = if body.kind == nnkStmtList: body else: body.body
+    procWrapper = genSym(nskProc, $path & "_rpcWrapper")
 
-  let ReturnType = if parameters.hasReturnType: parameters[0]
-                   else: ident "JsonNode"
-
-  # delegate async proc allows return and setting of result as native type
-  result.add quote do:
-    proc `rpcProcImpl`(`paramsIdent`: JsonNode): Future[`ReturnType`] {.async.} =
-      `setup`
-      `procBody`
-
-  let
-    awaitedResult = ident "awaitedResult"
-    doEncode = quote do: encode(JsonRpc, `awaitedResult`)
-    maybeWrap =
-      if ReturnType == ident"StringOfJson": doEncode
-      else: ident"StringOfJson".newCall doEncode
+  result = wrapServerHandler($path, params, procBody, procWrapper)
 
   result.add quote do:
-    proc `rpcProcWrapper`(`paramsIdent`: JsonNode): Future[StringOfJson] {.async, gcsafe.} =
-      # Avoid 'yield in expr not lowered' with an intermediate variable.
-      # See: https://github.com/nim-lang/Nim/issues/17849
-      let `awaitedResult` = await `rpcProcImpl`(`paramsIdent`)
-      return `maybeWrap`
-
-    `server`.register(`path`, `rpcProcWrapper`)
+    `server`.register(`path`, `procWrapper`)
 
   when defined(nimDumpRpcs):
     echo "\n", path, ": ", result.repr
+
+{.pop.}

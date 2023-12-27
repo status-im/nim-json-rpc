@@ -1,7 +1,20 @@
+# json-rpc
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed under either of
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
+# at your option.
+# This file may not be copied, modified, or distributed except according to
+# those terms.
+
 import
   unittest2, tables,
-  stint, ethtypes, ethprocs, stintjson, chronicles,
-  ../json_rpc/[rpcclient, rpcserver], ./helpers
+  stint, chronicles,
+  ../json_rpc/[rpcclient, rpcserver],
+  ./private/helpers,
+  ./private/ethtypes,
+  ./private/ethprocs,
+  ./private/stintjson
 
 from os import getCurrentDir, DirSep
 from strutils import rsplit
@@ -15,7 +28,7 @@ var
 server.addEthRpcs()
 
 ## Generate client convenience marshalling wrappers from forward declarations
-createRpcSigs(RpcSocketClient, sourceDir & DirSep & "ethcallsigs.nim")
+createRpcSigs(RpcSocketClient, sourceDir & "/private/ethcallsigs.nim")
 
 func rpcDynamicName(name: string): string =
   "rpc." & name
@@ -38,7 +51,7 @@ proc testLocalCalls: Future[seq[StringOfJson]] =
     returnUint256 = server.executeMethod("rpc.testReturnUint256", %[])
   return all(uint256Param, returnUint256)
 
-proc testRemoteUInt256: Future[seq[Response]] =
+proc testRemoteUInt256: Future[seq[StringOfJson]] =
   ## Call function remotely on server, testing `stint` types
   let
     uint256Param =  client.call("rpc.uint256Param", %[%"0x1234567890"])
