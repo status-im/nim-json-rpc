@@ -7,12 +7,11 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-{.push raises: [Defect].}
-
 import
    pkg/websock/websock,
   ./servers/[httpserver],
-  ./clients/[httpclient, websocketclient]
+  ./clients/[httpclient, websocketclient],
+  ./private/jrpc_sys
 
 type
   ClientKind* = enum
@@ -40,6 +39,8 @@ type
       compression*: bool
       flags*: set[TLSFlags]
 
+{.push gcsafe, raises: [].}
+
 # TODO Add validations that provided uri-s are correct https/wss uri and retrun
 #  Result[string, ClientConfig]
 proc getHttpClientConfig*(uri: string): ClientConfig =
@@ -53,9 +54,9 @@ proc getWebSocketClientConfig*(
   ClientConfig(kind: WebSocket, wsUri: uri, compression: compression, flags: flags)
 
 proc proxyCall(client: RpcClient, name: string): RpcProc =
-  return proc (params: JsonNode): Future[StringOfJson] {.async.} =
-          let res = await client.call(name, params)
-          return StringOfJson($res)
+  return proc (params: RequestParamsRx): Future[StringOfJson] {.gcsafe, async.} =
+          let res = await client.call(name, params.toTx)
+          return res
 
 proc getClient*(proxy: RpcProxy): RpcClient =
   case proxy.kind
@@ -85,14 +86,14 @@ proc new*(
     listenAddresses: openArray[TransportAddress],
     cfg: ClientConfig,
     authHooks: seq[HttpAuthHook] = @[]
-): T {.raises: [Defect, CatchableError].} =
+): T {.raises: [CatchableError].} =
   RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(), authHooks), cfg)
 
 proc new*(
     T: type RpcProxy,
     listenAddresses: openArray[string],
     cfg: ClientConfig,
-    authHooks: seq[HttpAuthHook] = @[]): T {.raises: [Defect, CatchableError].} =
+    authHooks: seq[HttpAuthHook] = @[]): T {.raises: [CatchableError].} =
   RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(), authHooks), cfg)
 
 proc connectToProxy(proxy: RpcProxy): Future[void] =
@@ -125,3 +126,5 @@ proc stop*(proxy: RpcProxy) {.async.} =
 
 proc closeWait*(proxy: RpcProxy) {.async.} =
   await proxy.rpcHttpServer.closeWait()
+
+{.pop.}

@@ -9,15 +9,16 @@
 
 import
   std/[tables, uri],
-  stew/[byteutils, results],
+  stew/byteutils,
+  results,
   chronos/apps/http/httpclient as chronosHttpClient,
   chronicles, httputils, json_serialization/std/net,
-  ".."/[client, errors]
+  ../client,
+  ../private/errors,
+  ../private/jrpc_sys
 
 export
   client, HttpClientFlag, HttpClientFlags
-
-{.push raises: [Defect].}
 
 logScope:
   topics = "JSONRPC-HTTP-CLIENT"
@@ -35,6 +36,8 @@ type
 const
   MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
 
+{.push gcsafe, raises: [].}
+
 proc new(
     T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false,
     getHeaders: GetJsonRpcRequestHeaders = nil, flags: HttpClientFlags = {}): T =
@@ -51,7 +54,7 @@ proc newRpcHttpClient*(
   RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
 
 method call*(client: RpcHttpClient, name: string,
-             params: JsonNode): Future[Response]
+             params: RequestParamsTx): Future[StringOfJson]
             {.async, gcsafe.} =
   doAssert client.httpSession != nil
   if client.httpAddress.isErr:
@@ -66,7 +69,7 @@ method call*(client: RpcHttpClient, name: string,
 
   let
     id = client.getNextId()
-    reqBody = $rpcCallNode(name, params, id)
+    reqBody = requestTxEncode(name, params, id)
 
   var req: HttpClientRequestRef
   var res: HttpClientResponseRef
@@ -128,19 +131,18 @@ method call*(client: RpcHttpClient, name: string,
 
   # completed by processMessage - the flow is quite weird here to accomodate
   # socket and ws clients, but could use a more thorough refactoring
-  var newFut = newFuture[Response]()
+  var newFut = newFuture[StringOfJson]()
   # add to awaiting responses
   client.awaiting[id] = newFut
 
-  try:
-    # Might raise for all kinds of reasons
-    client.processMessage(resText)
-  except CatchableError as e:
+  # Might error for all kinds of reasons
+  let msgRes = client.processMessage(resText)
+  if msgRes.isErr:
     # Need to clean up in case the answer was invalid
-    debug "Failed to process POST Response for JSON-RPC", e = e.msg
+    debug "Failed to process POST Response for JSON-RPC", msg = msgRes.error
     client.awaiting.del(id)
     closeRefs()
-    raise e
+    raise newException(JsonRpcError, msgRes.error)
 
   client.awaiting.del(id)
 
@@ -175,3 +177,5 @@ proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) 
 method close*(client: RpcHttpClient) {.async.} =
   if not client.httpSession.isNil:
     await client.httpSession.closeWait()
+
+{.pop.}

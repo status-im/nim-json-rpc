@@ -49,7 +49,7 @@ router.rpc("hello") do() -> string:
 ```
 
 As no return type was specified in this example, `result` defaults to the `JsonNode` type.
-A JSON string is returned by passing a string though the `%` operator, which converts simple types to `JsonNode`.
+A JSON string is returned by passing a string though the `JrpcConv` converter powered by [nim-json-serialization](https://github.com/status-im/nim-json-serialization).
 
 The `body` parameters can be defined by using [do notation](https://nim-lang.org/docs/manual.html#procedures-do-notation).
 This allows full Nim types to be used as RPC parameters.
@@ -89,7 +89,7 @@ router.rpc("updateData") do(myObj: MyObject, newData: DataBlob) -> DataBlob:
   myObj.data = newData
 ```
 
-Behind the scenes, all RPC calls take a single json parameter `param` that must be of kind `JArray`.
+Behind the scenes, all RPC calls take parameters through `RequestParamsRx` structure.
 At runtime, the json is checked to ensure that it contains the correct number and type of your parameters to match the `rpc` definition.
 
 Compiling with `-d:nimDumpRpcs` will show the output code for the RPC call. To see the output of the `async` generation, add `-d:nimDumpAsync`.
@@ -129,83 +129,71 @@ type
 
 Note that `array` parameters are explicitly checked for length, and will return an error node if the length differs from their declaration size.
 
-If you wish to support custom types in a particular way, you can provide matching `fromJson` and `%` procedures.
+If you wish to support custom types in a particular way, you can provide matching `readValue` and `writeValue` procedures.
+The custom serializer you write must be using `JrpcConv` flavor.
 
-### `fromJson`
+### `readValue`
 
 This takes a Json type and returns the Nim type.
 
 #### Parameters
 
-`n: JsonNode`: The current node being processed
+`r: var JsonReader[JrpcConv]`: The current JsonReader with JrpcConv flavor.
 
-`argName: string`: The name of the field in `n`
-
-`result`: The type of this must be `var X` where `X` is the Nim type you wish to handle
+`val: var MyInt`: Deserialized value.
 
 #### Example
 
 ```nim
-proc fromJson[T](n: JsonNode, argName: string, result: var seq[T]) =
-  n.kind.expect(JArray, argName)
-  result = newSeq[T](n.len)
-  for i in 0 ..< n.len:
-    fromJson(n[i], argName, result[i])
+proc readValue*(r: var JsonReader[JrpcConv], val: var MyInt)
+      {.gcsafe, raises: [IOError, JsonReaderError].} =
+  let intVal = r.parseInt(int)
+  val = MyInt(intVal)
 ```
 
-### `%`
+### `writeValue`
 
-This is the standard way to provide translations from a Nim type to a `JsonNode`.
-
-#### Parameters
-
-`n`: The type you wish to convert
-
-#### Returns
-
-`JsonNode`: The newly encoded `JsonNode` type from the parameter type.
-
-### `expect`
-
-This is a simple procedure to state your expected type.
-
-If the actual type doesn't match the expected type, an exception is thrown mentioning which field caused the failure.
+This is the standard way to provide translations from a Nim type to Json.
 
 #### Parameters
 
-`actual: JsonNodeKind`: The actual type of the `JsonNode`.
+`w: var JsonWriter[JrpcConv]`: The current JsonWriter with JrpcConv flavor.
 
-`expected: JsonNodeKind`: The desired type.
-
-`argName: string`: The current field name.
+`val: MyInt`: The value you want to convert into Json.
 
 #### Example
 
 ```nim
-myNode.kind.expect(JArray, argName)
+proc writeValue*(w: var JsonWriter[JrpcConv], val: MyInt)
+      {.gcsafe, raises: [IOError].} =
+  w.writeValue val.int
 ```
 
 ## JSON Format
 
-The router expects either a string or `JsonNode` with the following structure:
+The router expects either a Json document with the following structure:
 
 ```json
 {
-  "id": JInt,
+  "id": Int or String,
   "jsonrpc": "2.0",
-  "method": JString,
-  "params": JArray
+  "method": String,
+  "params": Array or Object
 }
+
 ```
+
+If params is an Array, it is a positional parameters. If it is an Object then the rpc method will be called using named parameters.
+
 
 Return values use the following node structure:
 
 ```json
 {
-  "id": JInt,
+  "id": Int Or String,
   "jsonrpc": "2.0",
-  "result": JsonNode,
-  "error": JsonNode
+  "result": Json document,
+  "error": Json document
 }
 ```
 
@@ -215,35 +203,35 @@ To call and RPC through the router, use the `route` procedure.
 
 There are three variants of `route`.
 
-Note that once invoked all RPC calls are error trapped and any exceptions raised are passed back with the error message encoded as a `JsonNode`.
+Note that once invoked all RPC calls are error trapped and any exceptions raised are passed back with the error message encoded as a `Json document`.
 
 ### `route` by string
 
-This `route` variant will handle all the conversion of `string` to `JsonNode` and check the format and type of the input data.
+This `route` variant will handle all the conversion of `string` to `Json document` and check the format and type of the input data.
 
 #### Parameters
 
 `router: RpcRouter`: The router object that contains the RPCs.
 
-`data: string`: A string ready to be processed into a `JsonNode`.
+`data: string`: A string ready to be processed into a `Json document`.
 
 #### Returns
 
 `Future[string]`: This will be the stringified JSON response, which can be the JSON RPC result or a JSON wrapped error.
 
-### `route` by `JsonNode`
+### `route` by `Json document`
 
-This variant allows simplified processing if you already have a `JsonNode`. However if the required fields are not present within `node`, exceptions will be raised.
+This variant allows simplified processing if you already have a `Json document`. However if the required fields are not present within `data`, exceptions will be raised.
 
 #### Parameters
 
 `router: RpcRouter`: The router object that contains the RPCs.
 
-`node: JsonNode`: A pre-processed `JsonNode` that matches the expected format as defined above.
+`req: RequestTx`: A pre-processed `Json document` that matches the expected format as defined above.
 
 #### Returns
 
-`Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
+`Future[ResponseTx]`: The JSON RPC result or a JSON wrapped error.
 
 ### `tryRoute`
 
@@ -253,13 +241,13 @@ This `route` variant allows you to invoke a call if possible, without raising an
 
 `router: RpcRouter`: The router object that contains the RPCs.
 
-`node: JsonNode`: A pre-processed `JsonNode` that matches the expected format as defined above.
+`data: StringOfJson`: A raw `Json document` that matches the expected format as defined above.
 
-`fut: var Future[JsonNode]`: The JSON RPC result or a JSON wrapped error.
+`fut: var Future[StringOfJson]`: The stringified JSON RPC result or a JSON wrapped error.
 
 #### Returns
 
-`bool`: `true` if the `method` field provided in `node` matches an available route. Returns `false` when the `method` cannot be found, or if `method` or `params` field cannot be found within `node`.
+`Result[void, string]` `isOk` if the `method` field provided in `data` matches an available route. Returns `isErr` when the `method` cannot be found, or if `method` or `params` field cannot be found within `data`.
 
 
 To see the result of a call, we need to provide Json in the expected format.
@@ -326,7 +314,7 @@ Below is the most basic way to use a remote call on the client.
 Here we manually supply the name and json parameters for the call.
 
 The `call` procedure takes care of the basic format of the JSON to send to the server.
-However you still need to provide `params` as a `JsonNode`, which must exactly match the parameters defined in the equivalent `rpc` definition.
+However you still need to provide `params` as a `JsonNode` or `RequestParamsTx`, which must exactly match the parameters defined in the equivalent `rpc` definition.
 
 ```nim
 import json_rpc/[rpcclient, rpcserver], chronos, json
@@ -361,6 +349,11 @@ Because the signatures are parsed at compile time, the file will be error checke
 `clientType`: This is the type you want to pass to your generated calls. Usually this would be a transport specific descendant from `RpcClient`.
 
 `path`: The path to the Nim module that contains the RPC header signatures.
+
+#### Variants of createRpcSigs
+  - `createRpcSigsFromString`, generate rpc wrapper from string instead load it from file.
+  - `createSingleRpcSig`, generate rpc wrapper from single Nim proc signature, with alias. e.g. calling same rpc method using different return type.
+  - `createRpcSigsFromNim`, generate rpc wrapper from a list Nim proc signature, without loading any file.
 
 #### Example
 
@@ -404,7 +397,7 @@ Additionally, the following two procedures are useful:
   `name: string`: the method to be called
   `params: JsonNode`: The parameters to the RPC call
   Returning
-    `Future[Response]`: A wrapper for the result `JsonNode` and a flag to indicate if this contains an error.
+    `Future[StringOfJson]`: A wrapper for the result `Json document` and a flag to indicate if this contains an error.
 
 Note: Although `call` isn't necessary for a client to function, it allows RPC signatures to be used by the `createRpcSigs`.
 
@@ -416,9 +409,9 @@ Note: Although `call` isn't necessary for a client to function, it allows RPC si
 
 ### `processMessage`
 
-To simplify and unify processing within the client, the `processMessage` procedure can be used to perform conversion and error checking from the received string originating from the transport to the `JsonNode` representation that is passed to the RPC.
+To simplify and unify processing within the client, the `processMessage` procedure can be used to perform conversion and error checking from the received string originating from the transport to the `Json document` representation that is passed to the RPC.
 
-After a RPC returns, this procedure then completes the futures set by `call` invocations using the `id` field of the processed `JsonNode` from `line`.
+After a RPC returns, this procedure then completes the futures set by `call` invocations using the `id` field of the processed `Json document` from `line`.
 
 #### Parameters
 

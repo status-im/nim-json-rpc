@@ -1,8 +1,13 @@
+import
+  ../../json_rpc/private/errors
+
 type
   HexQuantityStr* = distinct string
   HexDataStr* = distinct string
 
 # Hex validation
+
+{.push gcsafe, raises: [].}
 
 template stripLeadingZeros(value: string): string =
   var cidx = 0
@@ -61,45 +66,47 @@ template hexQuantityStr*(value: string): HexQuantityStr = value.HexQuantityStr
 # Converters
 
 import json
-import ../json_rpc/jsonmarshal
+import ../../json_rpc/private/jrpc_conv
 
-proc `%`*(value: HexDataStr): JsonNode =
+proc `%`*(value: HexDataStr): JsonNode {.gcsafe, raises: [JsonRpcError].} =
   if not value.validate:
-    raise newException(ValueError, "HexDataStr: Invalid hex for Ethereum: " & value.string)
+    raise newException(JsonRpcError, "HexDataStr: Invalid hex for Ethereum: " & value.string)
   else:
     result = %(value.string)
 
-proc `%`*(value: HexQuantityStr): JsonNode =
+proc `%`*(value: HexQuantityStr): JsonNode {.gcsafe, raises: [JsonRpcError].} =
   if not value.validate:
-    raise newException(ValueError, "HexQuantityStr: Invalid hex for Ethereum: " & value.string)
+    raise newException(JsonRpcError, "HexQuantityStr: Invalid hex for Ethereum: " & value.string)
   else:
     result = %(value.string)
 
-proc writeValue*(w: var JsonWriter[JsonRpc], val: HexDataStr) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter[JrpcConv], val: HexDataStr) {.raises: [IOError].} =
   writeValue(w, val.string)
 
-proc writeValue*(w: var JsonWriter[JsonRpc], val: HexQuantityStr) {.raises: [IOError].} =
+proc writeValue*(w: var JsonWriter[JrpcConv], val: HexQuantityStr) {.raises: [IOError].} =
   writeValue(w, $val.string)
 
-proc readValue*(r: var JsonReader[JsonRpc], v: var HexDataStr) =
+proc readValue*(r: var JsonReader[JrpcConv], v: var HexDataStr) {.gcsafe, raises: [JsonReaderError].} =
   # Note that '0x' is stripped after validation
   try:
     let hexStr = readValue(r, string)
     if not hexStr.hexDataStr.validate:
-      raise newException(ValueError, "Value for '" & $v.type & "' is not valid as a Ethereum data \"" & hexStr & "\"")
+      raise newException(JsonRpcError, "Value for '" & $v.type & "' is not valid as a Ethereum data \"" & hexStr & "\"")
     v = hexStr[2..hexStr.high].hexDataStr
   except Exception as err:
     r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
 
-proc readValue*(r: var JsonReader[JsonRpc], v: var HexQuantityStr) =
+proc readValue*(r: var JsonReader[JrpcConv], v: var HexQuantityStr) {.gcsafe, raises: [JsonReaderError].} =
   # Note that '0x' is stripped after validation
   try:
     let hexStr = readValue(r, string)
     if not hexStr.hexQuantityStr.validate:
-      raise newException(ValueError, "Value for '" & $v.type & "' is not valid as a Ethereum data \"" & hexStr & "\"")
+      raise newException(JsonRpcError, "Value for '" & $v.type & "' is not valid as a Ethereum data \"" & hexStr & "\"")
     v = hexStr[2..hexStr.high].hexQuantityStr
   except Exception as err:
     r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
+
+{.pop.}
 
 # testing
 
@@ -107,7 +114,7 @@ when isMainModule:
   import unittest
   suite "Hex quantity":
     test "Empty string":
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = ""
           x = hexQuantityStr source
@@ -123,17 +130,17 @@ when isMainModule:
         x = hexQuantityStr"0x123"
       check %x == %source
     test "Missing header":
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "1234"
           x = hexQuantityStr source
         check %x != %source
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "01234"
           x = hexQuantityStr source
         check %x != %source
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "x1234"
           x = hexQuantityStr source
@@ -146,23 +153,23 @@ when isMainModule:
         x = hexDataStr source
       check %x == %source
     test "Odd length":
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "0x123"
           x = hexDataStr source
         check %x != %source
     test "Missing header":
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "1234"
           x = hexDataStr source
         check %x != %source
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "01234"
           x = hexDataStr source
         check %x != %source
-      expect ValueError:
+      expect JsonRpcError:
         let
           source = "x1234"
           x = hexDataStr source

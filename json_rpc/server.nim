@@ -8,21 +8,35 @@
 # those terms.
 
 import
-  std/tables,
+  std/json,
   chronos,
   ./router,
-  ./jsonmarshal
+  ./private/jrpc_conv,
+  ./private/jrpc_sys,
+  ./private/shared_wrapper,
+  ./private/errors
 
-export chronos, jsonmarshal, router
+export
+  chronos,
+  jrpc_conv,
+  router
 
 type
   RpcServer* = ref object of RootRef
     router*: RpcRouter
 
-proc new(T: type RpcServer): T =
+{.push gcsafe, raises: [].}
+
+# ------------------------------------------------------------------------------
+# Constructors
+# ------------------------------------------------------------------------------
+
+proc new*(T: type RpcServer): T =
   T(router: RpcRouter.init())
 
-proc newRpcServer*(): RpcServer {.deprecated.} = RpcServer.new()
+# ------------------------------------------------------------------------------
+# Public functions
+# ------------------------------------------------------------------------------
 
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)
@@ -32,8 +46,23 @@ template hasMethod*(server: RpcServer, methodName: string): bool =
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    args: JsonNode): Future[StringOfJson] =
-  server.router.procs[methodName](args)
+                    params: RequestParamsTx): Future[StringOfJson]
+                      {.gcsafe, raises: [JsonRpcError].} =
+
+  let
+    req = requestTx(methodName, params, RequestId(kind: riNumber, num: 0))
+    reqData = JrpcSys.encode(req).JsonString
+
+  server.router.tryRoute(reqData, result).isOkOr:
+    raise newException(JsonRpcError, error)
+
+proc executeMethod*(server: RpcServer,
+                    methodName: string,
+                    args: JsonNode): Future[StringOfJson]
+                      {.gcsafe, raises: [JsonRpcError].} =
+
+  let params = paramsTx(args)
+  server.executeMethod(methodName, params)
 
 # Wrapper for message processing
 
@@ -42,10 +71,12 @@ proc route*(server: RpcServer, line: string): Future[string] {.gcsafe.} =
 
 # Server registration
 
-proc register*(server: RpcServer, name: string, rpc: RpcProc) =
+proc register*(server: RpcServer, name: string, rpc: RpcProc) {.gcsafe, raises: [CatchableError].} =
   ## Add a name/code pair to the RPC server.
   server.router.register(name, rpc)
 
 proc unRegisterAll*(server: RpcServer) =
   # Remove all remote procedure calls from this server.
   server.router.clear
+
+{.pop.}

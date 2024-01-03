@@ -1,10 +1,19 @@
+# json-rpc
+# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Licensed under either of
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
+# at your option.
+# This file may not be copied, modified, or distributed except according to
+# those terms.
+
 import
   unittest2,
   websock/websock,
   ../json_rpc/[rpcclient, rpcserver]
 
 const
-  serverHost    = "localhost"
+  serverHost    = "127.0.0.1"
   serverPort    = 8547
   serverAddress = serverHost & ":" & $serverPort
 
@@ -31,18 +40,19 @@ suite "HTTP server hook test":
     waitFor client.connect(serverHost, Port(serverPort), false)
     expect ErrorResponse:
       let r = waitFor client.call("testHook", %[%"abc"])
+      discard r
 
   test "good auth token":
     let client = newRpcHttpClient(getHeaders = authHeaders)
     waitFor client.connect(serverHost, Port(serverPort), false)
     let r = waitFor client.call("testHook", %[%"abc"])
-    check r.getStr == "Hello abc"
+    check r.string == "\"Hello abc\""
 
   waitFor srv.closeWait()
 
 proc wsAuthHeaders(ctx: Hook,
                   headers: var HttpTable): Result[void, string]
-                  {.gcsafe, raises: [Defect].} =
+                  {.gcsafe, raises: [].} =
   headers.add("Auth-Token", "Good Token")
   return ok()
 
@@ -80,7 +90,7 @@ suite "Websocket server hook test":
   test "good auth token":
     waitFor client.connect("ws://127.0.0.1:8545/", hooks = @[hook])
     let r = waitFor client.call("testHook", %[%"abc"])
-    check r.getStr == "Hello abc"
+    check r.string == "\"Hello abc\""
 
   srv.stop()
   waitFor srv.closeWait()

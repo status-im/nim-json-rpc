@@ -10,7 +10,8 @@
 import
   chronicles,
   json_serialization/std/net,
-  ".."/[errors, server]
+  ../private/errors,
+  ../server
 
 export errors, server
 
@@ -18,26 +19,25 @@ type
   RpcSocketServer* = ref object of RpcServer
     servers: seq[StreamServer]
 
-proc sendError*[T](transport: T, code: int, msg: string, id: JsonNode,
-                data: JsonNode = newJNull()) {.async.} =
-  ## Send error message to client
-  let error = wrapError(code, msg, id, data)
-  result = transport.write(string wrapReply(id, StringOfJson("null"), error))
-
-proc processClient(server: StreamServer, transport: StreamTransport) {.async, gcsafe.} =
+proc processClient(server: StreamServer, transport: StreamTransport) {.async: (raises: []), gcsafe.} =
   ## Process transport data to the RPC server
-  var rpc = getUserData[RpcSocketServer](server)
-  while true:
-    var
-      value = await transport.readLine(defaultMaxRequestLength)
-    if value == "":
-      await transport.closeWait()
-      break
+  try:
+    var rpc = getUserData[RpcSocketServer](server)
+    while true:
+      var
+        value = await transport.readLine(defaultMaxRequestLength)
+      if value == "":
+        await transport.closeWait()
+        break
 
-    debug "Processing message", address = transport.remoteAddress(), line = value
+      debug "Processing message", address = transport.remoteAddress(), line = value
 
-    let res = await rpc.route(value)
-    discard await transport.write(res)
+      let res = await rpc.route(value)
+      discard await transport.write(res & "\r\n")
+  except TransportError as ex:
+    error "Transport closed during processing client", msg=ex.msg
+  except CatchableError as ex:
+    error "Error occured during processing client", msg=ex.msg
 
 # Utility functions for setting up servers using stream transport addresses
 

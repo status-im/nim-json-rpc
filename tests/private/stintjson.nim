@@ -1,4 +1,9 @@
-import stint, ../json_rpc/jsonmarshal
+import
+  std/json,
+  stint,
+  ../../json_rpc/private/jrpc_conv
+
+{.push gcsafe, raises: [].}
 
 template stintStr(n: UInt256|Int256): JsonNode =
   var s = n.toHex
@@ -10,13 +15,16 @@ proc `%`*(n: UInt256): JsonNode = n.stintStr
 
 proc `%`*(n: Int256): JsonNode = n.stintStr
 
-proc writeValue*(w: var JsonWriter[JsonRpc], val: UInt256) =
+proc writeValue*(w: var JsonWriter[JrpcConv], val: UInt256)
+                  {.gcsafe, raises: [IOError].} =
   writeValue(w, val.stintStr)
 
-proc writeValue*(w: var JsonWriter[JsonRpc], val: ref UInt256) =
+proc writeValue*(w: var JsonWriter[JrpcConv], val: ref UInt256)
+                  {.gcsafe, raises: [IOError].} =
   writeValue(w, val[].stintStr)
 
-proc readValue*(r: var JsonReader[JsonRpc], v: var UInt256) =
+proc readValue*(r: var JsonReader[JrpcConv], v: var UInt256)
+                  {.gcsafe, raises: [JsonReaderError].} =
   ## Allows UInt256 to be passed as a json string.
   ## Expects base 16 string, starting with "0x".
   try:
@@ -27,8 +35,10 @@ proc readValue*(r: var JsonReader[JsonRpc], v: var UInt256) =
   except Exception as err:
     r.raiseUnexpectedValue("Error deserializing for '" & $v.type & "' stream: " & err.msg)
 
-proc readValue*(r: var JsonReader[JsonRpc], v: var ref UInt256) =
+proc readValue*(r: var JsonReader[JrpcConv], v: var ref UInt256)
+                 {.gcsafe, raises: [JsonReaderError].} =
   ## Allows ref UInt256 to be passed as a json string.
   ## Expects base 16 string, starting with "0x".
   readValue(r, v[])
 
+{.pop.}

@@ -11,9 +11,11 @@ import
   stew/byteutils,
   chronicles, httputils, chronos,
   chronos/apps/http/[httpserver, shttpserver],
-  ".."/[errors, server]
+  ../private/errors,
+  ../server
 
-export server, shttpserver
+export
+  server, shttpserver
 
 logScope:
   topics = "JSONRPC-HTTP-SERVER"
@@ -36,41 +38,52 @@ type
     httpServers: seq[HttpServerRef]
     authHooks: seq[HttpAuthHook]
 
-proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback =
-  return proc (req: RequestFence): Future[HttpResponseRef] {.async.} =
-    if req.isOk():
-      let request = req.get()
+proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback2 =
+  return proc (req: RequestFence): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
+    if not req.isOk():
+      return defaultResponse()
 
-      # if hook result is not nil,
-      # it means we should return immediately
+    let request = req.get()
+    # if hook result is not nil,
+    # it means we should return immediately
+    try:
       for hook in rpcServer.authHooks:
         let res = await hook(request)
         if not res.isNil:
           return res
+    except CatchableError as exc:
+      error "Internal error while processing JSON-RPC hook", msg=exc.msg
+      try:
+        return await request.respond(
+          Http503,
+          "Internal error while processing JSON-RPC hook: " & exc.msg)
+      except HttpWriteError as exc:
+        error "Something error", msg=exc.msg
+        return defaultResponse()
 
+    let
+      headers = HttpTable.init([("Content-Type",
+                                 "application/json; charset=utf-8")])
+    try:
       let
         body = await request.getBody()
-        headers = HttpTable.init([("Content-Type",
-                                    "application/json; charset=utf-8")])
 
-        data =
-          try:
-            await rpcServer.route(string.fromBytes(body))
-          except CancelledError as exc:
-            raise exc
-          except CatchableError as exc:
-            debug "Internal error while processing JSON-RPC call"
-            return await request.respond(
-              Http503,
-              "Internal error while processing JSON-RPC call: " & exc.msg,
-              headers)
-
+        data = await rpcServer.route(string.fromBytes(body))
         res = await request.respond(Http200, data, headers)
 
       trace "JSON-RPC result has been sent"
       return res
-    else:
-      return dumbResponse()
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      debug "Internal error while processing JSON-RPC call"
+      try:
+        return await request.respond(
+          Http503,
+          "Internal error while processing JSON-RPC call: " & exc.msg)
+      except HttpWriteError as exc:
+        error "Something error", msg=exc.msg
+        return defaultResponse()
 
 proc addHttpServer*(
     rpcServer: RpcHttpServer,

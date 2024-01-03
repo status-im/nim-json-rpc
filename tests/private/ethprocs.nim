@@ -1,6 +1,9 @@
 import
   nimcrypto, stint,
-  ethtypes, ethhexstrings, stintjson, ../json_rpc/rpcserver
+  ./ethtypes,
+  ./ethhexstrings,
+  ./stintjson,
+  ../../json_rpc/rpcserver
 
 #[
   For details on available RPC calls, see: https://github.com/ethereum/wiki/wiki/JSON-RPC
@@ -28,6 +31,22 @@ import
         specified once without invoking `reset`.
 ]#
 
+EthSend.useDefaultSerializationIn JrpcConv
+EthCall.useDefaultSerializationIn JrpcConv
+TransactionObject.useDefaultSerializationIn JrpcConv
+ReceiptObject.useDefaultSerializationIn JrpcConv
+FilterOptions.useDefaultSerializationIn JrpcConv
+FilterData.useDefaultSerializationIn JrpcConv
+LogObject.useDefaultSerializationIn JrpcConv
+WhisperPost.useDefaultSerializationIn JrpcConv
+WhisperMessage.useDefaultSerializationIn JrpcConv
+
+template derefType(): untyped =
+  var x: BlockObject
+  typeof(x[])
+
+useDefaultSerializationIn(derefType(), JrpcConv)
+
 proc addEthRpcs*(server: RpcServer) =
   server.rpc("web3_clientVersion") do() -> string:
     ## Returns the current client version.
@@ -51,10 +70,10 @@ proc addEthRpcs*(server: RpcServer) =
     ## "3": Ropsten Testnet
     ## "4": Rinkeby Testnet
     ## "42": Kovan Testnet
-    #[ Note, See:
-      https://github.com/ethereum/interfaces/issues/6
-      https://github.com/ethereum/EIPs/issues/611
-    ]#
+    ## Note, See:
+    ##  https://github.com/ethereum/interfaces/issues/6
+    ##  https://github.com/ethereum/EIPs/issues/611
+
     result = ""
 
   server.rpc("net_listening") do() -> bool:
@@ -449,4 +468,3 @@ proc addEthRpcs*(server: RpcServer) =
     ## id: the filter id.
     ## Returns a list of messages received since last poll.
     discard
-
