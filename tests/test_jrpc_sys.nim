@@ -95,7 +95,7 @@ func reqBatch(args: varargs[RequestTx]): RequestBatchTx =
 
 func resBatch(args: varargs[ResponseTx]): ResponseBatchTx =
   if args.len == 1:
-    ResPonseBatchTx(
+    ResponseBatchTx(
       kind: rbkSingle, single: args[0]
     )
   else:
@@ -227,7 +227,7 @@ suite "jrpc_sys conversion":
     let rx = JrpcSys.decode(txBytes, ResponseBatchRx)
     check:
       rx.kind == rbkSingle
-  
+
   test "ResponseBatchTx -> ResponseBatchRx: many":
     let tx1 = res(777, JsonString("true"))
     let tx2 = res("gum", resErr(999, "fatal"))

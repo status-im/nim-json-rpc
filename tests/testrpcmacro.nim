@@ -167,7 +167,7 @@ suite "Server types":
       let r = waitFor s.executeMethod("rpc.enumParam", %[int64(Enum1)])
       check r == "[\"Enum1\"]"
 
-    expect(JSonRpcError):
+    expect(JsonRpcError):
       discard waitFor s.executeMethod("rpc.enumParam", %[(int64(42))])
 
   test "Different param types":

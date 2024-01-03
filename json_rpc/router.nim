@@ -178,6 +178,7 @@ proc tryRoute*(router: RpcRouter, data: StringOfJson,
   ## Expects json input and returns json output.
   when defined(nimHasWarnBareExcept):
     {.warning[BareExcept]:off.}
+    {.warning[UnreachableCode]:off.}
 
   try:
     let req = JrpcSys.decode(data.string, RequestRx)
@@ -202,6 +203,7 @@ proc tryRoute*(router: RpcRouter, data: StringOfJson,
 
   when defined(nimHasWarnBareExcept):
     {.warning[BareExcept]:on.}
+    {.warning[UnreachableCode]:on.}
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.
