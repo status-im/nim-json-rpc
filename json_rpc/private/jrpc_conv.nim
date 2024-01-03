@@ -18,3 +18,6 @@ type
 
 createJsonFlavor JrpcConv,
   requireAllFields = false
+
+# JrpcConv is a namespace/flavor for encoding and decoding
+# parameters and return value of a rpc method.
