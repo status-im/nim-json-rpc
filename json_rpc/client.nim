@@ -118,12 +118,20 @@ macro createRpcSigsFromString*(clientType: untyped, sigString: static[string]): 
   cresteSignaturesFromString(clientType, sigString)
 
 macro createSingleRpcSig*(clientType: untyped, alias: static[string], procDecl: typed): untyped =
+  ## Takes a single forward declarations in Nim and builds them into RPC
+  ## calls, based on their parameters.
+  ## Inputs are marshalled to json, and results are put into the signature's
+  ## Nim type.
   doAssert procDecl.len == 1, "Only accept single proc definition"
   let procDecl = procDecl[0]
   procDecl.expectKind nnkProcDef
   result = createRpcFromSig(clientType, procDecl, ident(alias))
 
 macro createRpcSigsFromNim*(clientType: untyped, procList: typed): untyped =
+  ## Takes a list of forward declarations in Nim and builds them into RPC
+  ## calls, based on their parameters.
+  ## Inputs are marshalled to json, and results are put into the signature's
+  ## Nim type.
   processRpcSigs(clientType, procList)
 
 {.pop.}

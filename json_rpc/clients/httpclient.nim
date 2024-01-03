@@ -9,7 +9,8 @@
 
 import
   std/[tables, uri],
-  stew/[byteutils, results],
+  stew/byteutils,
+  results,
   chronos/apps/http/httpclient as chronosHttpClient,
   chronicles, httputils, json_serialization/std/net,
   ../client,
@@ -76,7 +77,6 @@ method call*(client: RpcHttpClient, name: string,
   template closeRefs() =
     # We can't trust try/finally in async/await in all nim versions, so we
     # do it manually instead
-    {.hint[XDeclaredButNotUsed]:off.}
     if req != nil:
       try:
         await req.closeWait()
@@ -87,7 +87,6 @@ method call*(client: RpcHttpClient, name: string,
         await res.closeWait()
       except CatchableError as exc: # shouldn't happen
         debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
-    {.hint[XDeclaredButNotUsed]:on.}
 
   debug "Sending message to RPC server",
          address = client.httpAddress, msg_len = len(reqBody), name
