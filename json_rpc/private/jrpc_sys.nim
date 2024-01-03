@@ -10,7 +10,8 @@
 import
   std/hashes,
   results,
-  json_serialization
+  json_serialization,
+  json_serialization/stew/results as jser_results
 
 export
   results,
@@ -142,6 +143,11 @@ type
 createJsonFlavor JrpcSys,
   requireAllFields = false
 
+ResponseError.useDefaultSerializationIn JrpcSys
+RequestTx.useDefaultWriterIn JrpcSys
+ResponseRx.useDefaultReaderIn JrpcSys
+RequestRx.useDefaultReaderIn JrpcSys
+
 const
   JsonRPC2Literal = JsonString("\"2.0\"")
 
@@ -182,24 +188,6 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var JsonRPC2)
 proc writeValue*(w: var JsonWriter[JrpcSys], val: JsonRPC2)
       {.gcsafe, raises: [IOError].} =
   w.writeValue JsonRPC2Literal
-
-proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseError)
-      {.gcsafe, raises: [IOError, SerializationError].} =
-  for key in r.readObjectFields():
-    case key
-    of "code"   : val.code = r.parseInt(int)
-    of "message": val.message = r.parseString()
-    of "data"   : val.data = Opt.some(r.parseAsString())
-    else: discard
-
-proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseError)
-      {.gcsafe, raises: [IOError].} =
-  w.beginRecord ResponseError
-  w.writeField("code", val.code)
-  w.writeField("message", val.message)
-  if val.data.isSome:
-    w.writeField("data", val.data.get)
-  w.endRecord()
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var RequestId)
       {.gcsafe, raises: [IOError, JsonReaderError].} =
@@ -254,31 +242,6 @@ proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestParamsTx)
       w.writeField(x.name, x.value)
     w.endRecord()
 
-proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestTx)
-      {.gcsafe, raises: [IOError].} =
-  w.beginRecord RequestTx
-  w.writeField("jsonrpc", val.jsonrpc)
-  if val.id.isSome:
-    w.writeField("id", val.id.get)
-  w.writeField("method", val.`method`)
-  w.writeField("params", val.params)
-  w.endRecord()
-
-proc readOptional(r: var JsonReader[JrpcSys], T: type): results.Opt[T]
-      {.gcsafe, raises: [IOError, SerializationError].} =
-  var val: T
-  r.readValue(val)
-  result = Opt.some(val)
-
-proc readValue*(r: var JsonReader[JrpcSys], val: var RequestRx)
-       {.gcsafe, raises: [IOError, SerializationError].} =
-  for key in r.readObjectFields():
-    case key
-    of "jsonrpc": val.jsonrpc = r.readOptional(JsonRPC2)
-    of "id"     : r.readValue(val.id)
-    of "method" : val.`method` = Opt.some(r.parseString())
-    of "params" : r.readValue(val.params)
-
 proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseTx)
        {.gcsafe, raises: [IOError].} =
   w.beginRecord ResponseTx
@@ -289,16 +252,6 @@ proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseTx)
   else:
     w.writeField("error", val.error)
   w.endRecord()
-
-proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
-       {.gcsafe, raises: [IOError, SerializationError].} =
-  for key in r.readObjectFields():
-    case key
-    of "jsonrpc": val.jsonrpc = r.readOptional(JsonRPC2)
-    of "id"     : val.id = r.readOptional(RequestId)
-    of "result" : val.result = Opt.some(r.parseAsString())
-    of "error"  : val.error = r.readOptional(ResponseError)
-    else: discard
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestBatchTx)
        {.gcsafe, raises: [IOError].} =
