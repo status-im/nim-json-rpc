@@ -201,7 +201,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestId)
     val = RequestId(kind: riNull)
     r.parseNull()
   else:
-    r.raiseUnexpectedValue("RequestParam must be either array or object, got=" & $tok)
+    r.raiseUnexpectedValue("Invalid RequestId, must be Number, String, or Null, got=" & $tok)
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestId)
        {.gcsafe, raises: [IOError].} =
