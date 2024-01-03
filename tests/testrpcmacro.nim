@@ -7,8 +7,12 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-import unittest2, chronicles, options
-import ../json_rpc/rpcserver, ./private/helpers
+import
+  unittest2,
+  chronicles,
+  ../json_rpc/rpcserver,
+  ./private/helpers,
+  json_serialization/std/options
 
 type
   # some nested types to check object parsing
@@ -34,6 +38,19 @@ type
   MyEnum = enum
     Enum0
     Enum1
+
+MyObject.useDefaultSerializationIn JrpcConv
+Test.useDefaultSerializationIn JrpcConv
+Test2.useDefaultSerializationIn JrpcConv
+MyOptional.useDefaultSerializationIn JrpcConv
+MyOptionalNotBuiltin.useDefaultSerializationIn JrpcConv
+
+proc readValue*(r: var JsonReader[JrpcConv], val: var MyEnum)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  let intVal = r.parseInt(int)
+  if intVal < low(MyEnum).int or intVal > high(MyEnum).int:
+    r.raiseUnexpectedValue("invalid enum range " & $intVal)
+  val = MyEnum(intVal)
 
 let
   testObj = %*{
@@ -109,6 +126,8 @@ type
     d: Option[int]
     e: Option[string]
 
+OptionalFields.useDefaultSerializationIn JrpcConv
+
 s.rpc("rpc.mixedOptionalArg") do(a: int, b: Option[int], c: string,
   d: Option[int], e: Option[string]) -> OptionalFields:
 
@@ -133,6 +152,8 @@ type
     o1: Option[bool]
     o2: Option[bool]
     o3: Option[bool]
+
+MaybeOptions.useDefaultSerializationIn JrpcConv
 
 s.rpc("rpc.optInObj") do(data: string, options: Option[MaybeOptions]) -> int:
   if options.isSome:
@@ -164,7 +185,7 @@ suite "Server types":
 
   test "Enum param paths":
     block:
-      let r = waitFor s.executeMethod("rpc.enumParam", %[int64(Enum1)])
+      let r = waitFor s.executeMethod("rpc.enumParam", %[%int64(Enum1)])
       check r == "[\"Enum1\"]"
 
     expect(JsonRpcError):

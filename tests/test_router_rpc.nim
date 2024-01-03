@@ -1,6 +1,8 @@
 import
   unittest2,
-  ../json_rpc/router
+  ../json_rpc/router,
+  json_serialization/stew/results,
+  json_serialization/std/options
 
 var server = RpcRouter()
 
@@ -23,7 +25,7 @@ server.rpc("comboParams") do(a, b, c: int) -> int:
 
 server.rpc("returnJsonString") do(a, b, c: int) -> JsonString:
   return JsonString($(a+b+c))
-  
+
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "id":0, "method": """ &
     "\"" & meth & "\", \"params\": " & params & "}"
@@ -57,7 +59,7 @@ suite "rpc router":
   test "optional D wrong E, positional":
     let n = req("optional", "[44, 567, \"apple\", \"banana\"]")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"optional raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: Error deserializing stream for type 'int': number expected"}}"""
+    check res == """{"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"optional raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"}}"""
 
   test "optional D extra, positional":
     let n = req("optional", "[44, 567, \"apple\", 999, \"banana\", true]")

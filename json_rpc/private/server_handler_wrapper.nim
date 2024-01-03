@@ -187,6 +187,32 @@ proc makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
     pragmas = pragmas
   )
 
+proc ofStmt(x, paramsObj, paramName, paramType: NimNode): NimNode =
+  let caseStr = $paramName
+  result = nnkOfBranch.newTree(
+    quote do: `caseStr`,
+    quote do:
+      `paramsObj`.`paramName` = unpackArg(`x`.value, `caseStr`, `paramType`)
+  )
+
+proc setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
+  let x = ident"x"
+
+  var caseStmt = nnkCaseStmt.newTree(
+    quote do: `x`.name
+  )
+
+  for paramName, paramType in paramsIter(params):
+    caseStmt.add ofStmt(x, paramsObj, paramName, paramType)
+
+  caseStmt.add nnkElse.newTree(
+    quote do: discard
+  )
+
+  result = quote do:
+    for `x` in `paramsIdent`.named:
+      `caseStmt`
+
 proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode): NimNode =
   ## This proc generate something like this:
   ##
@@ -220,13 +246,11 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     paramsObj = ident"rpcVar"
     handlerName = genSym(nskProc, methName & "_rpcHandler")
     paramsIdent = genSym(nskParam, "rpcParams")
-    methNamedParams = methName & "_named_params"
     returnType = params[0]
     hasParams = params.len > 1 # not including return type
     (posSetup, minLength) = setupPositional(params, paramsIdent)
     handler = makeHandler(handlerName, params, procBody, returnType)
-    named = quote do:
-      `paramsObj` = `unpackArg`(`paramsIdent`.named, `methNamedParams`, `typeName`)
+    named = setupNamed(paramsObj, paramsIdent, params)
 
   if hasParams:
     setup.add makeType(typeName, params)

@@ -31,6 +31,22 @@ import
         specified once without invoking `reset`.
 ]#
 
+EthSend.useDefaultSerializationIn JrpcConv
+EthCall.useDefaultSerializationIn JrpcConv
+TransactionObject.useDefaultSerializationIn JrpcConv
+ReceiptObject.useDefaultSerializationIn JrpcConv
+FilterOptions.useDefaultSerializationIn JrpcConv
+FilterData.useDefaultSerializationIn JrpcConv
+LogObject.useDefaultSerializationIn JrpcConv
+WhisperPost.useDefaultSerializationIn JrpcConv
+WhisperMessage.useDefaultSerializationIn JrpcConv
+
+template derefType(): untyped =
+  var x: BlockObject
+  typeof(x[])
+
+useDefaultSerializationIn(derefType(), JrpcConv)
+
 proc addEthRpcs*(server: RpcServer) =
   server.rpc("web3_clientVersion") do() -> string:
     ## Returns the current client version.

@@ -40,9 +40,9 @@ func reqNoId(meth: string, params: RequestParamsTx): RequestTx =
     params: params
   )
 
-func toParams(params: varargs[(string, JsonString)]): seq[ParamDescTx] =
+func toParams(params: varargs[(string, JsonString)]): seq[ParamDescNamed] =
   for x in params:
-    result.add ParamDescTx(name:x[0], value:x[1])
+    result.add ParamDescNamed(name:x[0], value:x[1])
 
 func namedPar(params: varargs[(string, JsonString)]): RequestParamsTx =
   RequestParamsTx(
@@ -134,7 +134,10 @@ suite "jrpc_sys conversion":
       rx.id.str == "word"
       rx.meth.get == "string_named"
       rx.params.kind == rpNamed
-      rx.params.named.string == """{"banana":true,"apple":123}"""
+      rx.params.named[0].name == "banana"
+      rx.params.named[0].value.string == "true"
+      rx.params.named[1].name == "apple"
+      rx.params.named[1].value.string == "123"
 
   test "RequestTx -> RequestRx: id(null), named":
     let tx = reqNull("null_named", np1)
@@ -146,7 +149,10 @@ suite "jrpc_sys conversion":
       rx.id.kind == riNull
       rx.meth.get == "null_named"
       rx.params.kind == rpNamed
-      rx.params.named.string == """{"banana":true,"apple":123}"""
+      rx.params.named[0].name == "banana"
+      rx.params.named[0].value.string == "true"
+      rx.params.named[1].name == "apple"
+      rx.params.named[1].value.string == "123"
 
   test "RequestTx -> RequestRx: none, none":
     let tx = reqNoId("none_positional", posPar())

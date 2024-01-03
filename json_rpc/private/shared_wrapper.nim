@@ -46,9 +46,9 @@ func paramsTx*(params: JsonNode): RequestParamsTx =
       positional: system.move(args),
     )
   elif params.kind == JObject:
-    var args: seq[ParamDescTx]
+    var args: seq[ParamDescNamed]
     for k, v in params:
-      args.add ParamDescTx(
+      args.add ParamDescNamed(
         name: k,
         value: JrpcConv.encode(v).JsonString,
       )

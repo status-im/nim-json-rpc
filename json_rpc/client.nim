@@ -96,8 +96,6 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
 
   except CatchableError as exc:
     return err(exc.msg)
-  except Exception as exc:
-    return err(exc.msg)
 
 # ------------------------------------------------------------------------------
 # Signature processing
