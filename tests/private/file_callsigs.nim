@@ -8,3 +8,4 @@
 # those terms.
 
 proc shh_uninstallFilter(id: int): bool
+proc getFilter(id: Variant): string

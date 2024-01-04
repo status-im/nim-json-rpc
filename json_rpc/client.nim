@@ -115,7 +115,7 @@ macro createRpcSigsFromString*(clientType: untyped, sigString: static[string]): 
   ## Nim type.
   cresteSignaturesFromString(clientType, sigString)
 
-macro createSingleRpcSig*(clientType: untyped, alias: static[string], procDecl: typed): untyped =
+macro createSingleRpcSig*(clientType: untyped, alias: static[string], procDecl: untyped): untyped =
   ## Takes a single forward declarations in Nim and builds them into RPC
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's
@@ -125,7 +125,7 @@ macro createSingleRpcSig*(clientType: untyped, alias: static[string], procDecl: 
   procDecl.expectKind nnkProcDef
   result = createRpcFromSig(clientType, procDecl, ident(alias))
 
-macro createRpcSigsFromNim*(clientType: untyped, procList: typed): untyped =
+macro createRpcSigsFromNim*(clientType: untyped, procList: untyped): untyped =
   ## Takes a list of forward declarations in Nim and builds them into RPC
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's

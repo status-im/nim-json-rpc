@@ -8,19 +8,127 @@
 # those terms.
 
 import
-  ../json_rpc/client
+  unittest2,
+  ../json_rpc/rpcclient,
+  ../json_rpc/rpcserver
 
 from os import getCurrentDir, DirSep
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+
+type
+  Variant = int | bool | string
 
 createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs.nim")
 
 createSingleRpcSig(RpcClient, "bottle"):
   proc get_Bottle(id: int): bool
 
+createSingleRpcSig(RpcClient, "mouse"):
+  proc getVariant(id: Variant): bool
+
 createRpcSigsFromNim(RpcClient):
   proc get_Banana(id: int): bool
   proc get_Combo(id, index: int, name: string): bool
   proc get_Name(id: int): string
   proc getJsonString(name: string): JsonString
+  proc getVariant(id: Variant): bool
+
+proc installHandlers(s: RpcServer) =
+  s.rpc("shh_uninstallFilter") do(id: int) -> bool:
+    if id == 123:
+      return true
+    else:
+      return false
+
+  s.rpc("get_Bottle") do(id: int) -> bool:
+    if id == 456:
+      return true
+    else:
+      return false
+
+  s.rpc("get_Banana") do(id: int) -> bool:
+    if id == 789:
+      return true
+    else:
+      return false
+
+  s.rpc("get_Combo") do(id, index: int, name: string) -> bool:
+    if index == 77 and name == "banana":
+      return true
+    return false
+
+  s.rpc("get_Name") do(id: int) -> string:
+    if id == 99:
+      return "king kong"
+    return "godzilla"
+
+  s.rpc("getJsonString") do(name: string) -> JsonString:
+    if name == "me":
+      return "true".JsonString
+    return "123".JsonString
+
+  s.rpc("getVariant") do(id: string) -> bool:
+    if id == "33":
+      return true
+    return false
+
+  s.rpc("getFilter") do(id: string) -> string:
+    if id == "cow":
+      return "moo"
+    return "meow"
+
+suite "test callsigs":
+  var server = newRpcSocketServer(["127.0.0.1:8545"])
+  server.installHandlers()
+  var client = newRpcSocketClient()
+
+  server.start()
+  waitFor client.connect("127.0.0.1", Port(8545))
+
+  test "callsigs from file":
+    let res = waitFor client.shh_uninstallFilter(123)
+    check res == true
+
+    let res2 = waitFor client.getFilter("cow")
+    check res2 == "moo"
+
+  test "callsigs alias":
+    let res = waitFor client.bottle(456)
+    check res == true
+
+    let res2 = waitFor client.mouse("33")
+    check res2 == true
+
+    let res3 = waitFor client.mouse("55")
+    check res3 == false
+
+    expect JsonRpcError:
+      let res4 = waitFor client.mouse(33)
+      check res4 == true
+
+  test "callsigs from nim":
+    let res = waitFor client.get_Banana(789)
+    check res == true
+
+    let res2 = waitFor client.get_Name(99)
+    check res2 == "king kong"
+
+    let res3 = waitFor client.get_Combo(0, 77, "banana")
+    check res3 == true
+
+    let res4 = waitFor client.getJsonString("me")
+    check res4 == "true".JsonString
+
+    let res5 = waitFor client.getVariant("33")
+    check res5 == true
+
+    let res6 = waitFor client.getVariant("55")
+    check res6 == false
+
+    expect JsonRpcError:
+      let res4 = waitFor client.getVariant(33)
+      check res4 == true
+
+  server.stop()
+  waitFor server.closeWait()
