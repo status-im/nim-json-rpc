@@ -51,9 +51,16 @@ iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
       yield (arg[j], argType)
 
 proc isOptionalArg(typeNode: NimNode): bool =
-  typeNode.kind == nnkBracketExpr and
+  # typed version
+  (typeNode.kind == nnkCall and
+     typeNode.len > 1 and
+     typeNode[1].kind in {nnkIdent, nnkSym} and
+     typeNode[1].strVal == "Option") or
+
+  # untyped version
+  (typeNode.kind == nnkBracketExpr and
     typeNode[0].kind == nnkIdent and
-    typeNode[0].strVal == "Option"
+    typeNode[0].strVal == "Option")
 
 proc expectOptionalArrayLen(node: NimNode,
                             parameters: NimNode,
