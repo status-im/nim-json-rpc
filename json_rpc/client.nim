@@ -11,7 +11,7 @@ import
   std/[json, tables, macros],
   chronos,
   results,
-  ./private/jrpc_conv,
+  ./jsonmarshal,
   ./private/jrpc_sys,
   ./private/client_handler_wrapper,
   ./private/shared_wrapper,
@@ -22,7 +22,7 @@ from strutils import replace
 export
   chronos,
   tables,
-  jrpc_conv,
+  jsonmarshal,
   RequestParamsTx,
   results
 

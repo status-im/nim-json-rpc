@@ -10,7 +10,7 @@
 import
   std/[json, macros],
   ./jrpc_sys,
-  ./jrpc_conv
+  ../jsonmarshal
 
 iterator paramsIter*(params: NimNode): tuple[name, ntype: NimNode] =
   ## Forward iterator of handler parameters

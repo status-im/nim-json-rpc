@@ -9,7 +9,8 @@
 
 import
   macros,
-  ./shared_wrapper
+  ./shared_wrapper,
+  ./jrpc_sys
 
 {.push gcsafe, raises: [].}
 

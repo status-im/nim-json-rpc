@@ -11,14 +11,14 @@ import
   std/json,
   chronos,
   ./router,
-  ./private/jrpc_conv,
+  ./jsonmarshal,
   ./private/jrpc_sys,
   ./private/shared_wrapper,
   ./private/errors
 
 export
   chronos,
-  jrpc_conv,
+  jsonmarshal,
   router
 
 type

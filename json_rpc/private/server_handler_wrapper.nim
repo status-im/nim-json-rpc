@@ -13,12 +13,12 @@ import
   json_serialization,
   json_serialization/std/[options],
   ./errors,
-  ./jrpc_sys,
-  ./jrpc_conv,
-  ./shared_wrapper
+  ./jrpc_sys,  
+  ./shared_wrapper,
+  ../jsonmarshal
 
 export
-  jrpc_conv
+  jsonmarshal
 
 {.push gcsafe, raises: [].}
 

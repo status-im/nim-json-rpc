@@ -13,11 +13,12 @@ import
   chronos,
   ./private/server_handler_wrapper,
   ./private/errors,
-  ./private/jrpc_sys
+  ./private/jrpc_sys,
+  ./jsonmarshal
 
 export
   chronos,
-  jrpc_conv,
+  jsonmarshal,
   json
 
 type

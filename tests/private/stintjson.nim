@@ -1,7 +1,7 @@
 import
   std/json,
   stint,
-  ../../json_rpc/private/jrpc_conv
+  ../../json_rpc/jsonmarshal
 
 {.push gcsafe, raises: [].}
 

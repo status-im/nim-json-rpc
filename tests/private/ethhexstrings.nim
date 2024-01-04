@@ -66,7 +66,7 @@ template hexQuantityStr*(value: string): HexQuantityStr = value.HexQuantityStr
 # Converters
 
 import json
-import ../../json_rpc/private/jrpc_conv
+import ../../json_rpc/jsonmarshal
 
 proc `%`*(value: HexDataStr): JsonNode {.gcsafe, raises: [JsonRpcError].} =
   if not value.validate:
