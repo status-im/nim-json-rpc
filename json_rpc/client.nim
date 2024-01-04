@@ -28,7 +28,7 @@ export
 
 type
   RpcClient* = ref object of RootRef
-    awaiting*: Table[RequestId, Future[StringOfJson]]
+    awaiting*: Table[RequestId, Future[JsonString]]
     lastId: int
     onDisconnect*: proc() {.gcsafe, raises: [].}
 
@@ -53,12 +53,12 @@ proc getNextId*(client: RpcClient): RequestId =
   RequestId(kind: riNumber, num: client.lastId)
 
 method call*(client: RpcClient, name: string,
-             params: RequestParamsTx): Future[StringOfJson]
+             params: RequestParamsTx): Future[JsonString]
                 {.base, gcsafe, async.} =
   doAssert(false, "`RpcClient.call` not implemented")
 
 method call*(client: RpcClient, name: string,
-             params: JsonNode): Future[StringOfJson]
+             params: JsonNode): Future[JsonString]
                {.base, gcsafe, async.} =
 
   await client.call(name, params.paramsTx)
@@ -78,7 +78,7 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
     if response.id.isNone:
       return err("missing or invalid response id")
 
-    var requestFut: Future[StringOfJson]
+    var requestFut: Future[JsonString]
     let id = response.id.get
     if not client.awaiting.pop(id, requestFut):
       return err("Cannot find message id \"" & $id & "\"")

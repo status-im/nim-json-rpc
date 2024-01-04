@@ -36,7 +36,7 @@ proc newRpcSocketClient*: RpcSocketClient =
   RpcSocketClient.new()
 
 method call*(self: RpcSocketClient, name: string,
-             params: RequestParamsTx): Future[StringOfJson] {.async, gcsafe.} =
+             params: RequestParamsTx): Future[JsonString] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
   let id = self.getNextId()
   var value = requestTxEncode(name, params, id) & "\r\n"
@@ -45,7 +45,7 @@ method call*(self: RpcSocketClient, name: string,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.
-  var newFut = newFuture[StringOfJson]()
+  var newFut = newFuture[JsonString]()
   # add to awaiting responses
   self.awaiting[id] = newFut
 

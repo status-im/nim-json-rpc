@@ -220,7 +220,7 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
   ##   procBody
   ##   return retVal
   ##
-  ## proc rpcWrapper(params: RequestParamsRx): Future[StringOfJson] =
+  ## proc rpcWrapper(params: RequestParamsRx): Future[JsonString] =
   ##   type
   ##     RpcType = object
   ##       paramA: ParamAType
@@ -237,7 +237,7 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
   ##     rpcVar = params.unpack(named of RpcType)
   ##
   ##   let res = await rpcHandler(rpcVar.paramA, rpcVar.paramB)
-  ##   return JrpcConv.encode(res).StringOfJson
+  ##   return JrpcConv.encode(res).JsonString
 
   let
     params = params.ensureReturnType()
@@ -287,13 +287,13 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     doEncode = quote do: encode(JrpcConv, `awaitedResult`)
     maybeWrap =
       if returnType.noWrap: awaitedResult
-      else: ident"StringOfJson".newCall doEncode
+      else: ident"JsonString".newCall doEncode
     executeCall = newCall(handlerName, executeParams)
 
   result = newStmtList()
   result.add handler
   result.add quote do:
-    proc `procWrapper`(`paramsIdent`: RequestParamsRx): Future[StringOfJson] {.async, gcsafe.} =
+    proc `procWrapper`(`paramsIdent`: RequestParamsRx): Future[JsonString] {.async, gcsafe.} =
       # Avoid 'yield in expr not lowered' with an intermediate variable.
       # See: https://github.com/nim-lang/Nim/issues/17849
       `setup`

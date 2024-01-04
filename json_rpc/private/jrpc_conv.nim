@@ -13,9 +13,6 @@ import
 export
   json_serialization
 
-type
-  StringOfJson* = JsonString
-
 createJsonFlavor JrpcConv,
   requireAllFields = false
 

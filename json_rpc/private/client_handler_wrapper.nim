@@ -42,7 +42,7 @@ proc setupConversion(reqParams, params: NimNode): NimNode =
 
   for parName, parType in paramsIter(params):
     result.add quote do:
-      `reqParams`.positional.add encode(JrpcConv, `parName`).StringOfJson
+      `reqParams`.positional.add encode(JrpcConv, `parName`).JsonString
 
 proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
   # Each input parameter in the rpc signature is converted
@@ -83,7 +83,7 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
     # populate request params
     `setup`
 
-    # `rpcResult` is of type `StringOfJson`
+    # `rpcResult` is of type `JsonString`
     let `rpcResult` = await `clientIdent`.call(`pathStr`, `reqParams`)
     `maybeWrap`
 

@@ -241,9 +241,9 @@ This `route` variant allows you to invoke a call if possible, without raising an
 
 `router: RpcRouter`: The router object that contains the RPCs.
 
-`data: StringOfJson`: A raw `Json document` that matches the expected format as defined above.
+`data: JsonString`: A raw `Json document` that matches the expected format as defined above.
 
-`fut: var Future[StringOfJson]`: The stringified JSON RPC result or a JSON wrapped error.
+`fut: var Future[JsonString]`: The stringified JSON RPC result or a JSON wrapped error.
 
 #### Returns
 
@@ -397,7 +397,7 @@ Additionally, the following two procedures are useful:
   `name: string`: the method to be called
   `params: JsonNode`: The parameters to the RPC call
   Returning
-    `Future[StringOfJson]`: A wrapper for the result `Json document` and a flag to indicate if this contains an error.
+    `Future[JsonString]`: A wrapper for the result `Json document` and a flag to indicate if this contains an error.
 
 Note: Although `call` isn't necessary for a client to function, it allows RPC signatures to be used by the `createRpcSigs`.
 

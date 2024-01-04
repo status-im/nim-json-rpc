@@ -54,7 +54,7 @@ proc newRpcHttpClient*(
   RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
 
 method call*(client: RpcHttpClient, name: string,
-             params: RequestParamsTx): Future[StringOfJson]
+             params: RequestParamsTx): Future[JsonString]
             {.async, gcsafe.} =
   doAssert client.httpSession != nil
   if client.httpAddress.isErr:
@@ -74,6 +74,10 @@ method call*(client: RpcHttpClient, name: string,
   var req: HttpClientRequestRef
   var res: HttpClientResponseRef
 
+  template used(x: typed) =
+    # silence unused warning
+    discard
+
   template closeRefs() =
     # We can't trust try/finally in async/await in all nim versions, so we
     # do it manually instead
@@ -81,11 +85,13 @@ method call*(client: RpcHttpClient, name: string,
       try:
         await req.closeWait()
       except CatchableError as exc: # shouldn't happen
+        used(exc)
         debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
     if res != nil:
       try:
         await res.closeWait()
       except CatchableError as exc: # shouldn't happen
+        used(exc)
         debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
 
   debug "Sending message to RPC server",
@@ -131,7 +137,7 @@ method call*(client: RpcHttpClient, name: string,
 
   # completed by processMessage - the flow is quite weird here to accomodate
   # socket and ws clients, but could use a more thorough refactoring
-  var newFut = newFuture[StringOfJson]()
+  var newFut = newFuture[JsonString]()
   # add to awaiting responses
   client.awaiting[id] = newFut
 

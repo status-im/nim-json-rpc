@@ -22,7 +22,7 @@ export
 
 type
   # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(params: RequestParamsRx): Future[StringOfJson]
+  RpcProc* = proc(params: RequestParamsRx): Future[JsonString]
               {.gcsafe, raises: [CatchableError].}
 
   RpcRouter* = object
@@ -51,7 +51,7 @@ func invalidRequest(msg: string): ResponseError =
 func methodNotFound(msg: string): ResponseError =
   ResponseError(code: METHOD_NOT_FOUND, message: msg)
 
-func serverError(msg: string, data: StringOfJson): ResponseError =
+func serverError(msg: string, data: JsonString): ResponseError =
   ResponseError(code: SERVER_ERROR, message: msg, data: Opt.some(data))
 
 func somethingError(code: int, msg: string): ResponseError =
@@ -92,7 +92,7 @@ proc wrapError(code: int, msg: string, id: RequestId): ResponseTx =
     error: somethingError(code, msg),
   )
 
-proc wrapReply(res: StringOfJson, id: RequestId): ResponseTx =
+proc wrapReply(res: JsonString, id: RequestId): ResponseTx =
   ResponseTx(
     id: id,
     kind: rkResult,
@@ -134,12 +134,12 @@ proc route*(router: RpcRouter, req: RequestRx):
     debug "Error occurred within RPC",
       methodName = methodName, err = err.msg
     return serverError(methodName & " raised an exception",
-      escapeJson(err.msg).StringOfJson).
+      escapeJson(err.msg).JsonString).
       wrapError(req.id)
 
 proc wrapErrorAsync*(code: int, msg: string):
-       Future[StringOfJson] {.gcsafe, async: (raises: []).} =
-  return wrapError(code, msg).StringOfJson
+       Future[JsonString] {.gcsafe, async: (raises: []).} =
+  return wrapError(code, msg).JsonString
 
 proc route*(router: RpcRouter, data: string):
        Future[string] {.gcsafe, async: (raises: []).} =
@@ -172,8 +172,8 @@ proc route*(router: RpcRouter, data: string):
 
   return reply
 
-proc tryRoute*(router: RpcRouter, data: StringOfJson,
-               fut: var Future[StringOfJson]): Result[void, string] =
+proc tryRoute*(router: RpcRouter, data: JsonString,
+               fut: var Future[JsonString]): Result[void, string] =
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
   when defined(nimHasWarnBareExcept):

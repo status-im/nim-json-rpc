@@ -46,7 +46,7 @@ template hasMethod*(server: RpcServer, methodName: string): bool =
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    params: RequestParamsTx): Future[StringOfJson]
+                    params: RequestParamsTx): Future[JsonString]
                       {.gcsafe, raises: [JsonRpcError].} =
 
   let
@@ -58,7 +58,7 @@ proc executeMethod*(server: RpcServer,
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    args: JsonNode): Future[StringOfJson]
+                    args: JsonNode): Future[JsonString]
                       {.gcsafe, raises: [JsonRpcError].} =
 
   let params = paramsTx(args)

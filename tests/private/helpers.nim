@@ -10,10 +10,10 @@
 import
   ../../json_rpc/router
 
-converter toStr*(value: distinct (string|StringOfJson)): string = string(value)
+converter toStr*(value: distinct (string|JsonString)): string = string(value)
 
-template `==`*(a: StringOfJson, b: JsonNode): bool =
+template `==`*(a: JsonString, b: JsonNode): bool =
   parseJson(string a) == b
 
-template `==`*(a: JsonNode, b: StringOfJson): bool =
+template `==`*(a: JsonNode, b: JsonString): bool =
   a == parseJson(string b)

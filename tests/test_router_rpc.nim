@@ -1,7 +1,6 @@
 import
   unittest2,
   ../json_rpc/router,
-  json_serialization/stew/results,
   json_serialization/std/options
 
 var server = RpcRouter()

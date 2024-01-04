@@ -33,7 +33,7 @@ func ensureReturnType*(params: NimNode): NimNode =
 func noWrap*(returnType: NimNode): bool =
   ## Condition when return type should not be encoded
   ## to Json
-  returnType.repr == "StringOfJson" or
+  returnType.repr == "JsonString" or
     returnType.repr == "JsonString"
 
 func paramsTx*(params: JsonNode): RequestParamsTx =

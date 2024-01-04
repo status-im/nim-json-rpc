@@ -54,7 +54,7 @@ proc getWebSocketClientConfig*(
   ClientConfig(kind: WebSocket, wsUri: uri, compression: compression, flags: flags)
 
 proc proxyCall(client: RpcClient, name: string): RpcProc =
-  return proc (params: RequestParamsRx): Future[StringOfJson] {.gcsafe, async.} =
+  return proc (params: RequestParamsRx): Future[JsonString] {.gcsafe, async.} =
           let res = await client.call(name, params.toTx)
           return res
 
