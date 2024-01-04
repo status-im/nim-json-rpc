@@ -13,6 +13,7 @@ import
   testrpcmacro,
   testethcalls,
   testhttp,
+  testhttps,
   testserverclient,
   testproxy,
   testhook,

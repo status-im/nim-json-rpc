@@ -41,9 +41,15 @@ const
 proc new(
     T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false,
     getHeaders: GetJsonRpcRequestHeaders = nil, flags: HttpClientFlags = {}): T =
+
+  var moreFlags: HttpClientFlags
+  if secure:
+    moreFlags.incl HttpClientFlag.NoVerifyHost
+    moreFlags.incl HttpClientFlag.NoVerifyServerName
+
   T(
     maxBodySize: maxBodySize,
-    httpSession: HttpSessionRef.new(flags = flags),
+    httpSession: HttpSessionRef.new(flags = flags + moreFlags),
     getHeaders: getHeaders
   )
 
