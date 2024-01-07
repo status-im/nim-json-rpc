@@ -40,12 +40,13 @@ When an error occurs, the `error` is populated, otherwise `result` will be popul
 Here's a simple example:
 
 ```nim
-import json_rpc/rpcserver
+import
+  json_rpc/rpcserver
 
-var router = newRpcRouter()
+var router = RpcRouter.init()
 
-router.rpc("hello") do() -> string:
-  result = "Hello"
+router.rpc("hello") do():
+  result = %"Hello"
 ```
 
 As no return type was specified in this example, `result` defaults to the `JsonNode` type.
@@ -69,10 +70,14 @@ The return type then performs the opposite process, converting Nim types to Json
 Here is a more complex parameter example:
 
 ```nim
+import
+  json_rpc/rpcserver,
+  json_rpc/jsonmarshal
+
 type
   HeaderKind = enum hkOne, hkTwo, hkThree
 
-  Header = ref object
+  Header = object
     kind: HeaderKind
     size: int64
 
@@ -84,9 +89,15 @@ type
     data: DataBlob
     name: string
 
+Header.useDefaultSerializationIn JrpcConv
+DataBlob.useDefaultSerializationIn JrpcConv
+MyObject.useDefaultSerializationIn JrpcConv
+
 router.rpc("updateData") do(myObj: MyObject, newData: DataBlob) -> DataBlob:
-  result = myObj.data
-  myObj.data = newData
+  if myObj.name == "old":
+    result = myObj.data
+  else:
+    result = newData
 ```
 
 Behind the scenes, all RPC calls take parameters through `RequestParamsRx` structure.
@@ -256,7 +267,7 @@ Here's an example of how that looks by manually creating the JSON. Later we will
 ```nim
 let call = %*{
   "id": %1,
-  "jsonrpc": %2.0,
+  "jsonrpc": %"2.0",
   "method": %"hello",
   "params": %["Terry"]
   }
@@ -265,7 +276,7 @@ let localResult = waitFor router.route(call)
 
 echo localResult
 # We should see something like this
-#   {"jsonrpc":"2.0","id":1,"result":"Hello Terry","error":null}
+#   {"jsonrpc":"2.0","id":1,"result":"Hello Terry"}
 ```
 
 # Server
@@ -332,8 +343,8 @@ waitFor client.connect("localhost", Port(8545))
 
 let response = waitFor client.call("hello", %[%"Daisy"])
 
-# the call returns a `Response` type which contains the result
-echo response.result
+# the call returns a `JsonString` type which contains the result
+echo response
 ```
 
 ### `createRpcSigs`
