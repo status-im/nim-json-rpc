@@ -206,3 +206,6 @@ proc close*(server: RpcWebSocketServer) =
 proc closeWait*(server: RpcWebSocketServer) {.async.} =
   ## Cleanup resources of RPC server.
   await server.server.closeWait()
+
+proc localAddress*(server: RpcWebSocketServer): TransportAddress = 
+  server.server.localAddress()

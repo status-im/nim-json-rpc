@@ -11,9 +11,8 @@ import
   unittest2, chronicles,
   ../json_rpc/[rpcclient, rpcserver, rpcproxy]
 
-let srvAddress = initTAddress("127.0.0.1",  Port(8545))
-let proxySrvAddress = "127.0.0.1:8546"
-let proxySrvAddressForClient = "http://"&proxySrvAddress
+let srvAddress = initTAddress("127.0.0.1", Port(0))
+let proxySrvAddress = "127.0.0.1:0"
 
 template registerMethods(srv: RpcServer, proxy: RpcProxy) =
   srv.rpc("myProc") do(input: string, data: array[0..3, int]):
@@ -27,14 +26,14 @@ template registerMethods(srv: RpcServer, proxy: RpcProxy) =
 
 suite "Proxy RPC through http":
   var srv = newRpcHttpServer([srvAddress])
-  var proxy = RpcProxy.new([proxySrvAddress], getHttpClientConfig("http://127.0.0.1:8545"))
+  var proxy = RpcProxy.new([proxySrvAddress], getHttpClientConfig("http://" & $srv.localAddress()[0]))
   var client = newRpcHttpClient()
 
   registerMethods(srv, proxy)
 
   srv.start()
   waitFor proxy.start()
-  waitFor client.connect(proxySrvAddressForClient)
+  waitFor client.connect("http://" & $proxy.localAddress()[0])
 
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
@@ -56,14 +55,14 @@ suite "Proxy RPC through http":
 
 suite "Proxy RPC through websockets":
   var srv = newRpcWebSocketServer(srvAddress)
-  var proxy = RpcProxy.new([proxySrvAddress], getWebSocketClientConfig("ws://127.0.0.1:8545"))
+  var proxy = RpcProxy.new([proxySrvAddress], getWebSocketClientConfig("ws://" & $srv.localAddress()))
   var client = newRpcHttpClient()
 
   registerMethods(srv, proxy)
 
   srv.start()
   waitFor proxy.start()
-  waitFor client.connect(proxySrvAddressForClient)
+  waitFor client.connect("http://" & $proxy.localAddress()[0])
 
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])

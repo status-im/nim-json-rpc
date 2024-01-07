@@ -64,7 +64,7 @@ let
     },
     "c": %1.0}
 
-var s = newRpcSocketServer(["127.0.0.1:8545"])
+var s = newRpcSocketServer(["127.0.0.1:0"])
 
 # RPC definitions
 s.rpc("rpc.simplePath"):

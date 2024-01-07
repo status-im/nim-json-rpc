@@ -79,12 +79,12 @@ proc installHandlers(s: RpcServer) =
     return "meow"
 
 suite "test callsigs":
-  var server = newRpcSocketServer(["127.0.0.1:8545"])
+  var server = newRpcSocketServer(["127.0.0.1:0"])
   server.installHandlers()
   var client = newRpcSocketClient()
 
   server.start()
-  waitFor client.connect("127.0.0.1", Port(8545))
+  waitFor client.connect(server.localAddress()[0])
 
   test "callsigs from file":
     let res = waitFor client.shh_uninstallFilter(123)

@@ -127,4 +127,7 @@ proc stop*(proxy: RpcProxy) {.async.} =
 proc closeWait*(proxy: RpcProxy) {.async.} =
   await proxy.rpcHttpServer.closeWait()
 
+func localAddress*(proxy: RpcProxy): seq[TransportAddress] =
+  proxy.rpcHttpServer.localAddress()
+  
 {.pop.}

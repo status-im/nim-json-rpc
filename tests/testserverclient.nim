@@ -23,12 +23,12 @@ proc setupServer*(srv: RpcServer) =
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
 
 suite "Socket Server/Client RPC":
-  var srv = newRpcSocketServer(["127.0.0.1:8545"])
+  var srv = newRpcSocketServer(["127.0.0.1:0"])
   var client = newRpcSocketClient()
 
   srv.setupServer()
   srv.start()
-  waitFor client.connect("127.0.0.1", Port(8545))
+  waitFor client.connect(srv.localAddress()[0])
 
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
@@ -53,12 +53,12 @@ suite "Socket Server/Client RPC":
   waitFor srv.closeWait()
 
 suite "Websocket Server/Client RPC":
-  var srv = newRpcWebSocketServer("127.0.0.1", Port(8545))
+  var srv = newRpcWebSocketServer("127.0.0.1", Port(0))
   var client = newRpcWebSocketClient()
 
   srv.setupServer()
   srv.start()
-  waitFor client.connect("ws://127.0.0.1:8545/")
+  waitFor client.connect("ws://" & $srv.localAddress())
 
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
@@ -83,13 +83,13 @@ suite "Websocket Server/Client RPC":
   waitFor srv.closeWait()
 
 suite "Websocket Server/Client RPC with Compression":
-  var srv = newRpcWebSocketServer("127.0.0.1", Port(8545),
+  var srv = newRpcWebSocketServer("127.0.0.1", Port(0),
                                   compression = true)
   var client = newRpcWebSocketClient()
 
   srv.setupServer()
   srv.start()
-  waitFor client.connect("ws://127.0.0.1:8545/",
+  waitFor client.connect("ws://" & $srv.localAddress(),
                          compression = true)
 
   test "Successful RPC call":

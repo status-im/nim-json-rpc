@@ -73,26 +73,26 @@ N8r5CwGcIX/XPC3lKazzbZ8baA==
 -----END CERTIFICATE-----
 """
 
-proc simpleTest(address: string, port: Port): Future[bool] {.async.} =
+proc simpleTest(address: string): Future[bool] {.async.} =
   var client = newRpcHttpClient(secure=true)
-  await client.connect(address, port, secure=true)
+  await client.connect("https://" & address)
   var r = await client.call("noParamsProc", %[])
   if r.string == "\"Hello world\"":
     result = true
 
-proc continuousTest(address: string, port: Port): Future[int] {.async.} =
+proc continuousTest(address: string): Future[int] {.async.} =
   var client = newRpcHttpClient(secure=true)
   result = 0
   for i in 0..<TestsCount:
-    await client.connect(address, port, secure=true)
+    await client.connect("https://" & address)
     var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
     if r.string == "\"Hello abc data: [1, 2, 3, " & $i & "]\"":
       result += 1
     await client.close()
 
-proc invalidTest(address: string, port: Port): Future[bool] {.async.} =
+proc invalidTest(address: string): Future[bool] {.async.} =
   var client = newRpcHttpClient(secure=true)
-  await client.connect(address, port, secure=true)
+  await client.connect("https://" & address)
   var invalidA, invalidB: bool
   try:
     var r = await client.call("invalidProcA", %[])
@@ -111,7 +111,7 @@ let secureKey = TLSPrivateKey.init(HttpsSelfSignedRsaKey)
 let secureCert = TLSCertificate.init(HttpsSelfSignedRsaCert)
 var secureHttpSrv = RpcHttpServer.new()
 
-secureHttpSrv.addSecureHttpServer("127.0.0.1:8545", secureKey, secureCert)
+secureHttpSrv.addSecureHttpServer("127.0.0.1:0", secureKey, secureCert)
 
 # Create RPC on server
 secureHttpSrv.rpc("myProc") do(input: string, data: array[0..3, int]):
@@ -123,11 +123,11 @@ secureHttpSrv.start()
 
 suite "JSON-RPC test suite":
   test "Simple RPC call":
-    check waitFor(simpleTest("127.0.0.1", Port(8545))) == true
+    check waitFor(simpleTest($secureHttpSrv.localAddress()[0])) == true
   test "Continuous RPC calls (" & $TestsCount & " messages)":
-    check waitFor(continuousTest("127.0.0.1", Port(8545))) == TestsCount
+    check waitFor(continuousTest($secureHttpSrv.localAddress()[0])) == TestsCount
   test "Invalid RPC calls":
-    check waitFor(invalidTest("127.0.0.1", Port(8545))) == true
+    check waitFor(invalidTest($secureHttpSrv.localAddress()[0])) == true
 
 waitFor secureHttpSrv.stop()
 waitFor secureHttpSrv.closeWait()

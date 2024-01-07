@@ -78,6 +78,11 @@ proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   client.address = addresses[0]
   client.loop = processData(client)
 
+proc connect*(client: RpcSocketClient, address: TransportAddress) {.async.} =
+  client.transport = await connect(address)
+  client.address = address
+  client.loop = processData(client)
+
 method close*(client: RpcSocketClient) {.async.} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:

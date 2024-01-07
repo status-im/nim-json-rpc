@@ -14,7 +14,7 @@ import
 
 const
   serverHost    = "127.0.0.1"
-  serverPort    = 8547
+  serverPort    = 0 # let the OS choose the port
   serverAddress = serverHost & ":" & $serverPort
 
 proc setupServer*(srv: RpcServer) =
@@ -37,14 +37,14 @@ suite "HTTP server hook test":
 
   test "no auth token":
     let client = newRpcHttpClient()
-    waitFor client.connect(serverHost, Port(serverPort), false)
+    waitFor client.connect("http://" & $srv.localAddress()[0])
     expect ErrorResponse:
       let r = waitFor client.call("testHook", %[%"abc"])
       discard r
 
   test "good auth token":
     let client = newRpcHttpClient(getHeaders = authHeaders)
-    waitFor client.connect(serverHost, Port(serverPort), false)
+    waitFor client.connect("http://" & $srv.localAddress()[0])
     let r = waitFor client.call("testHook", %[%"abc"])
     check r.string == "\"Hello abc\""
 
@@ -72,8 +72,8 @@ suite "Websocket server hook test":
     return true
 
   let srv = newRpcWebSocketServer(
-    "127.0.0.1",
-    Port(8545),
+    serverHost,
+    Port(serverPort),
     authHooks = @[WsAuthHook(mockAuth)]
   )
   srv.setupServer()
@@ -82,13 +82,13 @@ suite "Websocket server hook test":
 
   test "no auth token":
     try:
-      waitFor client.connect("ws://127.0.0.1:8545/")
+      waitFor client.connect("ws://" & $srv.localAddress())
       check false
     except CatchableError as e:
-      check e.msg == "Server did not reply with a websocket upgrade: Header code: 403 Header reason: Forbidden Address: 127.0.0.1:8545"
+      check e.msg == "Server did not reply with a websocket upgrade: Header code: 403 Header reason: Forbidden Address: " & $srv.localAddress()
 
   test "good auth token":
-    waitFor client.connect("ws://127.0.0.1:8545/", hooks = @[hook])
+    waitFor client.connect("ws://" & $srv.localAddress(), hooks = @[hook])
     let r = waitFor client.call("testHook", %[%"abc"])
     check r.string == "\"Hello abc\""
 

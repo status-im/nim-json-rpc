@@ -291,3 +291,7 @@ proc closeWait*(server: RpcHttpServer) {.async.} =
   ## Cleanup resources of RPC server.
   for item in server.httpServers:
     await item.closeWait()
+
+proc localAddress*(server: RpcHttpServer): seq[TransportAddress] =
+  for item in server.httpServers:
+    result.add item.instance.localAddress()
