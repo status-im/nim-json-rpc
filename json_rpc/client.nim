@@ -31,6 +31,8 @@ type
     awaiting*: Table[RequestId, Future[JsonString]]
     lastId: int
     onDisconnect*: proc() {.gcsafe, raises: [].}
+    onProcessMessage*: proc(client: RpcClient, line: string):
+      Result[bool, string] {.gcsafe, raises: [].}
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
@@ -67,6 +69,12 @@ method close*(client: RpcClient): Future[void] {.base, gcsafe, async.} =
   doAssert(false, "`RpcClient.close` not implemented")
 
 proc processMessage*(client: RpcClient, line: string): Result[void, string] =
+  if client.onProcessMessage.isNil.not:
+    let fallBack = client.onProcessMessage(client, line).valueOr:
+      return err(error)
+    if not fallBack:
+      return ok()
+
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
   try:

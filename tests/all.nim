@@ -19,4 +19,5 @@ import
   testhook,
   test_jrpc_sys,
   test_router_rpc,
-  test_callsigs
+  test_callsigs,
+  test_client_hook
