@@ -15,7 +15,7 @@ import
   ./private/jrpc_sys,
   ./private/client_handler_wrapper,
   ./private/shared_wrapper,
-  ./private/errors
+  ./errors
 
 from strutils import replace
 

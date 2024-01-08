@@ -12,7 +12,7 @@ import
   chronicles,
   chronos,
   ./private/server_handler_wrapper,
-  ./private/errors,
+  ./errors,
   ./private/jrpc_sys,
   ./jsonmarshal
 

@@ -1,5 +1,5 @@
 import
-  ../../json_rpc/private/errors
+  ../../json_rpc/errors
 
 type
   HexQuantityStr* = distinct string

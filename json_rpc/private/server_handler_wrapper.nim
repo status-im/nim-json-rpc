@@ -12,8 +12,8 @@ import
   stew/[byteutils, objects],
   json_serialization,
   json_serialization/std/[options],
-  ./errors,
-  ./jrpc_sys,  
+  ../errors,
+  ./jrpc_sys,
   ./shared_wrapper,
   ../jsonmarshal
 

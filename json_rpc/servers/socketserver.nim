@@ -10,7 +10,7 @@
 import
   chronicles,
   json_serialization/std/net,
-  ../private/errors,
+  ../errors,
   ../server
 
 export errors, server

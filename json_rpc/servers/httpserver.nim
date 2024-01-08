@@ -11,7 +11,7 @@ import
   stew/byteutils,
   chronicles, httputils, chronos,
   chronos/apps/http/[httpserver, shttpserver],
-  ../private/errors,
+  ../errors,
   ../server
 
 export

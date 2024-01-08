@@ -12,7 +12,7 @@ import
   pkg/websock/[websock, extensions/compression/deflate],
   pkg/[chronos, chronos/apps/http/httptable, chronicles],
   stew/byteutils,
-  ../private/errors  
+  ../errors
 
 # avoid clash between Json.encode and Base64Pad.encode
 import ../client except encode

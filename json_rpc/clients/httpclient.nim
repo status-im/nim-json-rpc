@@ -14,7 +14,7 @@ import
   chronos/apps/http/httpclient as chronosHttpClient,
   chronicles, httputils, json_serialization/std/net,
   ../client,
-  ../private/errors,
+  ../errors,
   ../private/jrpc_sys
 
 export

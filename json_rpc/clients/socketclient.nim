@@ -13,7 +13,7 @@ import
   results,
   chronos,
   ../client,
-  ../private/errors,
+  ../errors,
   ../private/jrpc_sys
 
 export client

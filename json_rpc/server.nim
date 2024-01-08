@@ -14,7 +14,7 @@ import
   ./jsonmarshal,
   ./private/jrpc_sys,
   ./private/shared_wrapper,
-  ./private/errors
+  ./errors
 
 export
   chronos,
