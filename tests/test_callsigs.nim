@@ -18,6 +18,13 @@ template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
 type
   Variant = int | bool | string
+  RefObject = ref object
+    name: string
+
+template derefType(T: type): untyped =
+  typeof(T()[])
+
+derefType(RefObject).useDefaultSerializationIn JrpcConv
 
 createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs.nim")
 
@@ -33,6 +40,7 @@ createRpcSigsFromNim(RpcClient):
   proc get_Name(id: int): string
   proc getJsonString(name: string): JsonString
   proc getVariant(id: Variant): bool
+  proc getRefObject(shouldNull: bool): RefObject
 
 proc installHandlers(s: RpcServer) =
   s.rpc("shh_uninstallFilter") do(id: int) -> bool:
@@ -77,6 +85,10 @@ proc installHandlers(s: RpcServer) =
     if id == "cow":
       return "moo"
     return "meow"
+
+  s.rpc("getRefObject") do(shouldNull: bool) -> Refobject:
+    if shouldNull: return nil
+    return RefObject(name: "meow")
 
 suite "test callsigs":
   var server = newRpcSocketServer(["127.0.0.1:0"])
@@ -129,6 +141,14 @@ suite "test callsigs":
     expect JsonRpcError:
       let res4 = waitFor client.getVariant(33)
       check res4 == true
+
+  test "Handle null return value correctly":
+    let res = waitFor client.getRefObject(true)
+    check res.isNil
+
+    let res2 = waitFor client.getRefObject(false)
+    check res2.isNil.not
+    check res2.name == "meow"
 
   server.stop()
   waitFor server.closeWait()

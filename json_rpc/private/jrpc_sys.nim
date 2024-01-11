@@ -103,7 +103,7 @@ type
   ResponseRx* = object
     jsonrpc*: results.Opt[JsonRPC2]
     id*     : results.Opt[RequestId]
-    result* : results.Opt[JsonString]
+    result* : JsonString
     error*  : results.Opt[ResponseError]
 
   ReBatchKind* = enum

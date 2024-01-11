@@ -96,10 +96,11 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
       requestFut.fail(newException(JsonRpcError, error))
       return ok()
 
-    if response.result.isNone:
+    # Up to this point, the result should contains something    
+    if response.result.string.len == 0:
       return err("missing or invalid response result")
 
-    requestFut.complete(response.result.get)
+    requestFut.complete(response.result)
     return ok()
 
   except CatchableError as exc:

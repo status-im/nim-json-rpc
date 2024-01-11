@@ -174,8 +174,8 @@ suite "jrpc_sys conversion":
       rx.jsonrpc.isSome
       rx.id.isSome
       rx.id.get.num == 777
-      rx.result.isSome
-      rx.result.get == JsonString("true")
+      rx.result.string.len > 0
+      rx.result == JsonString("true")
       rx.error.isNone
 
   test "ResponseTx -> ResponseRx: id(string), err: nodata":
@@ -186,7 +186,7 @@ suite "jrpc_sys conversion":
       rx.jsonrpc.isSome
       rx.id.isSome
       rx.id.get.str == "gum"
-      rx.result.isNone
+      rx.result.string.len == 0
       rx.error.isSome
       rx.error.get.code == 999
       rx.error.get.message == "fatal"
@@ -200,7 +200,7 @@ suite "jrpc_sys conversion":
       rx.jsonrpc.isSome
       rx.id.isSome
       rx.id.get.str == "gum"
-      rx.result.isNone
+      rx.result.string.len == 0
       rx.error.isSome
       rx.error.get.code == 999
       rx.error.get.message == "fatal"
