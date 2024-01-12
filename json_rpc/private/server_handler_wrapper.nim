@@ -241,7 +241,13 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
   ##     rpcVar.paramA = params.unpack(paramA of ParamAType)
   ##     rpcVar.paramB = params.unpack(paramB of ParamBType)
   ##   else:
-  ##     rpcVar = params.unpack(named of RpcType)
+  ##     # missing parameters is ok in named mode
+  ##     # the default value will be used
+  ##     for x in params.named:
+  ##       case x.name
+  ##       of "paramA": rpcVar.paramA = params.unpack(paramA of ParamAType)
+  ##       of "paramB": rpcVar.paramB = params.unpack(paramB of ParamBType)
+  ##       else: discard
   ##
   ##   let res = await rpcHandler(rpcVar.paramA, rpcVar.paramB)
   ##   return JrpcConv.encode(res).JsonString
@@ -285,6 +291,9 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
       else:
         `named`
   else:
+    # even though there is no parameters expected
+    # but the numbers of received params should
+    # still be checked (RPC spec)
     setup.add quote do:
       if `paramsIdent`.kind == rpPositional:
         `posSetup`

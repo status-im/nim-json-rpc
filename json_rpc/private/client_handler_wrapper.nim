@@ -46,6 +46,17 @@ proc setupConversion(reqParams, params: NimNode): NimNode =
       `reqParams`.positional.add encode(JrpcConv, `parName`).JsonString
 
 proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
+  ## This procedure will generate something like this:
+  ## - Currently it always send posisitional parameters to the server
+  ##
+  ## proc rpcApi(client: RpcClient; paramA: TypeA; paramB: TypeB): Future[RetType] =
+  ##   {.gcsafe.}:
+  ##     var reqParams = RequestParamsTx(kind: rpPositional)
+  ##     reqParams.positional.add encode(JrpcConv, paramA).JsonString
+  ##     reqParams.positional.add encode(JrpcConv, paramB).JsonString
+  ##     let res = await client.call("rpcApi", reqParams)
+  ##     result = decode(JrpcConv, res.string, typeof RetType)
+
   # Each input parameter in the rpc signature is converted
   # to json using JrpcConv.encode.
   # Return types are then converted back to native Nim types.
