@@ -37,6 +37,7 @@ type
   RpcHttpServer* = ref object of RpcServer
     httpServers: seq[HttpServerRef]
     authHooks: seq[HttpAuthHook]
+    maxChunkSize: int
 
 proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback2 =
   return proc (req: RequestFence): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
@@ -64,15 +65,31 @@ proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback2 =
     let
       headers = HttpTable.init([("Content-Type",
                                  "application/json; charset=utf-8")])
+      chunkSize = rpcServer.maxChunkSize
+
     try:
       let
         body = await request.getBody()
-
         data = await rpcServer.route(string.fromBytes(body))
-        res = await request.respond(Http200, data, headers)
 
-      trace "JSON-RPC result has been sent"
-      return res
+      if data.len <= chunkSize:
+        let res = await request.respond(Http200, data, headers)
+        trace "JSON-RPC result has been sent"
+        return res
+
+      let response = request.getResponse()
+      response.status = Http200
+      response.addHeader("Content-Type", "application/json; charset=utf-8")
+      await response.prepare()
+      let maxLen = data.len
+      var len = data.len
+      while len > chunkSize:
+        await response.sendChunk(data[maxLen - len].unsafeAddr, chunkSize)
+        len -= chunkSize
+      if len > 0:
+        await response.sendChunk(data[maxLen - len].unsafeAddr, len)
+      await response.finish()
+
     except CancelledError as exc:
       raise exc
     except CatchableError as exc:
@@ -243,10 +260,10 @@ proc addSecureHttpServer*(server: RpcHttpServer,
     server.addSecureHttpServer(a, tlsPrivateKey, tlsCertificate)
 
 proc new*(T: type RpcHttpServer, authHooks: seq[HttpAuthHook] = @[]): T =
-  T(router: RpcRouter.init(), httpServers: @[], authHooks: authHooks)
+  T(router: RpcRouter.init(), httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
 
 proc new*(T: type RpcHttpServer, router: RpcRouter, authHooks: seq[HttpAuthHook] = @[]): T =
-  T(router: router, httpServers: @[], authHooks: authHooks)
+  T(router: router, httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
 
 proc newRpcHttpServer*(authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer =
   RpcHttpServer.new(authHooks)
@@ -295,3 +312,6 @@ proc closeWait*(server: RpcHttpServer) {.async.} =
 proc localAddress*(server: RpcHttpServer): seq[TransportAddress] =
   for item in server.httpServers:
     result.add item.instance.localAddress()
+
+proc setMaxChunkSize*(server: RpcHttpServer, maxChunkSize: int) =
+  server.maxChunkSize = maxChunkSize

@@ -7,8 +7,9 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-import unittest2
-import ../json_rpc/[rpcserver, rpcclient]
+import
+  unittest2,
+  ../json_rpc/[rpcserver, rpcclient, jsonmarshal]
 
 const TestsCount = 100
 
@@ -46,6 +47,15 @@ proc invalidTest(address: string): Future[bool] {.async.} =
   if invalidA and invalidB:
     result = true
 
+const bigChunkSize = 4 * 8192
+
+proc chunkedTest(address: string): Future[bool] {.async.} =
+  var client = newRpcHttpClient()
+  await client.connect("http://" & address)
+  let r = await client.call("bigchunkMethod", %[])
+  let data = JrpcConv.decode(r.string, seq[byte])
+  return data.len == bigChunkSize
+
 var httpsrv = newRpcHttpServer(["127.0.0.1:0"])
 
 # Create RPC on server
@@ -54,15 +64,24 @@ httpsrv.rpc("myProc") do(input: string, data: array[0..3, int]):
 httpsrv.rpc("noParamsProc") do():
   result = %("Hello world")
 
+httpsrv.rpc("bigchunkMethod") do() -> seq[byte]:
+  result = newSeq[byte](bigChunkSize)
+  for i in 0..<result.len:
+    result[i] = byte(i mod 255)
+
+httpsrv.setMaxChunkSize(8192)
 httpsrv.start()
+let serverAddress = $httpsrv.localAddress()[0]
 
 suite "JSON-RPC test suite":
   test "Simple RPC call":
-    check waitFor(simpleTest($httpsrv.localAddress()[0])) == true
+    check waitFor(simpleTest(serverAddress)) == true
   test "Continuous RPC calls (" & $TestsCount & " messages)":
-    check waitFor(continuousTest($httpsrv.localAddress()[0])) == TestsCount
+    check waitFor(continuousTest(serverAddress)) == TestsCount
   test "Invalid RPC calls":
-    check waitFor(invalidTest($httpsrv.localAddress()[0])) == true
+    check waitFor(invalidTest(serverAddress)) == true
+  test "Http client can handle chunked transfer encoding":
+    check waitFor(chunkedTest(serverAddress)) == true
 
 waitFor httpsrv.stop()
 waitFor httpsrv.closeWait()
