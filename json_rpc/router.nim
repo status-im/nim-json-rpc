@@ -110,9 +110,12 @@ proc wrapError(code: int, msg: string): string =
 
 proc init*(T: type RpcRouter): T = discard
 
-proc register*(router: var RpcRouter, path: string, call: RpcProc)
-                {.gcsafe, raises: [CatchableError].} =
-  router.procs[path] = call
+proc register*(router: var RpcRouter, path: string, call: RpcProc) =
+  # this proc should not raise exception
+  try:
+    router.procs[path] = call
+  except CatchableError as exc:
+    doAssert(false, exc.msg)
 
 proc clear*(router: var RpcRouter) =
   router.procs.clear
