@@ -33,15 +33,26 @@ type
     wsserver: WSServer
     authHooks: seq[WsAuthHook]
 
-proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
+proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async: (raises: [CancelledError]).} =
   trace "Handling request:", uri = request.uri.path
   trace "Initiating web socket connection."
 
   # if hook result is false,
   # it means we should return immediately
-  for hook in rpc.authHooks:
-    let res = await hook(request)
-    if not res:
+  try:
+    for hook in rpc.authHooks:
+      let res = await hook(request)
+      if not res:
+        return
+  except CatchableError as exc:
+    error "Internal error while processing JSON-RPC hook", msg=exc.msg
+    try:
+      await request.sendResponse(Http503,
+        data = "",
+        content = "Internal error, processing JSON-RPC hook: " & exc.msg)
+      return
+    except CatchableError as exc:
+      error "Something error", msg=exc.msg
       return
 
   try:
@@ -67,23 +78,26 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async.} =
         )
         break
 
-      let future = rpc.route(string.fromBytes(recvData))
-      yield future
-      if future.failed:
-        debug "Internal error, while processing RPC call",
-              address = $request.uri
-        await ws.close(
-          reason = "Internal error, while processing RPC call"
-        )
-        break
+      let data = try:
+          await rpc.route(string.fromBytes(recvData))
+        except CancelledError as exc:
+          raise exc
+        except CatchableError as exc:
+          debug "Internal error, while processing RPC call",
+            address = $request.uri
+          await ws.close(
+            reason = "Internal error, while processing RPC call"
+          )
+          break
 
-      var data = future.read()
       trace "RPC result has been sent", address = $request.uri
-
       await ws.send(data)
 
   except WebSocketError as exc:
     error "WebSocket error:", exception = exc.msg
+
+  except CatchableError as exc:
+    error "Something error", msg=exc.msg
 
 proc initWebsocket(rpc: RpcWebSocketServer, compression: bool,
                    authHooks: seq[WsAuthHook],
@@ -207,5 +221,5 @@ proc closeWait*(server: RpcWebSocketServer) {.async.} =
   ## Cleanup resources of RPC server.
   await server.server.closeWait()
 
-proc localAddress*(server: RpcWebSocketServer): TransportAddress = 
+proc localAddress*(server: RpcWebSocketServer): TransportAddress =
   server.server.localAddress()
