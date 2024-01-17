@@ -244,3 +244,12 @@ suite "jrpc_sys conversion":
     check:
       rx.kind == rbkMany
       rx.many.len == 3
+
+  test "skip null value":
+    let jsonBytes = """{"jsonrpc":null, "id":null, "method":null, "params":null}"""
+    let x = JrpcSys.decode(jsonBytes, RequestRx)
+    check:
+      x.jsonrpc.isNone
+      x.id.kind == riNull
+      x.`method`.isNone
+      x.params.kind == rpPositional

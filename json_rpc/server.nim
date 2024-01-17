@@ -64,6 +64,19 @@ proc executeMethod*(server: RpcServer,
   let params = paramsTx(args)
   server.executeMethod(methodName, params)
 
+proc executeMethod*(server: RpcServer,
+                    methodName: string,
+                    args: JsonString): Future[JsonString]
+                      {.gcsafe, raises: [JsonRpcError].} =
+
+  let params = try:
+    let x = JrpcSys.decode(args.string, RequestParamsRx)
+    x.toTx
+  except SerializationError as exc:
+    raise newException(JsonRpcError, exc.msg)
+
+  server.executeMethod(methodName, params)
+
 # Wrapper for message processing
 
 proc route*(server: RpcServer, line: string): Future[string] {.gcsafe.} =

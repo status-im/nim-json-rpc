@@ -149,11 +149,10 @@ proc setupPositional(code: NimNode;
       `paramsIdent`.positional[`pos`].kind
     paramVar = quote do:
       `paramsObj`.`paramIdent`
+    innerNode = jsonToNim(paramVar, paramType, paramVal, paramName)
 
   # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
   if paramType.isOptionalArg:
-    let
-      innerNode = jsonToNim(paramVar, paramType, paramVal, paramName)
     if pos >= minLength:
       # allow both empty and null after mandatory args
       # D & E fall into this category
@@ -171,7 +170,9 @@ proc setupPositional(code: NimNode;
     # mandatory args
     # A and C fall into this category
     # unpack Nim type and assign from json
-    code.add jsonToNim(paramVar, paramType, paramVal, paramName)
+    code.add quote do:
+      if `paramKind` != JsonValueKind.Null:
+        `innerNode`
 
 proc makeParams(retType: NimNode, params: NimNode): seq[NimNode] =
   ## Convert rpc params into handler params

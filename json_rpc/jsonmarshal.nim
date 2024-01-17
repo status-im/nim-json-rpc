@@ -14,7 +14,11 @@ export
   json_serialization
 
 createJsonFlavor JrpcConv,
-  requireAllFields = false
-
+  automaticObjectSerialization = false,
+  requireAllFields = false,
+  omitOptionalFields = true, # Skip optional fields==none in Writer
+  allowUnknownFields = true,
+  skipNullFields = true      # Skip optional fields==null in Reader
+                           
 # JrpcConv is a namespace/flavor for encoding and decoding
 # parameters and return value of a rpc method.
