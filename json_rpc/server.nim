@@ -52,6 +52,7 @@ proc executeMethod*(server: RpcServer,
   let
     req = requestTx(methodName, params, RequestId(kind: riNumber, num: 0))
     reqData = JrpcSys.encode(req).JsonString
+  debugEcho "reqData: ", reqData
 
   server.router.tryRoute(reqData, result).isOkOr:
     raise newException(JsonRpcError, error)
@@ -62,6 +63,19 @@ proc executeMethod*(server: RpcServer,
                       {.gcsafe, raises: [JsonRpcError].} =
 
   let params = paramsTx(args)
+  server.executeMethod(methodName, params)
+
+proc executeMethod*(server: RpcServer,
+                    methodName: string,
+                    args: JsonString): Future[JsonString]
+                      {.gcsafe, raises: [JsonRpcError].} =
+
+  let params = try:
+    let x = JrpcSys.decode(args.string, RequestParamsRx)
+    x.toTx
+  except SerializationError as exc:
+    raise newException(JsonRpcError, exc.msg)
+
   server.executeMethod(methodName, params)
 
 # Wrapper for message processing

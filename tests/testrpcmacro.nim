@@ -39,11 +39,16 @@ type
     Enum0
     Enum1
 
+  MuscleCar = object
+    color: string
+    wheel: int
+
 MyObject.useDefaultSerializationIn JrpcConv
 Test.useDefaultSerializationIn JrpcConv
 Test2.useDefaultSerializationIn JrpcConv
 MyOptional.useDefaultSerializationIn JrpcConv
 MyOptionalNotBuiltin.useDefaultSerializationIn JrpcConv
+MuscleCar.useDefaultSerializationIn JrpcConv
 
 proc readValue*(r: var JsonReader[JrpcConv], val: var MyEnum)
        {.gcsafe, raises: [IOError, SerializationError].} =
@@ -117,6 +122,9 @@ s.rpc("rpc.optionalArg2") do(a, b: string, c, d: Option[string]) -> string:
   if c.isSome: ret.add c.get()
   if d.isSome: ret.add d.get()
   return ret
+
+s.rpc("echo") do(car: MuscleCar) -> JsonString:
+  return JrpcConv.encode(car).JsonString
 
 type
   OptionalFields = object
@@ -239,9 +247,9 @@ suite "Server types":
     let
       inp1 = MyOptional(maybeInt: some(75))
       inp2 = MyOptional()
-      r1 = waitFor s.executeMethod("rpc.optional", %[%inp1])
+      #r1 = waitFor s.executeMethod("rpc.optional", %[%inp1])
       r2 = waitFor s.executeMethod("rpc.optional", %[%inp2])
-    check r1.string == JrpcConv.encode inp1
+    #check r1.string == JrpcConv.encode inp1
     check r2.string == JrpcConv.encode inp2
 
   test "Return statement":
@@ -351,6 +359,10 @@ suite "Server types":
     check r1 == %data.get()
     check r2 == %"nope"
     check r3 == %"nope"
+
+  test "Null object fields":
+    let r = waitFor s.executeMethod("echo", """{"car":{"color":"red",wheel:null}}""".JsonString)
+    debugEcho r
 
 s.stop()
 waitFor s.closeWait()

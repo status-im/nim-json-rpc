@@ -141,7 +141,11 @@ type
 # don't mix the json-rpc system encoding with the
 # actual response/params encoding
 createJsonFlavor JrpcSys,
-  requireAllFields = false
+  automaticObjectSerialization = false,
+  requireAllFields = false,
+  omitOptionalFields = true, # Skip optional fields==none in Writer
+  allowUnknownFields = true,
+  skipNullFields = true      # Skip optional fields==null in Reader
 
 ResponseError.useDefaultSerializationIn JrpcSys
 RequestTx.useDefaultWriterIn JrpcSys
