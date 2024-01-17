@@ -52,7 +52,6 @@ proc executeMethod*(server: RpcServer,
   let
     req = requestTx(methodName, params, RequestId(kind: riNumber, num: 0))
     reqData = JrpcSys.encode(req).JsonString
-  debugEcho "reqData: ", reqData
 
   server.router.tryRoute(reqData, result).isOkOr:
     raise newException(JsonRpcError, error)

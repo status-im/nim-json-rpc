@@ -247,9 +247,9 @@ suite "Server types":
     let
       inp1 = MyOptional(maybeInt: some(75))
       inp2 = MyOptional()
-      #r1 = waitFor s.executeMethod("rpc.optional", %[%inp1])
+      r1 = waitFor s.executeMethod("rpc.optional", %[%inp1])
       r2 = waitFor s.executeMethod("rpc.optional", %[%inp2])
-    #check r1.string == JrpcConv.encode inp1
+    check r1.string == JrpcConv.encode inp1
     check r2.string == JrpcConv.encode inp2
 
   test "Return statement":
@@ -353,16 +353,22 @@ suite "Server types":
       r1 = waitFor s.executeMethod("rpc.optionalStringArg", %[%data])
       r2 = waitFor s.executeMethod("rpc.optionalStringArg", %[])
       r3 = waitFor s.executeMethod("rpc.optionalStringArg", %[newJNull()])
-    echo r1
-    echo r2
-    echo r3
     check r1 == %data.get()
     check r2 == %"nope"
     check r3 == %"nope"
 
   test "Null object fields":
-    let r = waitFor s.executeMethod("echo", """{"car":{"color":"red",wheel:null}}""".JsonString)
-    debugEcho r
+    let r = waitFor s.executeMethod("echo", """{"car":{"color":"red","wheel":null}}""".JsonString)
+    check r == """{"color":"red","wheel":0}"""
+
+    let x = waitFor s.executeMethod("echo", """{"car":{"color":null,"wheel":77}}""".JsonString)
+    check x == """{"color":"","wheel":77}"""
+
+    let y = waitFor s.executeMethod("echo", """{"car":null}""".JsonString)
+    check y == """{"color":"","wheel":0}"""
+
+    let z = waitFor s.executeMethod("echo", "[null]".JsonString)
+    check z == """{"color":"","wheel":0}"""
 
 s.stop()
 waitFor s.closeWait()

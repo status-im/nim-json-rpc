@@ -149,7 +149,6 @@ createJsonFlavor JrpcSys,
 
 ResponseError.useDefaultSerializationIn JrpcSys
 RequestTx.useDefaultWriterIn JrpcSys
-ResponseRx.useDefaultReaderIn JrpcSys
 RequestRx.useDefaultReaderIn JrpcSys
 
 const
@@ -256,6 +255,18 @@ proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseTx)
   else:
     w.writeField("error", val.error)
   w.endRecord()
+
+proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  # We need to overload ResponseRx reader because
+  # we don't want to skip null fields
+  r.parseObjectWithoutSkip(key):
+    case key
+    of "jsonrpc": r.readValue(val.jsonrpc)
+    of "id"     : r.readValue(val.id)
+    of "result" : val.result = r.parseAsString()
+    of "error"  : r.readValue(val.error)
+    else: discard
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestBatchTx)
        {.gcsafe, raises: [IOError].} =
