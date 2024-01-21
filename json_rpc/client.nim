@@ -84,7 +84,11 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
       return err("missing or invalid `jsonrpc`")
 
     if response.id.isNone:
-      return err("missing or invalid response id")
+      if response.error.isSome:
+        let error = JrpcSys.encode(response.error.get)
+        return err(error)
+      else:
+        return err("missing or invalid response id")
 
     var requestFut: Future[JsonString]
     let id = response.id.get
@@ -92,15 +96,15 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
       let msg = "Cannot find message id \"" & $id & "\":"
       requestFut.fail(newException(JsonRpcError, msg))
       return ok()
-  
+
     if response.error.isSome:
       let error = JrpcSys.encode(response.error.get)
       requestFut.fail(newException(JsonRpcError, error))
       return ok()
 
-    # Up to this point, the result should contains something    
-    if response.result.string.len == 0:      
-      let msg = "missing or invalid response result" 
+    # Up to this point, the result should contains something
+    if response.result.string.len == 0:
+      let msg = "missing or invalid response result"
       requestFut.fail(newException(JsonRpcError, msg))
       return ok()
 

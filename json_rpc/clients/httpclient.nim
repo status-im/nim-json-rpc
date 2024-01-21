@@ -152,6 +152,7 @@ method call*(client: RpcHttpClient, name: string,
   if msgRes.isErr:
     # Need to clean up in case the answer was invalid
     debug "Failed to process POST Response for JSON-RPC", msg = msgRes.error
+    newFut.cancelSoon()
     client.awaiting.del(id)
     closeRefs()
     raise newException(JsonRpcError, msgRes.error)
