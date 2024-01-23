@@ -86,7 +86,7 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async: (rais
           debug "Internal error, while processing RPC call",
             address = $request.uri
           await ws.close(
-            reason = "Internal error, while processing RPC call"
+            reason = "Internal error, while processing RPC call: " & exc.msg
           )
           break
 
