@@ -28,33 +28,17 @@ type
   WsAuthHook* = proc(request: HttpRequest): Future[bool]
                   {.gcsafe, raises: [Defect, CatchableError].}
 
-  RpcWebSocketServer* = ref object of RpcServer
+  # This inheritance arrangement is useful for
+  # e.g. combo HTTP server
+  RpcWebSocketHandler* = ref object of RpcServer
+    wsserver*: WSServer
+
+  RpcWebSocketServer* = ref object of RpcWebSocketHandler
     server: StreamServer
-    wsserver: WSServer
     authHooks: seq[WsAuthHook]
 
-proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async: (raises: [CancelledError]).} =
-  trace "Handling request:", uri = request.uri.path
-  trace "Initiating web socket connection."
-
-  # if hook result is false,
-  # it means we should return immediately
-  try:
-    for hook in rpc.authHooks:
-      let res = await hook(request)
-      if not res:
-        return
-  except CatchableError as exc:
-    error "Internal error while processing JSON-RPC hook", msg=exc.msg
-    try:
-      await request.sendResponse(Http503,
-        data = "",
-        content = "Internal error, processing JSON-RPC hook: " & exc.msg)
-      return
-    except CatchableError as exc:
-      error "Something error", msg=exc.msg
-      return
-
+proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
+                  {.async: (raises: [CancelledError]).} =
   try:
     let server = rpc.wsserver
     let ws = await server.handleRequest(request)
@@ -98,6 +82,31 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest) {.async: (rais
 
   except CatchableError as exc:
     error "Something error", msg=exc.msg
+
+proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest)
+                    {.async: (raises: [CancelledError]).} =
+  trace "Handling request:", uri = request.uri.path
+  trace "Initiating web socket connection."
+
+  # if hook result is false,
+  # it means we should return immediately
+  try:
+    for hook in rpc.authHooks:
+      let res = await hook(request)
+      if not res:
+        return
+  except CatchableError as exc:
+    error "Internal error while processing JSON-RPC hook", msg=exc.msg
+    try:
+      await request.sendResponse(Http503,
+        data = "",
+        content = "Internal error, processing JSON-RPC hook: " & exc.msg)
+      return
+    except CatchableError as exc:
+      error "Something error", msg=exc.msg
+      return
+
+  await rpc.serveHTTP(request)
 
 proc initWebsocket(rpc: RpcWebSocketServer, compression: bool,
                    authHooks: seq[WsAuthHook],
