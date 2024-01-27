@@ -80,13 +80,7 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
     raise exc
   except CatchableError as exc:
     debug "Internal error while processing JSON-RPC call"
-    try:
-      return await request.respond(
-        Http503,
-        "Internal error while processing JSON-RPC call: " & exc.msg)
-    except HttpWriteError as exc:
-      error "Something error", msg=exc.msg
-      return defaultResponse()
+    return defaultResponse(exc)
 
 proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback2 =
   return proc (req: RequestFence): Future[HttpResponseRef]
@@ -104,13 +98,7 @@ proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback2 =
           return res
     except CatchableError as exc:
       error "Internal error while processing JSON-RPC hook", msg=exc.msg
-      try:
-        return await request.respond(
-          Http503,
-          "Internal error while processing JSON-RPC hook: " & exc.msg)
-      except HttpWriteError as exc:
-        error "Something error", msg=exc.msg
-        return defaultResponse()
+      return defaultResponse(exc)
 
     return await rpcServer.serveHTTP(request)
 
