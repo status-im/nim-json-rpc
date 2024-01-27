@@ -25,7 +25,8 @@ proc authHeaders(): seq[(string, string)] =
   @[("Auth-Token", "Good Token")]
 
 suite "HTTP server hook test":
-  proc mockAuth(req: HttpRequestRef): Future[HttpResponseRef] {.async.} =
+  proc mockAuth(req: HttpRequestRef): Future[HttpResponseRef] {.
+        gcsafe, async: (raises: [CatchableError]).} =
     if req.headers.getString("Auth-Token") == "Good Token":
       return HttpResponseRef(nil)
 

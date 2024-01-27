@@ -32,7 +32,7 @@ type
   # - HttpResponse: could not authenticate, stop execution
   #   and return the response
   HttpAuthHook* = proc(request: HttpRequestRef): Future[HttpResponseRef]
-                  {.gcsafe, raises: [Defect, CatchableError].}
+                  {.gcsafe, async: (raises: [CatchableError]).}
 
   # This inheritance arrangement is useful for
   # e.g. combo HTTP server
