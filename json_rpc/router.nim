@@ -151,7 +151,7 @@ proc route*(router: RpcRouter, data: string):
   ## converted to Json.
   ## Returns string of Json from RPC result/error node
   when defined(nimHasWarnBareExcept):
-    {.warning[BareExcept]:off.}
+    {.push warning[BareExcept]:off.}
 
   let request =
     try:
@@ -172,7 +172,7 @@ proc route*(router: RpcRouter, data: string):
       return wrapError(JSON_ENCODE_ERROR, err.msg)
 
   when defined(nimHasWarnBareExcept):
-    {.warning[BareExcept]:on.}
+    {.pop warning[BareExcept]:on.}
 
   return reply
 
@@ -181,8 +181,8 @@ proc tryRoute*(router: RpcRouter, data: JsonString,
   ## Route to RPC, returns false if the method or params cannot be found.
   ## Expects json input and returns json output.
   when defined(nimHasWarnBareExcept):
-    {.warning[BareExcept]:off.}
-    {.warning[UnreachableCode]:off.}
+    {.push warning[BareExcept]:off.}
+    {.push warning[UnreachableCode]:off.}
 
   try:
     let req = JrpcSys.decode(data.string, RequestRx)
@@ -206,8 +206,8 @@ proc tryRoute*(router: RpcRouter, data: JsonString,
     return err(ex.msg)
 
   when defined(nimHasWarnBareExcept):
-    {.warning[BareExcept]:on.}
-    {.warning[UnreachableCode]:on.}
+    {.pop warning[BareExcept]:on.}
+    {.pop warning[UnreachableCode]:on.}
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.
