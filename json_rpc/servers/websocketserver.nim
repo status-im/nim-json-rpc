@@ -64,8 +64,6 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
 
       let data = try:
           await rpc.route(string.fromBytes(recvData))
-        except CancelledError as exc:
-          raise exc
         except CatchableError as exc:
           debug "Internal error, while processing RPC call",
             address = $request.uri
@@ -79,6 +77,9 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
 
   except WebSocketError as exc:
     error "WebSocket error:", exception = exc.msg
+
+  except CancelledError as exc:
+    raise exc
 
   except CatchableError as exc:
     error "Something error", msg=exc.msg
