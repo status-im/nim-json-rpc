@@ -32,6 +32,17 @@ proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 
+proc createBatchCallProc(procName, parameters, callBody: NimNode): NimNode =
+  # parameters come as a tree
+  var paramList = newSeq[NimNode]()
+  for p in parameters: paramList.add(p)
+
+  # build proc
+  result = newProc(procName, paramList, callBody)
+
+  # export this proc
+  result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
+  
 proc setupConversion(reqParams, params: NimNode): NimNode =
   # populate json params
   # even rpcs with no parameters have an empty json array node sent
@@ -47,7 +58,7 @@ proc setupConversion(reqParams, params: NimNode): NimNode =
 
 proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
   ## This procedure will generate something like this:
-  ## - Currently it always send posisitional parameters to the server
+  ## - Currently it always send positional parameters to the server
   ##
   ## proc rpcApi(client: RpcClient; paramA: TypeA; paramB: TypeB): Future[RetType] =
   ##   {.gcsafe.}:
@@ -66,11 +77,11 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
     procName = if alias.isNil: rpcDecl.name else: alias
     pathStr = $rpcDecl.name
     returnType = params[0]
-    reqParams = genSym(nskVar, "reqParams")
+    reqParams = ident "reqParams"
     setup = setupConversion(reqParams, params)
     clientIdent = ident"client"
     # temporary variable to hold `Response` from rpc call
-    rpcResult = genSym(nskLet, "res")
+    rpcResult = ident "res"
     # proc return variable
     procRes = ident"result"
     doDecode = quote do:
@@ -79,6 +90,9 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
       if returnType.noWrap: quote do:
         `procRes` = `rpcResult`
       else: doDecode
+      
+    batchParams = params.copy
+    batchIdent = ident "batch"
 
   # insert rpc client as first parameter
   params.insert(1, nnkIdentDefs.newTree(
@@ -99,8 +113,29 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
     let `rpcResult` = await `clientIdent`.call(`pathStr`, `reqParams`)
     `maybeWrap`
 
+
+  # insert RpcBatchCallRef as first parameter
+  batchParams.insert(1, nnkIdentDefs.newTree(
+    batchIdent,
+    ident "RpcBatchCallRef",
+    newEmptyNode()
+  ))
+  
+  # remove return type
+  batchParams[0] = newEmptyNode()
+  
+  let batchCallBody = quote do:
+    `setup`
+    `batchIdent`.batch.add RpcBatchItem(
+      meth: `pathStr`,
+      params: `reqParams`
+    )
+  
   # create rpc proc
-  result = createRpcProc(procName, params, callBody)
+  result = newStmtList()  
+  result.add createRpcProc(procName, params, callBody)
+  result.add createBatchCallProc(procName, batchParams, batchCallBody)
+  
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
 

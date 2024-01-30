@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -38,6 +38,10 @@ const
 
 {.push gcsafe, raises: [].}
 
+# ------------------------------------------------------------------------------
+# Private helpers
+# ------------------------------------------------------------------------------
+
 proc new(
     T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false,
     getHeaders: GetJsonRpcRequestHeaders = nil, flags: HttpClientFlags = {}): T =
@@ -53,15 +57,24 @@ proc new(
     getHeaders: getHeaders
   )
 
-proc newRpcHttpClient*(
-    maxBodySize = MaxHttpRequestSize, secure = false,
-    getHeaders: GetJsonRpcRequestHeaders = nil,
-    flags: HttpClientFlags = {}): RpcHttpClient =
-  RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
+template closeRefs(req, res: untyped) =
+  # We can't trust try/finally in async/await in all nim versions, so we
+  # do it manually instead
+  if req != nil:
+    try:
+      await req.closeWait()
+    except CatchableError as exc: # shouldn't happen
+      debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
+      discard exc
 
-method call*(client: RpcHttpClient, name: string,
-             params: RequestParamsTx): Future[JsonString]
-            {.async, gcsafe.} =
+  if res != nil:
+    try:
+      await res.closeWait()
+    except CatchableError as exc: # shouldn't happen
+      debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
+      discard exc
+
+proc callImpl(client: RpcHttpClient, reqBody: string): Future[string] {.async.} =
   doAssert client.httpSession != nil
   if client.httpAddress.isErr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
@@ -73,32 +86,8 @@ method call*(client: RpcHttpClient, name: string,
       @[]
   headers.add(("Content-Type", "application/json"))
 
-  let
-    id = client.getNextId()
-    reqBody = requestTxEncode(name, params, id)
-
   var req: HttpClientRequestRef
   var res: HttpClientResponseRef
-
-  template used(x: typed) =
-    # silence unused warning
-    discard
-
-  template closeRefs() =
-    # We can't trust try/finally in async/await in all nim versions, so we
-    # do it manually instead
-    if req != nil:
-      try:
-        await req.closeWait()
-      except CatchableError as exc: # shouldn't happen
-        used(exc)
-        debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
-    if res != nil:
-      try:
-        await res.closeWait()
-      except CatchableError as exc: # shouldn't happen
-        used(exc)
-        debug "Error closing JSON-RPC HTTP resuest/response", err = exc.msg
 
   debug "Sending message to RPC server",
          address = client.httpAddress, msg_len = len(reqBody), name
@@ -113,17 +102,17 @@ method call*(client: RpcHttpClient, name: string,
       await req.send()
     except CancelledError as e:
       debug "Cancelled POST Request with JSON-RPC", e = e.msg
-      closeRefs()
+      closeRefs(req, res)
       raise e
     except CatchableError as e:
       debug "Failed to send POST Request with JSON-RPC", e = e.msg
-      closeRefs()
+      closeRefs(req, res)
       raise (ref RpcPostError)(msg: "Failed to send POST Request with JSON-RPC: " & e.msg, parent: e)
 
   if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
     debug "Unsuccessful POST Request with JSON-RPC",
       status = res.status, reason = res.reason
-    closeRefs()
+    closeRefs(req, res)
     raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
   let resBytes =
@@ -131,15 +120,34 @@ method call*(client: RpcHttpClient, name: string,
       await res.getBodyBytes(client.maxBodySize)
     except CancelledError as e:
       debug "Cancelled POST Response for JSON-RPC", e = e.msg
-      closeRefs()
+      closeRefs(req, res)
       raise e
     except CatchableError as e:
       debug "Failed to read POST Response for JSON-RPC", e = e.msg
-      closeRefs()
+      closeRefs(req, res)
       raise (ref FailedHttpResponse)(msg: "Failed to read POST Response for JSON-RPC: " & e.msg, parent: e)
 
-  let resText = string.fromBytes(resBytes)
-  trace "Response", text = resText
+  result = string.fromBytes(resBytes)
+  trace "Response", text = result
+  closeRefs(req, res)
+
+# ------------------------------------------------------------------------------
+# Public functions
+# ------------------------------------------------------------------------------
+
+proc newRpcHttpClient*(
+    maxBodySize = MaxHttpRequestSize, secure = false,
+    getHeaders: GetJsonRpcRequestHeaders = nil,
+    flags: HttpClientFlags = {}): RpcHttpClient =
+  RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
+
+method call*(client: RpcHttpClient, name: string,
+             params: RequestParamsTx): Future[JsonString]
+            {.async, gcsafe.} =
+  let
+    id = client.getNextId()
+    reqBody = requestTxEncode(name, params, id)
+    resText = await client.callImpl(reqBody)
 
   # completed by processMessage - the flow is quite weird here to accomodate
   # socket and ws clients, but could use a more thorough refactoring
@@ -155,17 +163,42 @@ method call*(client: RpcHttpClient, name: string,
     let exc = newException(JsonRpcError, msgRes.error)
     newFut.fail(exc)
     client.awaiting.del(id)
-    closeRefs()
     raise exc
 
   client.awaiting.del(id)
-
-  closeRefs()
 
   # processMessage should have completed this future - if it didn't, `read` will
   # raise, which is reasonable
   if newFut.finished:
     return newFut.read()
+  else:
+    # TODO: Provide more clarity regarding the failure here
+    debug "Invalid POST Response for JSON-RPC"
+    raise newException(InvalidResponse, "Invalid response")
+
+method callBatch*(client: RpcHttpClient,
+                  calls: RequestBatchTx): Future[ResponseBatchRx]
+                    {.gcsafe, async.} =
+  let
+    reqBody = requestBatchEncode(calls)
+    resText = await client.callImpl(reqBody)
+
+  if client.batchFut.isNil or client.batchFut.finished():
+    client.batchFut = newFuture[ResponseBatchRx]()
+
+  # Might error for all kinds of reasons
+  let msgRes = client.processMessage(resText)
+  if msgRes.isErr:
+    # Need to clean up in case the answer was invalid
+    debug "Failed to process POST Response for JSON-RPC", msg = msgRes.error
+    let exc = newException(JsonRpcError, msgRes.error)
+    client.batchFut.fail(exc)
+    raise exc
+
+  # processMessage should have completed this future - if it didn't, `read` will
+  # raise, which is reasonable
+  if client.batchFut.finished:
+    return client.batchFut.read()
   else:
     # TODO: Provide more clarity regarding the failure here
     debug "Invalid POST Response for JSON-RPC"

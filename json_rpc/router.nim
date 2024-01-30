@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -155,21 +155,32 @@ proc route*(router: RpcRouter, data: string):
 
   let request =
     try:
-      JrpcSys.decode(data, RequestRx)
+      JrpcSys.decode(data, RequestBatchRx)
     except CatchableError as err:
       return wrapError(JSON_PARSE_ERROR, err.msg)
     except Exception as err:
       # TODO https://github.com/status-im/nimbus-eth2/issues/2430
       return wrapError(JSON_PARSE_ERROR, err.msg)
 
-  let reply =
-    try:
-      let response = await router.route(request)
-      JrpcSys.encode(response)
+  let reply = try:
+      if request.kind == rbkSingle:
+        let response = await router.route(request.single)
+        JrpcSys.encode(response)
+      elif request.many.len == 0:
+        wrapError(INVALID_REQUEST, "no request object in request array")
+      else:
+        var resFut: seq[Future[ResponseTx]]
+        for req in request.many:
+          resFut.add router.route(req)
+        await noCancel(allFutures(resFut))
+        var response = ResponseBatchTx(kind: rbkMany)
+        for fut in resFut:
+          response.many.add fut.read()
+        JrpcSys.encode(response)
     except CatchableError as err:
-      return wrapError(JSON_ENCODE_ERROR, err.msg)
+      wrapError(JSON_ENCODE_ERROR, err.msg)
     except Exception as err:
-      return wrapError(JSON_ENCODE_ERROR, err.msg)
+      wrapError(JSON_ENCODE_ERROR, err.msg)
 
   when defined(nimHasWarnBareExcept):
     {.pop warning[BareExcept]:on.}

@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -20,4 +20,5 @@ import
   test_jrpc_sys,
   test_router_rpc,
   test_callsigs,
-  test_client_hook
+  test_client_hook,
+  test_batch_call

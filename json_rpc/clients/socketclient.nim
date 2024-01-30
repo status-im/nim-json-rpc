@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -35,25 +35,44 @@ proc newRpcSocketClient*: RpcSocketClient =
   ## Creates a new client instance.
   RpcSocketClient.new()
 
-method call*(self: RpcSocketClient, name: string,
+method call*(client: RpcSocketClient, name: string,
              params: RequestParamsTx): Future[JsonString] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
-  let id = self.getNextId()
-  var value = requestTxEncode(name, params, id) & "\r\n"
-  if self.transport.isNil:
+  let id = client.getNextId()
+  var jsonBytes = requestTxEncode(name, params, id) & "\r\n"
+  if client.transport.isNil:
     raise newException(JsonRpcError,
                     "Transport is not initialised (missing a call to connect?)")
 
   # completed by processMessage.
   var newFut = newFuture[JsonString]()
   # add to awaiting responses
-  self.awaiting[id] = newFut
+  client.awaiting[id] = newFut
 
-  let res = await self.transport.write(value)
+  let res = await client.transport.write(jsonBytes)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == len(value))
+  doAssert(res == jsonBytes.len)
 
   return await newFut
+
+method callBatch*(client: RpcSocketClient,
+                  calls: RequestBatchTx): Future[ResponseBatchRx]
+                    {.gcsafe, async.} =
+  if client.transport.isNil:
+    raise newException(JsonRpcError,
+      "Transport is not initialised (missing a call to connect?)")
+
+  if client.batchFut.isNil or client.batchFut.finished():
+    client.batchFut = newFuture[ResponseBatchRx]()
+
+  let
+    jsonBytes = requestBatchEncode(calls) & "\r\n"
+    res = await client.transport.write(jsonBytes)
+
+  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
+  doAssert(res == jsonBytes.len)
+
+  return await client.batchFut
 
 proc processData(client: RpcSocketClient) {.async.} =
   while true:

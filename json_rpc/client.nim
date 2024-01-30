@@ -24,15 +24,30 @@ export
   tables,
   jsonmarshal,
   RequestParamsTx,
+  RequestBatchTx,
+  ResponseBatchRx,
   results
 
 type
+  RpcBatchItem* = object
+    meth*: string
+    params*: RequestParamsTx
+
+  RpcBatchCallRef* = ref object of RootRef
+    client*: RpcClient
+    batch*: seq[RpcBatchItem]
+
+  RpcBatchResponse* = object
+    error*: Opt[string]
+    result*: JsonString
+
   RpcClient* = ref object of RootRef
     awaiting*: Table[RequestId, Future[JsonString]]
     lastId: int
     onDisconnect*: proc() {.gcsafe, raises: [].}
     onProcessMessage*: proc(client: RpcClient, line: string):
       Result[bool, string] {.gcsafe, raises: [].}
+    batchFut*: Future[ResponseBatchRx]
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
@@ -42,9 +57,64 @@ type
 # Public helpers
 # ------------------------------------------------------------------------------
 
+func validateResponse(resIndex: int, res: ResponseRx): Result[void, string] =
+  if res.jsonrpc.isNone:
+    return err("missing or invalid `jsonrpc` in response " & $resIndex)
+
+  if res.id.isNone:
+    if res.error.isSome:
+      let error = JrpcSys.encode(res.error.get)
+      return err(error)
+    else:
+      return err("missing or invalid response id in response " & $resIndex)
+
+  if res.error.isSome:
+    let error = JrpcSys.encode(res.error.get)
+    return err(error)
+
+  # Up to this point, the result should contains something
+  if res.result.string.len == 0:
+    return err("missing or invalid response result in response " & $resIndex)
+
+  ok()
+
+proc processResponse(resIndex: int,
+                     map: var Table[RequestId, int],
+                     responses: var seq[RpcBatchResponse],
+                     response: ResponseRx): Result[void, string] =
+  let r = validateResponse(resIndex, response)
+  if r.isErr:
+    if response.id.isSome:
+      let id = response.id.get
+      var index: int
+      if not map.pop(id, index):
+        return err("cannot find message id: " & $id & " in response " & $resIndex)
+      responses[index] = RpcBatchResponse(
+        error: Opt.some(r.error)
+      )
+    else:
+      return err(r.error)
+  else:
+    let id = response.id.get
+    var index: int
+    if not map.pop(id, index):
+      return err("cannot find message id: " & $id & " in response " & $resIndex)
+    responses[index] = RpcBatchResponse(
+      result:  response.result
+    )
+
+  ok()
+
+# ------------------------------------------------------------------------------
+# Public helpers
+# ------------------------------------------------------------------------------
+
 func requestTxEncode*(name: string, params: RequestParamsTx, id: RequestId): string =
   let req = requestTx(name, params, id)
   JrpcSys.encode(req)
+
+func requestBatchEncode*(calls: RequestBatchTx): string =
+  JrpcSys.encode(calls)
 
 # ------------------------------------------------------------------------------
 # Public functions
@@ -68,6 +138,11 @@ method call*(client: RpcClient, name: string,
 method close*(client: RpcClient): Future[void] {.base, gcsafe, async.} =
   doAssert(false, "`RpcClient.close` not implemented")
 
+method callBatch*(client: RpcClient,
+                  calls: RequestBatchTx): Future[ResponseBatchRx]
+                    {.base, gcsafe, async.} =
+  doAssert(false, "`RpcClient.callBatch` not implemented")
+
 proc processMessage*(client: RpcClient, line: string): Result[void, string] =
   if client.onProcessMessage.isNil.not:
     let fallBack = client.onProcessMessage(client, line).valueOr:
@@ -78,8 +153,14 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
   # Note: this doesn't use any transport code so doesn't need to be
   # differentiated.
   try:
-    let response = JrpcSys.decode(line, ResponseRx)
+    let batch = JrpcSys.decode(line, ResponseBatchRx)
+    if batch.kind == rbkMany:
+      if client.batchFut.isNil or client.batchFut.finished():
+        client.batchFut = newFuture[ResponseBatchRx]()
+      client.batchFut.complete(batch)
+      return ok()
 
+    let response = batch.single
     if response.jsonrpc.isNone:
       return err("missing or invalid `jsonrpc`")
 
@@ -113,6 +194,41 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
 
   except CatchableError as exc:
     return err(exc.msg)
+
+proc prepareBatch*(client: RpcClient): RpcBatchCallRef =
+  RpcBatchCallRef(client: client)
+
+proc send*(batch: RpcBatchCallRef):
+            Future[Result[seq[RpcBatchResponse], string]] {.
+              async: (raises: []).} =
+  var
+    calls = RequestBatchTx(
+      kind: rbkMany,
+      many: newSeqOfCap[RequestTx](batch.batch.len),
+    )
+    responses = newSeq[RpcBatchResponse](batch.batch.len)
+    map = initTable[RequestId, int]()
+
+  for item in batch.batch:
+    let id = batch.client.getNextId()
+    map[id] = calls.many.len
+    calls.many.add requestTx(item.meth, item.params, id)
+
+  try:
+    let res = await batch.client.callBatch(calls)
+    if res.kind == rbkSingle:
+      let r = processResponse(0, map, responses, res.single)
+      if r.isErr:
+        return err(r.error)
+    else:
+      for i, z in res.many:
+        let r = processResponse(i, map, responses, z)
+        if r.isErr:
+          return err(r.error)
+  except CatchableError as exc:
+    return err(exc.msg)
+
+  return ok(responses)
 
 # ------------------------------------------------------------------------------
 # Signature processing

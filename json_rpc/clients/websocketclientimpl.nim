@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2023 Status Research & Development GmbH
+# Copyright (c) 2019-2024 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -38,22 +38,38 @@ proc newRpcWebSocketClient*(
   ## Creates a new client instance.
   RpcWebSocketClient.new(getHeaders)
 
-method call*(self: RpcWebSocketClient, name: string,
+method call*(client: RpcWebSocketClient, name: string,
              params: RequestParamsTx): Future[JsonString] {.async, gcsafe.} =
   ## Remotely calls the specified RPC method.
-  let id = self.getNextId()
-  var value = requestTxEncode(name, params, id) & "\r\n"
-  if self.transport.isNil:
+  if client.transport.isNil:
     raise newException(JsonRpcError,
-                    "Transport is not initialised (missing a call to connect?)")
+      "Transport is not initialised (missing a call to connect?)")
+
+  let id = client.getNextId()
+  var value = requestTxEncode(name, params, id) & "\r\n"
 
   # completed by processMessage.
   var newFut = newFuture[JsonString]()
   # add to awaiting responses
-  self.awaiting[id] = newFut
+  client.awaiting[id] = newFut
 
-  await self.transport.send(value)
+  await client.transport.send(value)
   return await newFut
+
+method callBatch*(client: RpcWebSocketClient,
+                  calls: RequestBatchTx): Future[ResponseBatchRx]
+                    {.gcsafe, async.} =
+  if client.transport.isNil:
+    raise newException(JsonRpcError,
+      "Transport is not initialised (missing a call to connect?)")
+
+  if client.batchFut.isNil or client.batchFut.finished():
+    client.batchFut = newFuture[ResponseBatchRx]()
+
+  let jsonBytes = requestBatchEncode(calls) & "\r\n"
+  await client.transport.send(jsonBytes)
+
+  return await client.batchFut
 
 proc processData(client: RpcWebSocketClient) {.async.} =
   var error: ref CatchableError
