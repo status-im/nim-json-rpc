@@ -89,10 +89,6 @@ proc callImpl(client: RpcHttpClient, reqBody: string): Future[string] {.async.} 
   var req: HttpClientRequestRef
   var res: HttpClientResponseRef
 
-  debug "Sending message to RPC server",
-         address = client.httpAddress, msg_len = len(reqBody), name
-  trace "Message", msg = reqBody
-
   req = HttpClientRequestRef.post(client.httpSession,
                                   client.httpAddress.get,
                                   body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
@@ -144,10 +140,16 @@ proc newRpcHttpClient*(
 method call*(client: RpcHttpClient, name: string,
              params: RequestParamsTx): Future[JsonString]
             {.async, gcsafe.} =
+
   let
     id = client.getNextId()
     reqBody = requestTxEncode(name, params, id)
-    resText = await client.callImpl(reqBody)
+
+  debug "Sending message to RPC server",
+         address = client.httpAddress, msg_len = len(reqBody), name
+  trace "Message", msg = reqBody
+
+  let resText = await client.callImpl(reqBody)
 
   # completed by processMessage - the flow is quite weird here to accomodate
   # socket and ws clients, but could use a more thorough refactoring
