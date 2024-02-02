@@ -12,6 +12,7 @@ import
   stew/[byteutils, objects],
   json_serialization,
   json_serialization/std/[options],
+  json_serialization/stew/results,
   ../errors,
   ./jrpc_sys,
   ./shared_wrapper,
@@ -20,7 +21,25 @@ import
 export
   jsonmarshal
 
+type
+  RpcSetup* = object
+    numFields*: int
+    numOptionals*: int
+    minLength*: int
+
 {.push gcsafe, raises: [].}
+
+# ------------------------------------------------------------------------------
+# Optional resolvers
+# ------------------------------------------------------------------------------
+
+template rpc_isOptional(_: auto): bool = false
+template rpc_isOptional[T](_: results.Opt[T]): bool = true
+template rpc_isOptional[T](_: options.Option[T]): bool = true
+
+# ------------------------------------------------------------------------------
+# Run time helpers
+# ------------------------------------------------------------------------------
 
 proc unpackArg(args: JsonString, argName: string, argType: type): argType
                 {.gcsafe, raises: [JsonRpcError].} =
@@ -33,78 +52,95 @@ proc unpackArg(args: JsonString, argName: string, argType: type): argType
       "Parameter [" & argName & "] of type '" &
       $argType & "' could not be decoded: " & err.msg)
 
-proc expectArrayLen(node, paramsIdent: NimNode, length: int) =
-  ## Make sure positional params meets the handler expectation
-  let
-    expected = "Expected " & $length & " Json parameter(s) but got "
-  node.add quote do:
-    if `paramsIdent`.positional.len != `length`:
-      raise newException(RequestDecodeError, `expected` &
-        $`paramsIdent`.positional.len)
+# ------------------------------------------------------------------------------
+# Compile time helpers
+# ------------------------------------------------------------------------------
+func hasOptionals(setup: RpcSetup): bool {.compileTime.} =
+  setup.numOptionals > 0
 
-iterator paramsRevIter(params: NimNode): tuple[name, ntype: NimNode] =
-  ## Bacward iterator of handler parameters
-  for i in countdown(params.len-1,1):
-    let arg = params[i]
-    let argType = arg[^2]
-    for j in 0 ..< arg.len-2:
-      yield (arg[j], argType)
+func rpcSetupImpl[T](val: T): RpcSetup {.compileTime.} =
+  ## Counting number of fields, optional fields, and
+  ## minimum fields needed by a rpc method
+  mixin rpc_isOptional
+  var index = 1
+  for field in fields(val):
+    inc result.numFields
+    if rpc_isOptional(field):
+      inc result.numOptionals
+    else:
+      result.minLength = index
+    inc index
 
-proc isOptionalArg(typeNode: NimNode): bool =
-  # typed version
-  (typeNode.kind == nnkCall and
-     typeNode.len > 1 and
-     typeNode[1].kind in {nnkIdent, nnkSym} and
-     typeNode[1].strVal == "Option") or
+func rpcSetupFromType(T: type): RpcSetup {.compileTime.} =
+  var dummy: T
+  rpcSetupImpl(dummy)
 
-  # untyped version
-  (typeNode.kind == nnkBracketExpr and
-    typeNode[0].kind == nnkIdent and
-    typeNode[0].strVal == "Option")
-
-proc expectOptionalArrayLen(node: NimNode,
-                            parameters: NimNode,
-                            paramsIdent: NimNode,
-                            maxLength: int): int =
-  ## Validate if parameters sent by client meets
-  ## minimum expectation of server
-  var minLength = maxLength
-
-  for arg, typ in paramsRevIter(parameters):
-    if not typ.isOptionalArg: break
-    dec minLength
-
+template expectOptionalParamsLen(params: RequestParamsRx,
+                                 minLength, maxLength: static[int]) =
+  ## Make sure positional params with optional fields
+  ## meets the handler expectation
   let
     expected = "Expected at least " & $minLength & " and maximum " &
       $maxLength & " Json parameter(s) but got "
 
-  node.add quote do:
-    if `paramsIdent`.positional.len < `minLength`:
-      raise newException(RequestDecodeError, `expected` &
-        $`paramsIdent`.positional.len)
+  if params.positional.len < minLength:
+    raise newException(RequestDecodeError,
+      expected & $params.positional.len)
 
-  minLength
+template expectParamsLen(params: RequestParamsRx, length: static[int]) =
+  ## Make sure positional params meets the handler expectation
+  let
+    expected = "Expected " & $length & " Json parameter(s) but got "
 
-proc containsOptionalArg(params: NimNode): bool =
-  ## Is one of handler parameters an optional?
-  for n, t in paramsIter(params):
-    if t.isOptionalArg:
-      return true
+  if params.positional.len != length:
+    raise newException(RequestDecodeError,
+      expected & $params.positional.len)
 
-proc jsonToNim(paramVar: NimNode,
-               paramType: NimNode,
-               paramVal: NimNode,
-               paramName: string): NimNode =
+template setupPositional(setup: static[RpcSetup], params: RequestParamsRx) =
+  ## Generate code to check positional params length
+  when setup.hasOptionals:
+    expectOptionalParamsLen(params, setup.minLength, setup.numFields)
+  else:
+    expectParamsLen(params, setup.numFields)
+
+template len(params: RequestParamsRx): int =
+  params.positional.len
+
+template notNull(params: RequestParamsRx, pos: int): bool =
+  params.positional[pos].kind != JsonValueKind.Null
+
+template val(params: RequestParamsRx, pos: int): auto =
+  params.positional[pos].param
+
+template unpackPositional(params: RequestParamsRx,
+                          paramVar: auto,
+                          paramName: static[string],
+                          pos: static[int],
+                          minLength: static[int],
+                          paramType: type) =
   ## Convert a positional parameter from Json into Nim
-  result = quote do:
-    `paramVar` = `unpackArg`(`paramVal`, `paramName`, `paramType`)
 
-proc calcActualParamCount(params: NimNode): int =
-  ## this proc is needed to calculate the actual parameter count
-  ## not matter what is the declaration form
-  ## e.g. (a: U, b: V) vs. (a, b: T)
-  for n, t in paramsIter(params):
-    inc result
+  template innerNode() =
+    paramVar = unpackArg(params.val(pos), paramName, paramType)
+
+  # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
+  when rpc_isOptional(paramVar):
+    when pos >= minLength:
+      # allow both empty and null after mandatory args
+      # D & E fall into this category
+      if params.len > pos and params.notNull(pos):
+        innerNode()
+    else:
+      # allow null param for optional args between/before mandatory args
+      # B fall into this category
+      if params.notNull(pos):
+        innerNode()
+  else:
+    # mandatory args
+    # A and C fall into this category
+    # unpack Nim type and assign from json
+    if params.notNull(pos):
+      innerNode()
 
 proc makeType(typeName, params: NimNode): NimNode =
   ## Generate type section contains an object definition
@@ -119,60 +155,6 @@ proc makeType(typeName, params: NimNode): NimNode =
       recList.add params[i]
     obj[2] = recList
   typeSec
-
-proc setupPositional(params, paramsIdent: NimNode): (NimNode, int) =
-  ## Generate code to check positional params length
-  var
-    minLength = 0
-    code = newStmtList()
-
-  if params.containsOptionalArg():
-    # more elaborate parameters array check
-    minLength = code.expectOptionalArrayLen(params, paramsIdent,
-        calcActualParamCount(params))
-  else:
-    # simple parameters array length check
-    code.expectArrayLen(paramsIdent, calcActualParamCount(params))
-
-  (code, minLength)
-
-proc setupPositional(code: NimNode;
-                     paramsObj, paramsIdent, paramIdent, paramType: NimNode;
-                     pos, minLength: int) =
-  ## processing multiple params of one type
-  ## e.g. (a, b: T), including common (a: U, b: V) form
-  let
-    paramName = $paramIdent
-    paramVal = quote do:
-      `paramsIdent`.positional[`pos`].param
-    paramKind = quote do:
-      `paramsIdent`.positional[`pos`].kind
-    paramVar = quote do:
-      `paramsObj`.`paramIdent`
-    innerNode = jsonToNim(paramVar, paramType, paramVal, paramName)
-
-  # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
-  if paramType.isOptionalArg:
-    if pos >= minLength:
-      # allow both empty and null after mandatory args
-      # D & E fall into this category
-      code.add quote do:
-        if `paramsIdent`.positional.len > `pos` and
-            `paramKind` != JsonValueKind.Null:
-          `innerNode`
-    else:
-      # allow null param for optional args between/before mandatory args
-      # B fall into this category
-      code.add quote do:
-        if `paramKind` != JsonValueKind.Null:
-          `innerNode`
-  else:
-    # mandatory args
-    # A and C fall into this category
-    # unpack Nim type and assign from json
-    code.add quote do:
-      if `paramKind` != JsonValueKind.Null:
-        `innerNode`
 
 proc makeParams(retType: NimNode, params: NimNode): seq[NimNode] =
   ## Convert rpc params into handler params
@@ -262,13 +244,14 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     paramsIdent = genSym(nskParam, "rpcParams")
     returnType = params[0]
     hasParams = params.len > 1 # not including return type
-    (posSetup, minLength) = setupPositional(params, paramsIdent)
+    rpcSetup = ident"rpcSetup"
     handler = makeHandler(handlerName, params, procBody, returnType)
     named = setupNamed(paramsObj, paramsIdent, params)
 
   if hasParams:
     setup.add makeType(typeName, params)
     setup.add quote do:
+      const `rpcSetup` = rpcSetupFromType(`typeName`)
       var `paramsObj`: `typeName`
 
   # unpack each parameter and provide assignments
@@ -278,8 +261,15 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     executeParams: seq[NimNode]
 
   for paramIdent, paramType in paramsIter(params):
-    positional.setupPositional(paramsObj, paramsIdent,
-      paramIdent, paramType, pos, minLength)
+    let paramName = $paramIdent
+    positional.add quote do:
+      unpackPositional(`paramsIdent`,
+                       `paramsObj`.`paramIdent`,
+                       `paramName`,
+                       `pos`,
+                       `rpcSetup`.minLength,
+                       `paramType`)
+
     executeParams.add quote do:
       `paramsObj`.`paramIdent`
     inc pos
@@ -287,7 +277,7 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
   if hasParams:
     setup.add quote do:
       if `paramsIdent`.kind == rpPositional:
-        `posSetup`
+        setupPositional(`rpcSetup`, `paramsIdent`)
         `positional`
       else:
         `named`
@@ -297,7 +287,7 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     # still be checked (RPC spec)
     setup.add quote do:
       if `paramsIdent`.kind == rpPositional:
-        `posSetup`
+        expectParamsLen(`paramsIdent`, 0)
 
   let
     awaitedResult = ident "awaitedResult"
