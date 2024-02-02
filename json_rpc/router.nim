@@ -137,7 +137,7 @@ proc route*(router: RpcRouter, req: RequestRx):
     let methodName = req.meth.get # this Opt already validated
     debug "Error occurred within RPC",
       methodName = methodName, err = err.msg
-    return serverError(methodName & " raised an exception",
+    return serverError("`" & methodName & "` raised an exception",
       escapeJson(err.msg).JsonString).
       wrapError(req.id)
 
