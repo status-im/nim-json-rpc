@@ -22,10 +22,10 @@ export
   jsonmarshal
 
 type
-  RpcSetup* = object
-    numFields*: int
-    numOptionals*: int
-    minLength*: int
+  RpcSetup = object
+    numFields: int
+    numOptionals: int
+    minLength: int
 
 {.push gcsafe, raises: [].}
 
@@ -116,7 +116,7 @@ template unpackPositional(params: RequestParamsRx,
                           paramVar: auto,
                           paramName: static[string],
                           pos: static[int],
-                          minLength: static[int],
+                          setup: static[RpcSetup],
                           paramType: type) =
   ## Convert a positional parameter from Json into Nim
 
@@ -125,7 +125,7 @@ template unpackPositional(params: RequestParamsRx,
 
   # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
   when rpc_isOptional(paramVar):
-    when pos >= minLength:
+    when pos >= setup.minLength:
       # allow both empty and null after mandatory args
       # D & E fall into this category
       if params.len > pos and params.notNull(pos):
@@ -267,7 +267,7 @@ proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
                        `paramsObj`.`paramIdent`,
                        `paramName`,
                        `pos`,
-                       `rpcSetup`.minLength,
+                       `rpcSetup`,
                        `paramType`)
 
     executeParams.add quote do:
