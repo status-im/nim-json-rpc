@@ -28,6 +28,8 @@ export
   ResponseBatchRx,
   results
 
+const MaxMessageBodyBytes* = 128 * 1024 * 1024  # 128 MB (JSON encoded)
+
 type
   RpcBatchItem* = object
     meth*: string
@@ -266,4 +268,3 @@ macro createRpcSigsFromNim*(clientType: untyped, procList: untyped): untyped =
   processRpcSigs(clientType, procList)
 
 {.pop.}
-

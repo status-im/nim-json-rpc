@@ -33,9 +33,6 @@ type
     maxBodySize: int
     getHeaders: GetJsonRpcRequestHeaders
 
-const
-  MaxHttpRequestSize = 128 * 1024 * 1024 # maximum size of HTTP body in octets
-
 {.push gcsafe, raises: [].}
 
 # ------------------------------------------------------------------------------
@@ -43,7 +40,7 @@ const
 # ------------------------------------------------------------------------------
 
 proc new(
-    T: type RpcHttpClient, maxBodySize = MaxHttpRequestSize, secure = false,
+    T: type RpcHttpClient, maxBodySize = MaxMessageBodyBytes, secure = false,
     getHeaders: GetJsonRpcRequestHeaders = nil, flags: HttpClientFlags = {}): T =
 
   var moreFlags: HttpClientFlags
@@ -132,7 +129,7 @@ proc callImpl(client: RpcHttpClient, reqBody: string): Future[string] {.async.} 
 # ------------------------------------------------------------------------------
 
 proc newRpcHttpClient*(
-    maxBodySize = MaxHttpRequestSize, secure = false,
+    maxBodySize = MaxMessageBodyBytes, secure = false,
     getHeaders: GetJsonRpcRequestHeaders = nil,
     flags: HttpClientFlags = {}): RpcHttpClient =
   RpcHttpClient.new(maxBodySize, secure, getHeaders, flags)
