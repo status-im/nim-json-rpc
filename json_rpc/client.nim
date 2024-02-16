@@ -174,9 +174,7 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
     var requestFut: Future[JsonString]
     let id = response.id.get
     if not client.awaiting.pop(id, requestFut):
-      let msg = "Cannot find message id \"" & $id & "\":"
-      requestFut.fail(newException(JsonRpcError, msg))
-      return ok()
+      return err("Cannot find message id \"" & $id & "\"")
 
     if response.error.isSome:
       let error = JrpcSys.encode(response.error.get)
@@ -266,4 +264,3 @@ macro createRpcSigsFromNim*(clientType: untyped, procList: untyped): untyped =
   processRpcSigs(clientType, procList)
 
 {.pop.}
-
