@@ -74,6 +74,13 @@ method callBatch*(client: RpcWebSocketClient,
 proc processData(client: RpcWebSocketClient) {.async.} =
   var error: ref CatchableError
 
+  template processError() =
+    for k, v in client.awaiting:
+      v.fail(error)
+    if client.batchFut.isNil.not and not client.batchFut.completed():
+      client.batchFut.fail(error)
+    client.awaiting.clear()
+
   let ws = client.transport
   try:
     while ws.readyState != ReadyState.Closed:
@@ -85,7 +92,9 @@ proc processData(client: RpcWebSocketClient) {.async.} =
 
       let res = client.processMessage(string.fromBytes(value))
       if res.isErr:
-        raise newException(JsonRpcError, res.error)
+        error "Error when processing RPC message", msg=res.error
+        error = newException(JsonRpcError, res.error)
+        processError()
 
   except CatchableError as e:
     error = e
@@ -97,9 +106,7 @@ proc processData(client: RpcWebSocketClient) {.async.} =
   if client.awaiting.len != 0:
     if error.isNil:
       error = newException(IOError, "Transport was closed while waiting for response")
-    for k, v in client.awaiting:
-      v.fail(error)
-    client.awaiting.clear()
+    processError()
   if not client.onDisconnect.isNil:
     client.onDisconnect()
 
