@@ -110,7 +110,7 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
 
     # async loop reconnection and waiting
     try:
-      info "Reconnect to server", address=client.address
+      info "Reconnect to server", address=`$`(client.address)
       client.transport = await connect(client.address)
     except TransportError as exc:
       error "Error when reconnecting to server", msg=exc.msg

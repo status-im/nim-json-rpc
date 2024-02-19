@@ -47,16 +47,14 @@ proc run(args, path: string) =
   if (NimMajor, NimMinor) > (1, 6):
     build args & " --mm:refc -r", path
 
-proc buildBinary(name: string, srcDir = "./", params = "", cmdParams = "") =
-  if not dirExists "build":
-    mkDir "build"
-  exec "nim " & getEnv("TEST_LANG", "c") & " " & getEnv("NIMFLAGS") &
-  " -r -f --skipUserCfg:on --skipParentCfg:on --verbosity:0" &
-  " --debuginfo --path:'.' --threads:on -d:chronicles_log_level=ERROR" &
-  " --styleCheck:usages --styleCheck:hint" &
-  " --hint[XDeclaredButNotUsed]:off --hint[Processing]:off " &
-  " --out:./build/" & name & " " & params & " " & srcDir & name & ".nim" &
-  " " & cmdParams
+proc buildOnly(args, path: string) =
+  build args, path
+  if (NimMajor, NimMinor) > (1, 6):
+    build args & " --mm:refc -r", path
 
 task test, "run tests":
   run "", "tests/all"
+
+  when not defined(windows):
+    # on windows, socker server build failed
+    buildOnly "-d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
