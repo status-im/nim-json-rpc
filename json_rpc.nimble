@@ -47,6 +47,14 @@ proc run(args, path: string) =
   if (NimMajor, NimMinor) > (1, 6):
     build args & " --mm:refc -r", path
 
+proc buildOnly(args, path: string) =
+  build args, path
+  if (NimMajor, NimMinor) > (1, 6):
+    build args & " --mm:refc -r", path
+
 task test, "run tests":
   run "", "tests/all"
-  run "-d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
+
+  when not defined(windows):
+    # on windows, socker server build failed
+    buildOnly "-d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
