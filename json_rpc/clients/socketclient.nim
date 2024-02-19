@@ -18,6 +18,9 @@ import
 
 export client
 
+logScope:
+  topics = "JSONRPC-SOCKET-CLIENT"
+
 type
   RpcSocketClient* = ref object of RpcClient
     transport*: StreamTransport
@@ -74,22 +77,47 @@ method callBatch*(client: RpcSocketClient,
 
   return await client.batchFut
 
-proc processData(client: RpcSocketClient) {.async.} =
+proc processData(client: RpcSocketClient) {.async: (raises: []).} =
   while true:
+    var localException: ref JsonRpcError
     while true:
-      var value = await client.transport.readLine(defaultMaxRequestLength)
-      if value == "":
-        # transmission ends
+      try:
+        var value = await client.transport.readLine(defaultMaxRequestLength)
+        if value == "":
+          # transmission ends
+          await client.transport.closeWait()
+          break
+
+        let res = client.processMessage(value)
+        if res.isErr:
+          error "Error when processing RPC message", msg=res.error
+          localException = newException(JsonRpcError, res.error)
+          break
+      except TransportError as exc:
+        localException = newException(JsonRpcError, exc.msg)
+        await client.transport.closeWait()
+        break
+      except CancelledError as exc:
+        localException = newException(JsonRpcError, exc.msg)
         await client.transport.closeWait()
         break
 
-      let res = client.processMessage(value)
-      if res.isErr:
-        error "error when processing message", msg=res.error
-        raise newException(JsonRpcError, res.error)
+    if localException.isNil.not:
+      for _,fut in client.awaiting:
+        fut.fail(localException)
+      if client.batchFut.isNil.not and not client.batchFut.completed():
+        client.batchFut.fail(localException)
 
     # async loop reconnection and waiting
-    client.transport = await connect(client.address)
+    try:
+      info "Reconnect to server", address=client.address
+      client.transport = await connect(client.address)
+    except TransportError as exc:
+      error "Error when reconnecting to server", msg=exc.msg
+      break
+    except CancelledError as exc:
+      error "Error when reconnecting to server", msg=exc.msg
+      break
 
 proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
   let addresses = resolveTAddress(address, port)

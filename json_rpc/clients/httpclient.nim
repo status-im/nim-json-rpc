@@ -161,7 +161,7 @@ method call*(client: RpcHttpClient, name: string,
   let msgRes = client.processMessage(resText)
   if msgRes.isErr:
     # Need to clean up in case the answer was invalid
-    debug "Failed to process POST Response for JSON-RPC", msg = msgRes.error
+    error "Failed to process POST Response for JSON-RPC", msg = msgRes.error
     let exc = newException(JsonRpcError, msgRes.error)
     newFut.fail(exc)
     client.awaiting.del(id)
