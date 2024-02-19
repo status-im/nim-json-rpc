@@ -394,6 +394,20 @@ You can use:
 let bmiIndex = await client.bmi(120.5, 12.0)
 ```
 
+Or you can use batch call to send multiple request at once to the server.
+
+```Nim
+let batch = client.prepareBatch()
+batch.bmi(120.5, 12.0)
+batch.bmi(120.5, 13.0)
+batch.bmi(120.5, 14.0)
+let res = await batch.send()
+
+# But you need to manually process the response e.g. decode from JSON to
+# your expected type because you can mix various rpc method call in one batch
+# with various return type.
+```
+
 This allows you to leverage Nim's static type checking whilst also aiding readability and providing a unified location to declare client side RPC definitions.
 
 ## Working with client transports

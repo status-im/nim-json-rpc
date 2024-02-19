@@ -42,7 +42,7 @@ proc createBatchCallProc(procName, parameters, callBody: NimNode): NimNode =
 
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
-  
+
 proc setupConversion(reqParams, params: NimNode): NimNode =
   # populate json params
   # even rpcs with no parameters have an empty json array node sent
@@ -67,6 +67,13 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
   ##     reqParams.positional.add encode(JrpcConv, paramB).JsonString
   ##     let res = await client.call("rpcApi", reqParams)
   ##     result = decode(JrpcConv, res.string, typeof RetType)
+  ##
+  ## 2nd version to handle batch request after calling client.prepareBatch()
+  ## proc rpcApi(batch: RpcBatchCallRef; paramA: TypeA; paramB: TypeB) =
+  ##   var reqParams = RequestParamsTx(kind: rpPositional)
+  ##   reqParams.positional.add encode(JrpcConv, paramA).JsonString
+  ##   reqParams.positional.add encode(JrpcConv, paramB).JsonString
+  ##   batch.batch.add RpcBatchItem(meth: "rpcApi", params: reqParams)
 
   # Each input parameter in the rpc signature is converted
   # to json using JrpcConv.encode.
@@ -90,7 +97,7 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
       if returnType.noWrap: quote do:
         `procRes` = `rpcResult`
       else: doDecode
-      
+
     batchParams = params.copy
     batchIdent = ident "batch"
 
@@ -120,22 +127,22 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
     ident "RpcBatchCallRef",
     newEmptyNode()
   ))
-  
+
   # remove return type
   batchParams[0] = newEmptyNode()
-  
+
   let batchCallBody = quote do:
     `setup`
     `batchIdent`.batch.add RpcBatchItem(
       meth: `pathStr`,
       params: `reqParams`
     )
-  
+
   # create rpc proc
-  result = newStmtList()  
+  result = newStmtList()
   result.add createRpcProc(procName, params, callBody)
   result.add createBatchCallProc(procName, batchParams, batchCallBody)
-  
+
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
 
