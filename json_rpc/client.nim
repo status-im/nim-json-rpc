@@ -28,6 +28,8 @@ export
   ResponseBatchRx,
   results
 
+const MaxMessageBodyBytes* = 128 * 1024 * 1024  # 128 MB (JSON encoded)
+
 type
   RpcBatchItem* = object
     meth*: string
