@@ -58,6 +58,9 @@ func serverError(msg: string, data: JsonString): ResponseError =
 func somethingError(code: int, msg: string): ResponseError =
   ResponseError(code: code, message: msg)
 
+func applicationError(code: int, msg: string, data: Opt[JsonString]): ResponseError =
+  ResponseError(code: code, message: msg, data: data)
+
 proc validateRequest(router: RpcRouter, req: RequestRx):
                        Result[RpcProc, ResponseError] =
   if req.jsonrpc.isNone:
@@ -131,9 +134,15 @@ proc route*(router: RpcRouter, req: RequestRx):
   try:
     let res = await rpcProc(req.params)
     return wrapReply(res, req.id)
+  except ApplicationError as err:
+    return wrapError(applicationError(err.code, err.msg, err.data), req.id)
   except InvalidRequest as err:
+    # TODO: deprecate / remove this usage and use InvalidRequest only for
+    # internal errors.
     return wrapError(err.code, err.msg, req.id)
   except CatchableError as err:
+    # Note: Errors that are not specifically raised as `ApplicationError`s will
+    # be returned as custom server errors.
     let methodName = req.meth.get # this Opt already validated
     debug "Error occurred within RPC",
       methodName = methodName, err = err.msg
