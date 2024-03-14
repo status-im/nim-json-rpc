@@ -16,7 +16,7 @@ import
   ../errors,
   ../private/jrpc_sys
 
-export client
+export client, errors
 
 logScope:
   topics = "JSONRPC-SOCKET-CLIENT"

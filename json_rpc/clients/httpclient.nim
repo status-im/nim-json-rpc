@@ -18,7 +18,7 @@ import
   ../private/jrpc_sys
 
 export
-  client, HttpClientFlag, HttpClientFlags
+  client, errors, HttpClientFlag, HttpClientFlags
 
 logScope:
   topics = "JSONRPC-HTTP-CLIENT"
