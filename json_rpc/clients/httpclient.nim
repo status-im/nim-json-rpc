@@ -142,7 +142,7 @@ method call*(client: RpcHttpClient, name: string,
     id = client.getNextId()
     reqBody = requestTxEncode(name, params, id)
 
-  debug "Sending message to RPC server",
+  trace "Sending message to RPC server",
          address = client.httpAddress, msg_len = len(reqBody), name
   trace "Message", msg = reqBody
 
