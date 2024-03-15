@@ -16,4 +16,5 @@ import
 
 export
   websocketclientimpl,
-  client
+  client,
+  errors
