@@ -120,7 +120,10 @@ template unpackPositional(params: RequestParamsRx,
                           paramType: type) =
   ## Convert a positional parameter from Json into Nim
 
-  template innerNode() =
+  when not defined(nimHasTemplateRedefinitionPragma):
+    {.pragma: redefine.}
+
+  template innerNode() {.redefine.} =
     paramVar = unpackArg(params.val(pos), paramName, paramType)
 
   # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
