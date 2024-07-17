@@ -196,17 +196,15 @@ proc route*(router: RpcRouter, data: string):
 
   return reply
 
-proc tryRoute*(router: RpcRouter, data: JsonString,
+proc tryRoute*(router: RpcRouter, req: RequestRx,
                fut: var Future[JsonString]): Result[void, string] =
   ## Route to RPC, returns false if the method or params cannot be found.
-  ## Expects json input and returns json output.
+  ## Expects RequestRx input and returns json output.
   when defined(nimHasWarnBareExcept):
     {.push warning[BareExcept]:off.}
     {.push warning[UnreachableCode]:off.}
 
   try:
-    let req = JrpcSys.decode(data.string, RequestRx)
-
     if req.jsonrpc.isNone:
       return err("`jsonrpc` missing or invalid")
 
@@ -228,6 +226,15 @@ proc tryRoute*(router: RpcRouter, data: JsonString,
   when defined(nimHasWarnBareExcept):
     {.pop warning[BareExcept]:on.}
     {.pop warning[UnreachableCode]:on.}
+
+proc tryRoute*(router: RpcRouter, data: JsonString,
+               fut: var Future[JsonString]): Result[void, string] =
+  ## Route to RPC, returns false if the method or params cannot be found.
+  ## Expects json input and returns json output.
+  try:
+    let req = JrpcSys.decode(data.string, RequestRx)
+  except CatchableError as ex:
+    return err(ex.msg)
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.
