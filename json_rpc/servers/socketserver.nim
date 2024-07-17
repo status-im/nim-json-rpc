@@ -18,6 +18,7 @@ export errors, server
 type
   RpcSocketServer* = ref object of RpcServer
     servers: seq[StreamServer]
+    processClientHook*: StreamCallback2
 
 proc processClient(server: StreamServer, transport: StreamTransport) {.async: (raises: []), gcsafe.} =
   ## Process transport data to the RPC server
@@ -44,7 +45,9 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
 proc addStreamServer*(server: RpcSocketServer, address: TransportAddress) =
   try:
     info "Starting JSON-RPC socket server", address = $address
-    var transportServer = createStreamServer(address, processClient, {ReuseAddr}, udata = server)
+    if server.processClientHook == nil:
+      server.processClientHook = processClient
+    var transportServer = createStreamServer(address, server.processClientHook, {ReuseAddr}, udata = server)
     server.servers.add(transportServer)
   except CatchableError as exc:
     error "Failed to create server", address = $address, message = exc.msg
