@@ -233,6 +233,7 @@ proc tryRoute*(router: RpcRouter, data: JsonString,
   ## Expects json input and returns json output.
   try:
     let req = JrpcSys.decode(data.string, RequestRx)
+    return router.tryRoute(req, fut)
   except CatchableError as ex:
     return err(ex.msg)
 
