@@ -114,3 +114,20 @@ suite "Websocket Server/Client RPC with Compression":
   srv.stop()
   waitFor srv.closeWait()
 
+suite "Custom processClient":
+  test "Should be able to use custom processClient":
+    var wasCalled: bool = false
+    
+    proc processClientHook(server: StreamServer, transport: StreamTransport) {.async: (raises: []), gcsafe.} =
+      wasCalled = true
+    
+    var srv = newRpcSocketServer(processClientHook)
+    srv.addStreamServer("localhost", Port(8888))
+    var client = newRpcSocketClient()
+    srv.setupServer()
+    srv.start()
+    waitFor client.connect(srv.localAddress()[0])
+    asyncCheck client.call("", %[])
+    srv.stop()
+    waitFor srv.closeWait()
+    check wasCalled
