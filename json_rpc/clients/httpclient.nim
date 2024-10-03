@@ -220,8 +220,12 @@ proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) 
   else:
     raise newException(RpcAddressUnresolvableError, res.error)
 
+method isConnected*(client: RpcHttpClient): bool =
+  (not client.httpSession.isNil()) and client.httpAddress.isOk()
+
 method close*(client: RpcHttpClient) {.async.} =
   if not client.httpSession.isNil:
     await client.httpSession.closeWait()
+    client.httpSession = nil
 
 {.pop.}
