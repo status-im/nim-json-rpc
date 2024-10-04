@@ -123,7 +123,7 @@ suite "rpc router":
   test "no params with params":
     let n = req("noParams", "[123]")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"`noParams` raised an exception","data":"Expected 0 Json parameter(s) but got 1"}}"""
+    check res == """{"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"`noParams` raised an exception","data":"Expected 0 JSON parameter(s) but got 1"}}"""
 
   test_optional("std_option")
   test_optional("results_opt")

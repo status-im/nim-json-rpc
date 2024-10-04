@@ -41,7 +41,7 @@ template rpc_isOptional[T](_: options.Option[T]): bool = true
 # Run time helpers
 # ------------------------------------------------------------------------------
 
-proc unpackArg(args: JsonString, argName: string, argType: type): argType
+func unpackArg(args: JsonString, argName: string, argType: type): argType
                 {.gcsafe, raises: [JsonRpcError].} =
   ## This where input parameters are decoded from JSON into
   ## Nim data types
@@ -89,8 +89,16 @@ template expectOptionalParamsLen(params: RequestParamsRx,
 
 template expectParamsLen(params: RequestParamsRx, length: static[int]) =
   ## Make sure positional params meets the handler expectation
+
+  # https://github.com/nim-lang/Nim/issues/24228 especially in a Chronos async
+  # context, with `{.compileTime.}` `$` `int`, `uint64`, and `int64` overloads
+  # https://github.com/nim-lang/Nim/blob/v2.0.10/lib/system/dollars.nim#L28-L34
+  # provides for for compile-time evaluation from, can cause JSON-RPC code not
+  # to compile. Explicitly choose the non-CTFE overloads, which do not trigger
+  # this Nim issue.
   let
-    expected = "Expected " & $length & " Json parameter(s) but got "
+    nonConstLength = length
+    expected = "Expected " & $nonConstLength & " JSON parameter(s) but got "
 
   if params.positional.len != length:
     raise newException(RequestDecodeError,
@@ -141,11 +149,11 @@ template unpackPositional(params: RequestParamsRx,
   else:
     # mandatory args
     # A and C fall into this category
-    # unpack Nim type and assign from json
+    # unpack Nim type and assign from JSON
     if params.notNull(pos):
       innerNode()
 
-proc makeType(typeName, params: NimNode): NimNode =
+func makeType(typeName, params: NimNode): NimNode =
   ## Generate type section contains an object definition
   ## with fields of handler params
   let typeSec = quote do:
@@ -159,14 +167,14 @@ proc makeType(typeName, params: NimNode): NimNode =
     obj[2] = recList
   typeSec
 
-proc makeParams(retType: NimNode, params: NimNode): seq[NimNode] =
+func makeParams(retType: NimNode, params: NimNode): seq[NimNode] =
   ## Convert rpc params into handler params
   result.add retType
   if params.len > 1:
     for i in 1..<params.len:
       result.add params[i]
 
-proc makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
+func makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
   ## Generate rpc handler proc
   let
     returnType = quote do: Future[`returnInner`]
@@ -180,7 +188,7 @@ proc makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
     pragmas = pragmas
   )
 
-proc ofStmt(x, paramsObj, paramName, paramType: NimNode): NimNode =
+func ofStmt(x, paramsObj, paramName, paramType: NimNode): NimNode =
   let caseStr = $paramName
   result = nnkOfBranch.newTree(
     quote do: `caseStr`,
@@ -188,7 +196,7 @@ proc ofStmt(x, paramsObj, paramName, paramType: NimNode): NimNode =
       `paramsObj`.`paramName` = unpackArg(`x`.value, `caseStr`, `paramType`)
   )
 
-proc setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
+func setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
   let x = ident"x"
 
   var caseStmt = nnkCaseStmt.newTree(
@@ -206,7 +214,7 @@ proc setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
     for `x` in `paramsIdent`.named:
       `caseStmt`
 
-proc wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode): NimNode =
+func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode): NimNode =
   ## This proc generate something like this:
   ##
   ## proc rpcHandler(paramA: ParamAType, paramB: ParamBType): Future[ReturnType] =
