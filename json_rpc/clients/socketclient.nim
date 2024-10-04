@@ -80,6 +80,7 @@ method callBatch*(client: RpcSocketClient,
 proc processData(client: RpcSocketClient) {.async: (raises: []).} =
   while true:
     var localException: ref JsonRpcError
+    var stopping = false
     while true:
       try:
         var value = await client.transport.readLine(defaultMaxRequestLength)
@@ -99,6 +100,7 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
         break
       except CancelledError as exc:
         localException = newException(JsonRpcError, exc.msg)
+        stopping = true
         await client.transport.closeWait()
         break
 
@@ -107,6 +109,9 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
         fut.fail(localException)
       if client.batchFut.isNil.not and not client.batchFut.completed():
         client.batchFut.fail(localException)
+
+    if stopping:
+      break
 
     # async loop reconnection and waiting
     try:
@@ -136,5 +141,5 @@ method isConnected*(client: RpcSocketClient): bool =
 method close*(client: RpcSocketClient) {.async.} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:
-    client.transport.close()
+    await client.transport.closeWait()
     client.transport = nil

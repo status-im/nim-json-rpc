@@ -52,8 +52,8 @@ suite "Socket Server/Client RPC":
   test "Client close and isConnected":
     check client.isConnected() == true
     # Is socket server close broken?
-    # waitFor client.close()
-    # check client.isConnected() == false
+    waitFor client.close()
+    check client.isConnected() == false
 
   srv.stop()
   waitFor srv.closeWait()
