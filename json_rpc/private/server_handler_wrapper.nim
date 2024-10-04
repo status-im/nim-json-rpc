@@ -90,24 +90,19 @@ template expectOptionalParamsLen(params: RequestParamsRx,
 template expectParamsLen(params: RequestParamsRx, length: static[int]) =
   ## Make sure positional params meets the handler expectation
 
-  when (NimMajor, NimMinor) < (2, 2):
-    # https://github.com/nim-lang/Nim/issues/24228 in Nim 2.0.10 (not 2.0.8 and
-    # not 2.2.x) means that `expectParamsLen` in a Chronos async context, along
-    # with `{.compileTime.}` `$` overloads for `int`, `uint64`, and `int64`, at
-    # https://github.com/nim-lang/Nim/blob/v2.0.10/lib/system/dollars.nim#L28-L34
-    # can fail to compile. Explicitly choose the non-CTFE overloads which don't
-    # trigger this bug.
-    #
-    # This can be removed once Nim v2.0.10 isn't supported by nim-json-rpc.
-    let nonConstLength = length
+  # https://github.com/nim-lang/Nim/issues/24228 especially in a Chronos async
+  # context, with `{.compileTime.}` `$` `int`, `uint64`, and `int64` overloads
+  # https://github.com/nim-lang/Nim/blob/v2.0.10/lib/system/dollars.nim#L28-L34
+  # provides for for compile-time evaluation from, can cause JSON-RPC code not
+  # to compile. Explicitly choose the non-CTFE overloads, which do not trigger
+  # this Nim issue.
+  let
+    nonConstLength = length
+    expected = "Expected " & $nonConstLength & " JSON parameter(s) but got "
 
-    let expected = "Expected " & $nonConstLength & " JSON parameter(s) but got "
-
-    if params.positional.len != length:
-      raise newException(RequestDecodeError,
-        expected & $params.positional.len)
-  else:
-    let expected = "Expected " & $length & " JSON parameter(s) but got "
+  if params.positional.len != length:
+    raise newException(RequestDecodeError,
+      expected & $params.positional.len)
 
 template setupPositional(setup: static[RpcSetup], params: RequestParamsRx) =
   ## Generate code to check positional params length
