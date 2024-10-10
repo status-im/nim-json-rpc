@@ -28,7 +28,7 @@ proc continuousTest(address: string): Future[int] {.async.} =
     var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
     if r.string == "\"Hello abc data: [1, 2, 3, " & $i & "]\"":
       result += 1
-    await client.close()
+  await client.close()
 
 proc invalidTest(address: string): Future[bool] {.async.} =
   var client = newRpcHttpClient()

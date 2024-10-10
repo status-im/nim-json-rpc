@@ -137,6 +137,9 @@ method call*(client: RpcClient, name: string,
 
   await client.call(name, params.paramsTx)
 
+method isConnected*(client: RpcClient): bool {.base, gcsafe.} =
+  doAssert(false, "`RpcClient.isConnected` not implemented")
+
 method close*(client: RpcClient): Future[void] {.base, gcsafe, async.} =
   doAssert(false, "`RpcClient.close` not implemented")
 

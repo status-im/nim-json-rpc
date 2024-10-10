@@ -148,6 +148,9 @@ proc connect*(
   client.uri = uri
   client.loop = processData(client)
 
+method isConnected*(client: RpcWebSocketClient): bool =
+  not client.transport.isNil()
+
 method close*(client: RpcWebSocketClient) {.async.} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:
