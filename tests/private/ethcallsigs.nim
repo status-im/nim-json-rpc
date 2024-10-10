@@ -31,7 +31,7 @@ proc eth_call(call: EthCall, quantityTag: string): UInt256
 proc eth_estimateGas(call: EthCall, quantityTag: string): UInt256
 proc eth_getBlockByHash(data: array[32, byte], fullTransactions: bool): BlockObject
 proc eth_getBlockByNumber(quantityTag: string, fullTransactions: bool): BlockObject
-proc eth_getTransactionByHash(data: Uint256): TransactionObject
+proc eth_getTransactionByHash(data: UInt256): TransactionObject
 proc eth_getTransactionByBlockHashAndIndex(data: UInt256, quantity: int): TransactionObject
 proc eth_getTransactionByBlockNumberAndIndex(quantityTag: string, quantity: int): TransactionObject
 proc eth_getTransactionReceipt(data: UInt256): ReceiptObject
@@ -45,8 +45,8 @@ proc eth_newBlockFilter(): int
 proc eth_newPendingTransactionFilter(): int
 proc eth_uninstallFilter(filterId: int): bool
 proc eth_getWork(): seq[UInt256]
-proc eth_submitWork(nonce: int64, powHash: Uint256, mixDigest: Uint256): bool
-proc eth_submitHashrate(hashRate: UInt256, id: Uint256): bool
+proc eth_submitWork(nonce: int64, powHash: UInt256, mixDigest: UInt256): bool
+proc eth_submitHashrate(hashRate: UInt256, id: UInt256): bool
 proc shh_post(): string
 proc shh_newIdentity(): array[60, byte]
 proc shh_hasIdentity(identity: array[60, byte]): bool
