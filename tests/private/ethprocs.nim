@@ -248,7 +248,7 @@ proc addEthRpcs*(server: RpcServer) =
     ## Returns BlockObject or nil when no block was found.
     discard
 
-  server.rpc("eth_getTransactionByHash") do(data: Uint256) -> TransactionObject:
+  server.rpc("eth_getTransactionByHash") do(data: UInt256) -> TransactionObject:
     ## Returns the information about a transaction requested by transaction hash.
     ##
     ## data: hash of a transaction.
@@ -380,7 +380,7 @@ proc addEthRpcs*(server: RpcServer) =
     ## DATA, 32 Bytes - the boundary condition ("target"), 2^256 / difficulty.
     result = @[]
 
-  server.rpc("eth_submitWork") do(nonce: int64, powHash: Uint256, mixDigest: Uint256) -> bool:
+  server.rpc("eth_submitWork") do(nonce: int64, powHash: UInt256, mixDigest: UInt256) -> bool:
     ## Used for submitting a proof-of-work solution.
     ##
     ## nonce: the nonce found.
@@ -389,7 +389,7 @@ proc addEthRpcs*(server: RpcServer) =
     ## Returns true if the provided solution is valid, otherwise false.
     discard
 
-  server.rpc("eth_submitHashrate") do(hashRate: UInt256, id: Uint256) -> bool:
+  server.rpc("eth_submitHashrate") do(hashRate: UInt256, id: UInt256) -> bool:
     ## Used for submitting mining hashrate.
     ##
     ## hashRate: a hexadecimal string representation (32 bytes) of the hash rate.
