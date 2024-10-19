@@ -152,8 +152,6 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
     if not fallBack:
       return ok()
 
-  # Note: this doesn't use any transport code so doesn't need to be
-  # differentiated.
   try:
     let batch = JrpcSys.decode(line, ResponseBatchRx)
     if batch.kind == rbkMany:
@@ -166,7 +164,7 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
     if response.jsonrpc.isNone:
       return err("missing or invalid `jsonrpc`")
 
-    if response.id.isNone:
+    let id = response.id.valueOr:
       if response.error.isSome:
         let error = JrpcSys.encode(response.error.get)
         return err(error)
@@ -174,7 +172,6 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
         return err("missing or invalid response id")
 
     var requestFut: Future[JsonString]
-    let id = response.id.get
     if not client.awaiting.pop(id, requestFut):
       return err("Cannot find message id \"" & $id & "\"")
 
@@ -190,7 +187,7 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
       return ok()
 
     debug "Received JSON-RPC response",
-      len = string(response.result).len, id = response.id
+      len = string(response.result).len, id
     requestFut.complete(response.result)
     return ok()
 

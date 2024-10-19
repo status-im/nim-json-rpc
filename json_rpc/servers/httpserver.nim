@@ -10,7 +10,6 @@
 {.push raises: [], gcsafe.}
 
 import
-  stew/byteutils,
   std/sequtils,
   chronicles, httputils, chronos,
   chronos/apps/http/[httpserver, shttpserver],
@@ -54,7 +53,7 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
       len = req.len
 
     let
-      data = await rpcServer.route(string.fromBytes(req))
+      data = await rpcServer.route(req)
       chunkSize = rpcServer.maxChunkSize
       streamType =
         if data.len <= chunkSize:

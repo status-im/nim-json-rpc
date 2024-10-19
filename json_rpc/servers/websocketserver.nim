@@ -64,7 +64,7 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
         break
 
       let data = try:
-          await rpc.route(string.fromBytes(req))
+          await rpc.route(req)
         except CatchableError as exc:
           debug "Internal error, while processing RPC call",
             address = $request.uri

@@ -153,7 +153,7 @@ proc route*(router: RpcRouter, req: RequestRx):
       escapeJson(err.msg).JsonString).
       wrapError(req.id)
 
-proc route*(router: RpcRouter, data: string):
+proc route*(router: RpcRouter, data: string|seq[byte]):
        Future[string] {.async: (raises: []).} =
   ## Route to RPC from string data. Data is expected to be able to be
   ## converted to Json.

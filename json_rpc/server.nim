@@ -84,6 +84,8 @@ proc executeMethod*(server: RpcServer,
 
 proc route*(server: RpcServer, line: string): Future[string] {.async: (raises: [], raw: true).} =
   server.router.route(line)
+proc route*(server: RpcServer, line: seq[byte]): Future[string] {.async: (raises: [], raw: true).} =
+  server.router.route(line)
 
 # Server registration
 
