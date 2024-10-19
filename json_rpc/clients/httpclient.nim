@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/[tables, uri],
   stew/byteutils,
@@ -33,11 +35,12 @@ type
     maxBodySize: int
     getHeaders: GetJsonRpcRequestHeaders
 
-{.push gcsafe, raises: [].}
-
 # ------------------------------------------------------------------------------
 # Private helpers
 # ------------------------------------------------------------------------------
+
+proc `$`(v: HttpAddress): string =
+  v.id
 
 proc new(
     T: type RpcHttpClient, maxBodySize = MaxMessageBodyBytes, secure = false,
@@ -136,14 +139,14 @@ proc newRpcHttpClient*(
 
 method call*(client: RpcHttpClient, name: string,
              params: RequestParamsTx): Future[JsonString]
-            {.async, gcsafe.} =
+            {.async.} =
 
   let
     id = client.getNextId()
     reqBody = requestTxEncode(name, params, id)
 
-  debug "Sending message to RPC server",
-         address = client.httpAddress, msg_len = len(reqBody), name
+  debug "Sending JSON-RPC request",
+         address = client.httpAddress, len = len(reqBody), name, id
   trace "Message", msg = reqBody
 
   let resText = await client.callImpl(reqBody)
@@ -158,7 +161,6 @@ method call*(client: RpcHttpClient, name: string,
   let msgRes = client.processMessage(resText)
   if msgRes.isErr:
     # Need to clean up in case the answer was invalid
-    error "Failed to process POST Response for JSON-RPC", msg = msgRes.error
     let exc = newException(JsonRpcError, msgRes.error)
     newFut.fail(exc)
     client.awaiting.del(id)
@@ -177,10 +179,11 @@ method call*(client: RpcHttpClient, name: string,
 
 method callBatch*(client: RpcHttpClient,
                   calls: RequestBatchTx): Future[ResponseBatchRx]
-                    {.gcsafe, async.} =
-  let
-    reqBody = requestBatchEncode(calls)
-    resText = await client.callImpl(reqBody)
+                    {.async.} =
+  let reqBody = requestBatchEncode(calls)
+  debug "Sending JSON-RPC batch",
+        address = client.httpAddress, len = len(reqBody)
+  let resText = await client.callImpl(reqBody)
 
   if client.batchFut.isNil or client.batchFut.finished():
     client.batchFut = newFuture[ResponseBatchRx]()

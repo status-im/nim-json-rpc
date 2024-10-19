@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/tables,
   chronicles,
@@ -29,8 +31,6 @@ type
 
 const defaultMaxRequestLength* = 1024 * 128
 
-{.push gcsafe, raises: [].}
-
 proc new*(T: type RpcSocketClient): T =
   T()
 
@@ -39,28 +39,32 @@ proc newRpcSocketClient*: RpcSocketClient =
   RpcSocketClient.new()
 
 method call*(client: RpcSocketClient, name: string,
-             params: RequestParamsTx): Future[JsonString] {.async, gcsafe.} =
+             params: RequestParamsTx): Future[JsonString] {.async.} =
   ## Remotely calls the specified RPC method.
-  let id = client.getNextId()
-  var jsonBytes = requestTxEncode(name, params, id) & "\r\n"
   if client.transport.isNil:
     raise newException(JsonRpcError,
                     "Transport is not initialised (missing a call to connect?)")
 
-  # completed by processMessage.
-  var newFut = newFuture[JsonString]()
+  let
+    id = client.getNextId()
+    reqBody = requestTxEncode(name, params, id) & "\r\n"
+    newFut = newFuture[JsonString]()  # completed by processMessage
+
   # add to awaiting responses
   client.awaiting[id] = newFut
 
-  let res = await client.transport.write(jsonBytes)
+  debug "Sending JSON-RPC request",
+         address = client.address, len = len(reqBody), name, id
+
+  let res = await client.transport.write(reqBody)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == jsonBytes.len)
+  doAssert(res == reqBody.len)
 
   return await newFut
 
 method callBatch*(client: RpcSocketClient,
                   calls: RequestBatchTx): Future[ResponseBatchRx]
-                    {.gcsafe, async.} =
+                    {.async.} =
   if client.transport.isNil:
     raise newException(JsonRpcError,
       "Transport is not initialised (missing a call to connect?)")
@@ -68,12 +72,13 @@ method callBatch*(client: RpcSocketClient,
   if client.batchFut.isNil or client.batchFut.finished():
     client.batchFut = newFuture[ResponseBatchRx]()
 
-  let
-    jsonBytes = requestBatchEncode(calls) & "\r\n"
-    res = await client.transport.write(jsonBytes)
+  let reqBody = requestBatchEncode(calls) & "\r\n"
+  debug "Sending JSON-RPC batch",
+        address = client.address, len = len(reqBody)
+  let res = await client.transport.write(reqBody)
 
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == jsonBytes.len)
+  doAssert(res == reqBody.len)
 
   return await client.batchFut
 
@@ -90,7 +95,6 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
 
         let res = client.processMessage(value)
         if res.isErr:
-          error "Error when processing RPC message", msg=res.error
           localException = newException(JsonRpcError, res.error)
           break
       except TransportError as exc:
@@ -116,7 +120,7 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
       error "Error when reconnecting to server", msg=exc.msg
       break
     except CancelledError as exc:
-      error "Error when reconnecting to server", msg=exc.msg
+      debug "Server connection was cancelled", msg=exc.msg
       break
 
 proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =

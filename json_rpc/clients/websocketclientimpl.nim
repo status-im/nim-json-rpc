@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/[uri, strutils],
   pkg/websock/[websock, extensions/compression/deflate],
@@ -27,8 +29,6 @@ type
     loop*: Future[void]
     getHeaders*: GetJsonRpcRequestHeaders
 
-{.push gcsafe, raises: [].}
-
 proc new*(
     T: type RpcWebSocketClient, getHeaders: GetJsonRpcRequestHeaders = nil): T =
   T(getHeaders: getHeaders)
@@ -39,26 +39,28 @@ proc newRpcWebSocketClient*(
   RpcWebSocketClient.new(getHeaders)
 
 method call*(client: RpcWebSocketClient, name: string,
-             params: RequestParamsTx): Future[JsonString] {.async, gcsafe.} =
+             params: RequestParamsTx): Future[JsonString] {.async.} =
   ## Remotely calls the specified RPC method.
   if client.transport.isNil:
     raise newException(JsonRpcError,
       "Transport is not initialised (missing a call to connect?)")
 
-  let id = client.getNextId()
-  var value = requestTxEncode(name, params, id) & "\r\n"
-
-  # completed by processMessage.
-  var newFut = newFuture[JsonString]()
+  let
+    id = client.getNextId()
+    reqBody = requestTxEncode(name, params, id) & "\r\n"
+    newFut = newFuture[JsonString]() # completed by processMessage
   # add to awaiting responses
   client.awaiting[id] = newFut
 
-  await client.transport.send(value)
+  debug "Sending JSON-RPC request",
+         address = client.uri, len = len(reqBody), name
+
+  await client.transport.send(reqBody)
   return await newFut
 
 method callBatch*(client: RpcWebSocketClient,
                   calls: RequestBatchTx): Future[ResponseBatchRx]
-                    {.gcsafe, async.} =
+                    {.async.} =
   if client.transport.isNil:
     raise newException(JsonRpcError,
       "Transport is not initialised (missing a call to connect?)")
@@ -66,8 +68,10 @@ method callBatch*(client: RpcWebSocketClient,
   if client.batchFut.isNil or client.batchFut.finished():
     client.batchFut = newFuture[ResponseBatchRx]()
 
-  let jsonBytes = requestBatchEncode(calls) & "\r\n"
-  await client.transport.send(jsonBytes)
+  let reqBody = requestBatchEncode(calls) & "\r\n"
+  debug "Sending JSON-RPC batch",
+         address = client.uri, len = len(reqBody)
+  await client.transport.send(reqBody)
 
   return await client.batchFut
 
@@ -92,7 +96,6 @@ proc processData(client: RpcWebSocketClient) {.async.} =
 
       let res = client.processMessage(string.fromBytes(value))
       if res.isErr:
-        error "Error when processing RPC message", msg=res.error
         error = newException(JsonRpcError, res.error)
         processError()
 

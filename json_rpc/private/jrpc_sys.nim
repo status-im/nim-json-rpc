@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/hashes,
   results,
@@ -153,8 +155,6 @@ RequestRx.useDefaultReaderIn JrpcSys
 
 const
   JsonRPC2Literal = JsonString("\"2.0\"")
-
-{.push gcsafe, raises: [].}
 
 func hash*(x: RequestId): hashes.Hash =
   var h = 0.Hash

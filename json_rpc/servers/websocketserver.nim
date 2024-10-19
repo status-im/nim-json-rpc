@@ -7,13 +7,15 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   chronicles, chronos, websock/[websock, types],
   websock/extensions/compression/deflate,
   stew/byteutils, json_serialization/std/net,
-  ".."/[server]
+  ".."/[errors, server]
 
-export server, net
+export errors, server, net
 
 logScope:
   topics = "JSONRPC-WS-SERVER"
@@ -25,8 +27,7 @@ type
   # - true: auth success, continue execution
   # - false: could not authenticate, stop execution
   #   and return the response
-  WsAuthHook* = proc(request: HttpRequest): Future[bool]
-                  {.gcsafe, raises: [Defect, CatchableError].}
+  WsAuthHook* = proc(request: HttpRequest): Future[bool] {.async.}
 
   # This inheritance arrangement is useful for
   # e.g. combo HTTP server
@@ -48,22 +49,22 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
 
     trace "Websocket handshake completed"
     while ws.readyState != ReadyState.Closed:
-      let recvData = await ws.recvMsg()
-      trace "Client message: ", size = recvData.len, binary = ws.binary
+      let req = await ws.recvMsg()
+      debug "Received JSON-RPC request", len = req.len
 
       if ws.readyState == ReadyState.Closed:
         # if session already terminated by peer,
         # no need to send response
         break
 
-      if recvData.len == 0:
+      if req.len == 0:
         await ws.close(
           reason = "cannot process zero length message"
         )
         break
 
       let data = try:
-          await rpc.route(string.fromBytes(recvData))
+          await rpc.route(string.fromBytes(req))
         except CatchableError as exc:
           debug "Internal error, while processing RPC call",
             address = $request.uri
@@ -82,7 +83,7 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
     raise exc
 
   except CatchableError as exc:
-    error "Something error", msg=exc.msg
+    debug "Something error", msg=exc.msg
 
 proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest)
                     {.async: (raises: [CancelledError]).} =
@@ -96,15 +97,17 @@ proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest)
       let res = await hook(request)
       if not res:
         return
+  except CancelledError as exc:
+    raise exc
   except CatchableError as exc:
-    error "Internal error while processing JSON-RPC hook", msg=exc.msg
+    debug "Internal error while processing JSON-RPC hook", msg=exc.msg
     try:
       await request.sendResponse(Http503,
         data = "",
         content = "Internal error, processing JSON-RPC hook: " & exc.msg)
       return
     except CatchableError as exc:
-      error "Something error", msg=exc.msg
+      debug "Something error", msg=exc.msg
       return
 
   await rpc.serveHTTP(request)
@@ -124,18 +127,21 @@ proc newRpcWebSocketServer*(
   compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,ServerFlags.ReuseAddr},
   authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
   var server = new(RpcWebSocketServer)
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 
   server.initWebsocket(compression, authHooks, rng)
-  server.server = HttpServer.create(
-    address,
-    processCallback,
-    flags
-  )
+  try:
+    server.server = HttpServer.create(
+      address,
+      processCallback,
+      flags
+    )
+  except CatchableError as exc:
+    raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
 
   server
 
@@ -145,15 +151,18 @@ proc newRpcWebSocketServer*(
   compression: bool = false,
   flags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
   authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
-  newRpcWebSocketServer(
-    initTAddress(host, port),
-    compression,
-    flags,
-    authHooks,
-    rng
-  )
+  try:
+    newRpcWebSocketServer(
+      initTAddress(host, port),
+      compression,
+      flags,
+      authHooks,
+      rng
+    )
+  except TransportError as exc:
+    raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
 
 proc newRpcWebSocketServer*(
   address: TransportAddress,
@@ -166,23 +175,26 @@ proc newRpcWebSocketServer*(
   tlsMinVersion = TLSVersion.TLS12,
   tlsMaxVersion = TLSVersion.TLS12,
   authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
   var server = new(RpcWebSocketServer)
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 
   server.initWebsocket(compression, authHooks, rng)
-  server.server = TlsHttpServer.create(
-    address,
-    tlsPrivateKey,
-    tlsCertificate,
-    processCallback,
-    flags,
-    tlsFlags,
-    tlsMinVersion,
-    tlsMaxVersion
-  )
+  try:
+    server.server = TlsHttpServer.create(
+      address,
+      tlsPrivateKey,
+      tlsCertificate,
+      processCallback,
+      flags,
+      tlsFlags,
+      tlsMinVersion,
+      tlsMaxVersion
+    )
+  except CatchableError as exc:
+    raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
 
   server
 
@@ -198,30 +210,39 @@ proc newRpcWebSocketServer*(
   tlsMinVersion = TLSVersion.TLS12,
   tlsMaxVersion = TLSVersion.TLS12,
   authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer =
+  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
-  newRpcWebSocketServer(
-    initTAddress(host, port),
-    tlsPrivateKey,
-    tlsCertificate,
-    compression,
-    flags,
-    tlsFlags,
-    tlsMinVersion,
-    tlsMaxVersion,
-    authHooks,
-    rng
-  )
+  try:
+    newRpcWebSocketServer(
+      initTAddress(host, port),
+      tlsPrivateKey,
+      tlsCertificate,
+      compression,
+      flags,
+      tlsFlags,
+      tlsMinVersion,
+      tlsMaxVersion,
+      authHooks,
+      rng
+    )
+  except TransportError as exc:
+    raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
 
-proc start*(server: RpcWebSocketServer) =
+proc start*(server: RpcWebSocketServer) {.raises: [JsonRpcError].} =
   ## Start the RPC server.
-  notice "WS RPC server started", address = server.server.local
-  server.server.start()
+  try:
+    info "Starting JSON-RPC WebSocket server", address = server.server.local
+    server.server.start()
+  except TransportOsError as exc:
+    raise (ref RpcBindError)(msg: "Unable to start server: " & exc.msg, parent: exc)
 
 proc stop*(server: RpcWebSocketServer) =
   ## Stop the RPC server.
-  notice "WS RPC server stopped", address = server.server.local
-  server.server.stop()
+  try:
+    server.server.stop()
+    notice "Stopped JSON-RPC WebSocket server", address = server.server.local
+  except TransportOsError as exc:
+    warn "Could not stop JSON-RPC WebSocket server", err = exc.msg
 
 proc close*(server: RpcWebSocketServer) =
   ## Cleanup resources of RPC server.

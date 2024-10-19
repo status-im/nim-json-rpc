@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/json,
   chronos,
@@ -24,8 +26,6 @@ export
 type
   RpcServer* = ref object of RootRef
     router*: RpcRouter
-
-{.push gcsafe, raises: [].}
 
 # ------------------------------------------------------------------------------
 # Constructors
@@ -46,28 +46,31 @@ template hasMethod*(server: RpcServer, methodName: string): bool =
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    params: RequestParamsTx): Future[JsonString]
-                      {.gcsafe, raises: [JsonRpcError].} =
+                    params: RequestParamsTx): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError]).} =
 
   let
     req = requestTx(methodName, params, RequestId(kind: riNumber, num: 0))
-    reqData = JrpcSys.encode(req).JsonString
+    reqData = JrpcSys.encode(req)
+    respData = await server.router.route(reqData)
+    resp = try:
+      JrpcSys.decode(respData, ResponseRx)
+    except CatchableError as exc:
+      raise (ref JsonRpcError)(msg: exc.msg)
 
-  server.router.tryRoute(reqData, result).isOkOr:
-    raise newException(JsonRpcError, error)
+  if resp.error.isSome:
+    raise (ref JsonRpcError)(msg: $resp.error.get)
+  resp.result
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    args: JsonNode): Future[JsonString]
-                      {.gcsafe, raises: [JsonRpcError].} =
+                    args: JsonNode): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
 
   let params = paramsTx(args)
   server.executeMethod(methodName, params)
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,
-                    args: JsonString): Future[JsonString]
-                      {.gcsafe, raises: [JsonRpcError].} =
+                    args: JsonString): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError]).} =
 
   let params = try:
     let x = JrpcSys.decode(args.string, RequestParamsRx)
@@ -75,16 +78,16 @@ proc executeMethod*(server: RpcServer,
   except SerializationError as exc:
     raise newException(JsonRpcError, exc.msg)
 
-  server.executeMethod(methodName, params)
+  await server.executeMethod(methodName, params)
 
 # Wrapper for message processing
 
-proc route*(server: RpcServer, line: string): Future[string] {.gcsafe.} =
+proc route*(server: RpcServer, line: string): Future[string] {.async: (raises: [], raw: true).} =
   server.router.route(line)
 
 # Server registration
 
-proc register*(server: RpcServer, name: string, rpc: RpcProc) {.gcsafe, raises: [CatchableError].} =
+proc register*(server: RpcServer, name: string, rpc: RpcProc) =
   ## Add a name/code pair to the RPC server.
   server.router.register(name, rpc)
 
