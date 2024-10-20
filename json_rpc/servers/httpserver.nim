@@ -33,7 +33,8 @@ type
   # - nil: auth success, continue execution
   # - HttpResponse: could not authenticate, stop execution
   #   and return the response
-  HttpAuthHook* = proc(request: HttpRequestRef): Future[HttpResponseRef] {.async.}
+  HttpAuthHook* =
+    proc(request: HttpRequestRef): Future[HttpResponseRef] {.async: (raises: [CatchableError]).}
 
   # This inheritance arrangement is useful for
   # e.g. combo HTTP server

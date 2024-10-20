@@ -27,7 +27,8 @@ type
   # - true: auth success, continue execution
   # - false: could not authenticate, stop execution
   #   and return the response
-  WsAuthHook* = proc(request: HttpRequest): Future[bool] {.async.}
+  WsAuthHook* =
+    proc(request: HttpRequest): Future[bool] {.async: (raises: [CatchableError]).}
 
   # This inheritance arrangement is useful for
   # e.g. combo HTTP server
