@@ -10,7 +10,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[uri, strutils],
+  std/uri,
   pkg/websock/[websock, extensions/compression/deflate],
   pkg/[chronos, chronos/apps/http/httptable, chronicles],
   stew/byteutils,
@@ -53,7 +53,7 @@ method call*(client: RpcWebSocketClient, name: string,
   client.awaiting[id] = newFut
 
   debug "Sending JSON-RPC request",
-         address = client.uri, len = len(reqBody), name
+         address = $client.uri, len = len(reqBody), name
 
   await client.transport.send(reqBody)
   return await newFut
@@ -70,7 +70,7 @@ method callBatch*(client: RpcWebSocketClient,
 
   let reqBody = requestBatchEncode(calls) & "\r\n"
   debug "Sending JSON-RPC batch",
-         address = client.uri, len = len(reqBody)
+         address = $client.uri, len = len(reqBody)
   await client.transport.send(reqBody)
 
   return await client.batchFut

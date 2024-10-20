@@ -54,7 +54,7 @@ method call*(client: RpcSocketClient, name: string,
   client.awaiting[id] = newFut
 
   debug "Sending JSON-RPC request",
-         address = client.address, len = len(reqBody), name, id
+         address = $client.address, len = len(reqBody), name, id
 
   let res = await client.transport.write(reqBody)
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.
@@ -74,7 +74,7 @@ method callBatch*(client: RpcSocketClient,
 
   let reqBody = requestBatchEncode(calls) & "\r\n"
   debug "Sending JSON-RPC batch",
-        address = client.address, len = len(reqBody)
+        address = $client.address, len = len(reqBody)
   let res = await client.transport.write(reqBody)
 
   # TODO: Add actions when not full packet was send, e.g. disconnect peer.

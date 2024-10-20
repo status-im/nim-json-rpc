@@ -59,7 +59,7 @@ proc wsAuthHeaders(ctx: Hook,
 suite "Websocket server hook test":
   let hook = Hook(append: wsAuthHeaders)
 
-  proc mockAuth(req: websock.HttpRequest): Future[bool] {.async.} =
+  proc mockAuth(req: websock.HttpRequest): Future[bool] {.async: (raises: [CatchableError]).} =
     if not req.headers.contains("Auth-Token"):
       await req.sendResponse(code = Http403, data = "Missing Auth-Token")
       return false
