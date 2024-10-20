@@ -7,28 +7,23 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   macros,
   ./shared_wrapper,
   ./jrpc_sys
-
-{.push gcsafe, raises: [].}
 
 proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree
   var paramList = newSeq[NimNode]()
   for p in parameters: paramList.add(p)
 
-  let body = quote do:
-    {.gcsafe.}:
-      `callBody`
-
   # build proc
-  result = newProc(procName, paramList, body)
+  result = newProc(procName, paramList, callBody)
 
   # make proc async
   result.addPragma ident"async"
-  result.addPragma ident"gcsafe"
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 

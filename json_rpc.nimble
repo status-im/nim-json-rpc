@@ -57,4 +57,4 @@ task test, "run tests":
 
   when not defined(windows):
     # on windows, socker server build failed
-    buildOnly "-d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
+    buildOnly "-d:chronicles_log_level=TRACE -d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"

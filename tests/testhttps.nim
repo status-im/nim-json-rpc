@@ -7,7 +7,7 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-import unittest2
+import unittest2, chronos/unittest2/asynctests
 import ../json_rpc/[rpcserver, rpcclient]
 import chronos/[streams/tlsstream, apps/http/httpcommon]
 
@@ -73,61 +73,48 @@ N8r5CwGcIX/XPC3lKazzbZ8baA==
 -----END CERTIFICATE-----
 """
 
-proc simpleTest(address: string): Future[bool] {.async.} =
-  var client = newRpcHttpClient(secure=true)
-  await client.connect("https://" & address)
-  var r = await client.call("noParamsProc", %[])
-  if r.string == "\"Hello world\"":
-    result = true
-
-proc continuousTest(address: string): Future[int] {.async.} =
-  var client = newRpcHttpClient(secure=true)
-  result = 0
-  for i in 0..<TestsCount:
-    await client.connect("https://" & address)
-    var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
-    if r.string == "\"Hello abc data: [1, 2, 3, " & $i & "]\"":
-      result += 1
-    await client.close()
-
-proc invalidTest(address: string): Future[bool] {.async.} =
-  var client = newRpcHttpClient(secure=true)
-  await client.connect("https://" & address)
-  var invalidA, invalidB: bool
-  try:
-    var r = await client.call("invalidProcA", %[])
-    discard r
-  except JsonRpcError:
-    invalidA = true
-  try:
-    var r = await client.call("invalidProcB", %[1, 2, 3])
-    discard r
-  except JsonRpcError:
-    invalidB = true
-  if invalidA and invalidB:
-    result = true
-
 let secureKey = TLSPrivateKey.init(HttpsSelfSignedRsaKey)
 let secureCert = TLSCertificate.init(HttpsSelfSignedRsaCert)
-var secureHttpSrv = RpcHttpServer.new()
 
-secureHttpSrv.addSecureHttpServer("127.0.0.1:0", secureKey, secureCert)
+suite "JSON-RPC/https":
+  setup:
+    var secureHttpSrv = RpcHttpServer.new()
 
-# Create RPC on server
-secureHttpSrv.rpc("myProc") do(input: string, data: array[0..3, int]):
-  result = %("Hello " & input & " data: " & $data)
-secureHttpSrv.rpc("noParamsProc") do():
-  result = %("Hello world")
+    secureHttpSrv.addSecureHttpServer("127.0.0.1:0", secureKey, secureCert)
 
-secureHttpSrv.start()
+    # Create RPC on server
+    secureHttpSrv.rpc("myProc") do(input: string, data: array[0..3, int]):
+      result = %("Hello " & input & " data: " & $data)
+    secureHttpSrv.rpc("noParamsProc") do():
+      result = %("Hello world")
 
-suite "JSON-RPC test suite":
-  test "Simple RPC call":
-    check waitFor(simpleTest($secureHttpSrv.localAddress()[0])) == true
-  test "Continuous RPC calls (" & $TestsCount & " messages)":
-    check waitFor(continuousTest($secureHttpSrv.localAddress()[0])) == TestsCount
-  test "Invalid RPC calls":
-    check waitFor(invalidTest($secureHttpSrv.localAddress()[0])) == true
+    secureHttpSrv.start()
+    let serverAddress = $secureHttpSrv.localAddress()[0]
+  teardown:
+    waitFor secureHttpSrv.stop()
+    waitFor secureHttpSrv.closeWait()
 
-waitFor secureHttpSrv.stop()
-waitFor secureHttpSrv.closeWait()
+  asyncTest "Simple RPC call":
+    var client = newRpcHttpClient(secure=true)
+    await client.connect("https://" & serverAddress)
+    var r = await client.call("noParamsProc", %[])
+    check r.string == "\"Hello world\""
+
+  asyncTest "Continuous RPC calls (" & $TestsCount & " messages)":
+    var client = newRpcHttpClient(secure=true)
+    for i in 0..<TestsCount:
+      await client.connect("https://" & serverAddress)
+      var r = await client.call("myProc", %[%"abc", %[1, 2, 3, i]])
+      check r.string == "\"Hello abc data: [1, 2, 3, " & $i & "]\""
+      await client.close()
+
+  asyncTest "Invalid RPC calls":
+    var client = newRpcHttpClient(secure=true)
+    await client.connect("https://" & serverAddress)
+
+    expect JsonRpcError:
+      discard await client.call("invalidProcA", %[])
+
+    expect JsonRpcError:
+      discard await client.call("invalidProcB", %[1, 2, 3])
+

@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
    pkg/websock/websock,
   ./servers/[httpserver],
@@ -39,8 +41,6 @@ type
       compression*: bool
       flags*: set[TLSFlags]
 
-{.push gcsafe, raises: [].}
-
 # TODO Add validations that provided uri-s are correct https/wss uri and retrun
 #  Result[string, ClientConfig]
 proc getHttpClientConfig*(uri: string): ClientConfig =
@@ -54,7 +54,7 @@ proc getWebSocketClientConfig*(
   ClientConfig(kind: WebSocket, wsUri: uri, compression: compression, flags: flags)
 
 proc proxyCall(client: RpcClient, name: string): RpcProc =
-  return proc (params: RequestParamsRx): Future[JsonString] {.gcsafe, async.} =
+  return proc (params: RequestParamsRx): Future[JsonString] {.async.} =
           let res = await client.call(name, params.toTx)
           return res
 
@@ -129,5 +129,5 @@ proc closeWait*(proxy: RpcProxy) {.async.} =
 
 func localAddress*(proxy: RpcProxy): seq[TransportAddress] =
   proxy.rpcHttpServer.localAddress()
-  
+
 {.pop.}

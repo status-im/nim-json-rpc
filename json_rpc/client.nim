@@ -7,8 +7,11 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/[json, tables, macros],
+  chronicles,
   chronos,
   results,
   ./jsonmarshal,
@@ -52,8 +55,6 @@ type
     batchFut*: Future[ResponseBatchRx]
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
-
-{.push gcsafe, raises: [].}
 
 # ------------------------------------------------------------------------------
 # Public helpers
@@ -128,22 +129,21 @@ proc getNextId*(client: RpcClient): RequestId =
 
 method call*(client: RpcClient, name: string,
              params: RequestParamsTx): Future[JsonString]
-                {.base, gcsafe, async.} =
-  doAssert(false, "`RpcClient.call` not implemented")
+                {.base, async.} =
+  raiseAssert("`RpcClient.call` not implemented")
 
-method call*(client: RpcClient, name: string,
+proc call*(client: RpcClient, name: string,
              params: JsonNode): Future[JsonString]
-               {.base, gcsafe, async.} =
+               {.async: (raw: true).} =
+  client.call(name, params.paramsTx)
 
-  await client.call(name, params.paramsTx)
-
-method close*(client: RpcClient): Future[void] {.base, gcsafe, async.} =
-  doAssert(false, "`RpcClient.close` not implemented")
+method close*(client: RpcClient): Future[void] {.base, async.} =
+  raiseAssert("`RpcClient.close` not implemented")
 
 method callBatch*(client: RpcClient,
                   calls: RequestBatchTx): Future[ResponseBatchRx]
-                    {.base, gcsafe, async.} =
-  doAssert(false, "`RpcClient.callBatch` not implemented")
+                    {.base, async.} =
+  raiseAssert("`RpcClient.callBatch` not implemented")
 
 proc processMessage*(client: RpcClient, line: string): Result[void, string] =
   if client.onProcessMessage.isNil.not:
@@ -152,8 +152,6 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
     if not fallBack:
       return ok()
 
-  # Note: this doesn't use any transport code so doesn't need to be
-  # differentiated.
   try:
     let batch = JrpcSys.decode(line, ResponseBatchRx)
     if batch.kind == rbkMany:
@@ -166,7 +164,7 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
     if response.jsonrpc.isNone:
       return err("missing or invalid `jsonrpc`")
 
-    if response.id.isNone:
+    let id = response.id.valueOr:
       if response.error.isSome:
         let error = JrpcSys.encode(response.error.get)
         return err(error)
@@ -174,7 +172,6 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
         return err("missing or invalid response id")
 
     var requestFut: Future[JsonString]
-    let id = response.id.get
     if not client.awaiting.pop(id, requestFut):
       return err("Cannot find message id \"" & $id & "\"")
 
@@ -189,6 +186,8 @@ proc processMessage*(client: RpcClient, line: string): Result[void, string] =
       requestFut.fail(newException(JsonRpcError, msg))
       return ok()
 
+    debug "Received JSON-RPC response",
+      len = string(response.result).len, id
     requestFut.complete(response.result)
     return ok()
 

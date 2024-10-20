@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/[macros, tables, json],
   chronicles,
@@ -24,7 +26,7 @@ export
 type
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(params: RequestParamsRx): Future[JsonString]
-              {.gcsafe, raises: [CatchableError].}
+              {.async.}
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]
@@ -39,8 +41,6 @@ const
   JSON_ENCODE_ERROR* = -32001
 
   defaultMaxRequestLength* = 1024 * 128
-
-{.push gcsafe, raises: [].}
 
 # ------------------------------------------------------------------------------
 # Private helpers
@@ -127,12 +127,15 @@ proc hasMethod*(router: RpcRouter, methodName: string): bool =
   router.procs.hasKey(methodName)
 
 proc route*(router: RpcRouter, req: RequestRx):
-             Future[ResponseTx] {.gcsafe, async: (raises: []).} =
+             Future[ResponseTx] {.async: (raises: []).} =
   let rpcProc = router.validateRequest(req).valueOr:
     return wrapError(error, req.id)
 
   try:
+    debug "Processing JSON-RPC request", id = req.id, name = req.`method`.get()
     let res = await rpcProc(req.params)
+    debug "Returning JSON-RPC response",
+      id = req.id, name = req.`method`.get(), len = string(res).len
     return wrapReply(res, req.id)
   except ApplicationError as err:
     return wrapError(applicationError(err.code, err.msg, err.data), req.id)
@@ -150,92 +153,34 @@ proc route*(router: RpcRouter, req: RequestRx):
       escapeJson(err.msg).JsonString).
       wrapError(req.id)
 
-proc wrapErrorAsync*(code: int, msg: string):
-       Future[JsonString] {.gcsafe, async: (raises: []).} =
-  return wrapError(code, msg).JsonString
-
-proc route*(router: RpcRouter, data: string):
-       Future[string] {.gcsafe, async: (raises: []).} =
+proc route*(router: RpcRouter, data: string|seq[byte]):
+       Future[string] {.async: (raises: []).} =
   ## Route to RPC from string data. Data is expected to be able to be
   ## converted to Json.
   ## Returns string of Json from RPC result/error node
-  when defined(nimHasWarnBareExcept):
-    {.push warning[BareExcept]:off.}
-
   let request =
     try:
       JrpcSys.decode(data, RequestBatchRx)
     except CatchableError as err:
       return wrapError(JSON_PARSE_ERROR, err.msg)
-    except Exception as err:
-      # TODO https://github.com/status-im/nimbus-eth2/issues/2430
-      return wrapError(JSON_PARSE_ERROR, err.msg)
-
-  let reply = try:
-      if request.kind == rbkSingle:
-        let response = await router.route(request.single)
-        JrpcSys.encode(response)
-      elif request.many.len == 0:
-        wrapError(INVALID_REQUEST, "no request object in request array")
-      else:
-        var resFut: seq[Future[ResponseTx]]
-        for req in request.many:
-          resFut.add router.route(req)
-        await noCancel(allFutures(resFut))
-        var response = ResponseBatchTx(kind: rbkMany)
-        for fut in resFut:
-          response.many.add fut.read()
-        JrpcSys.encode(response)
-    except CatchableError as err:
-      wrapError(JSON_ENCODE_ERROR, err.msg)
-    except Exception as err:
-      wrapError(JSON_ENCODE_ERROR, err.msg)
-
-  when defined(nimHasWarnBareExcept):
-    {.pop warning[BareExcept]:on.}
-
-  return reply
-
-proc tryRoute*(router: RpcRouter, req: RequestRx,
-               fut: var Future[JsonString]): Result[void, string] =
-  ## Route to RPC, returns false if the method or params cannot be found.
-  ## Expects RequestRx input and returns json output.
-  when defined(nimHasWarnBareExcept):
-    {.push warning[BareExcept]:off.}
-    {.push warning[UnreachableCode]:off.}
 
   try:
-    if req.jsonrpc.isNone:
-      return err("`jsonrpc` missing or invalid")
-
-    if req.meth.isNone:
-      return err("`method` missing or invalid")
-
-    let rpc = router.procs.getOrDefault(req.meth.get)
-    if rpc.isNil:
-      return err("rpc method not found: " & req.meth.get)
-
-    fut = rpc(req.params)
-    return ok()
-
-  except CatchableError as ex:
-    return err(ex.msg)
-  except Exception as ex:
-    return err(ex.msg)
-
-  when defined(nimHasWarnBareExcept):
-    {.pop warning[BareExcept]:on.}
-    {.pop warning[UnreachableCode]:on.}
-
-proc tryRoute*(router: RpcRouter, data: JsonString,
-               fut: var Future[JsonString]): Result[void, string] =
-  ## Route to RPC, returns false if the method or params cannot be found.
-  ## Expects json input and returns json output.
-  try:
-    let req = JrpcSys.decode(data.string, RequestRx)
-    return router.tryRoute(req, fut)
-  except CatchableError as ex:
-    return err(ex.msg)
+    if request.kind == rbkSingle:
+      let response = await router.route(request.single)
+      JrpcSys.encode(response)
+    elif request.many.len == 0:
+      wrapError(INVALID_REQUEST, "no request object in request array")
+    else:
+      var resFut: seq[Future[ResponseTx]]
+      for req in request.many:
+        resFut.add router.route(req)
+      await noCancel(allFutures(resFut))
+      var response = ResponseBatchTx(kind: rbkMany)
+      for fut in resFut:
+        response.many.add fut.read()
+      JrpcSys.encode(response)
+  except CatchableError as err:
+    wrapError(JSON_ENCODE_ERROR, err.msg)
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.

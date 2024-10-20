@@ -25,8 +25,7 @@ proc authHeaders(): seq[(string, string)] =
   @[("Auth-Token", "Good Token")]
 
 suite "HTTP server hook test":
-  proc mockAuth(req: HttpRequestRef): Future[HttpResponseRef] {.
-        gcsafe, async: (raises: [CatchableError]).} =
+  proc mockAuth(req: HttpRequestRef): Future[HttpResponseRef] {.async: (raises: [CatchableError]).} =
     if req.headers.getString("Auth-Token") == "Good Token":
       return HttpResponseRef(nil)
 
@@ -60,7 +59,7 @@ proc wsAuthHeaders(ctx: Hook,
 suite "Websocket server hook test":
   let hook = Hook(append: wsAuthHeaders)
 
-  proc mockAuth(req: websock.HttpRequest): Future[bool] {.async.} =
+  proc mockAuth(req: websock.HttpRequest): Future[bool] {.async: (raises: [CatchableError]).} =
     if not req.headers.contains("Auth-Token"):
       await req.sendResponse(code = Http403, data = "Missing Auth-Token")
       return false
