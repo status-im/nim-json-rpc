@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.push raises: [], gcsafe.}
+
 import
   std/[macros, typetraits],
   stew/[byteutils, objects],
@@ -26,8 +28,6 @@ type
     numFields: int
     numOptionals: int
     minLength: int
-
-{.push gcsafe, raises: [].}
 
 # ------------------------------------------------------------------------------
 # Optional resolvers
@@ -311,7 +311,7 @@ func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
   result = newStmtList()
   result.add handler
   result.add quote do:
-    proc `procWrapper`(`paramsIdent`: RequestParamsRx): Future[JsonString] {.async, gcsafe.} =
+    proc `procWrapper`(`paramsIdent`: RequestParamsRx): Future[JsonString] {.async.} =
       # Avoid 'yield in expr not lowered' with an intermediate variable.
       # See: https://github.com/nim-lang/Nim/issues/17849
       `setup`
