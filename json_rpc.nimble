@@ -21,10 +21,10 @@ requires "nim >= 1.6.0",
          "stew",
          "nimcrypto",
          "stint",
-         "chronos ^= 4.0.3",
-         "httputils ^= 0.3.0",
+         "chronos >= 4.0.3 & < 4.1.0",
+         "httputils >= 0.3.0 & < 0.4.0",
          "chronicles",
-         "websock",
+         "websock >= 0.2.0 & < 0.3.0",
          "json_serialization",
          "unittest2"
 
