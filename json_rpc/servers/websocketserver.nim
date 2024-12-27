@@ -45,13 +45,16 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
     let server = rpc.wsserver
     let ws = await server.handleRequest(request)
     if ws.readyState != ReadyState.Open:
-      error "Failed to open websocket connection"
+      error "Failed to open websocket connection",
+        address = $request.uri
       return
 
     trace "Websocket handshake completed"
     while ws.readyState != ReadyState.Closed:
       let req = await ws.recvMsg()
-      debug "Received JSON-RPC request", len = req.len
+      debug "Received JSON-RPC request",
+        address = $request.uri,
+        len = req.len
 
       if ws.readyState == ReadyState.Closed:
         # if session already terminated by peer,
@@ -64,27 +67,20 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
         )
         break
 
-      let data = try:
-          await rpc.route(req)
-        except CatchableError as exc:
-          debug "Internal error, while processing RPC call",
-            address = $request.uri
-          await ws.close(
-            reason = "Internal error, while processing RPC call: " & exc.msg
-          )
-          break
+      let data = await rpc.route(req)
 
       trace "RPC result has been sent", address = $request.uri
       await ws.send(data)
 
   except WebSocketError as exc:
-    error "WebSocket error:", exception = exc.msg
+    error "WebSocket error:",
+      address = $request.uri, msg = exc.msg
 
   except CancelledError as exc:
     raise exc
 
   except CatchableError as exc:
-    debug "Something error", msg=exc.msg
+    debug "Internal error while processing JSON-RPC call", msg=exc.msg
 
 proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest)
                     {.async: (raises: [CancelledError]).} =

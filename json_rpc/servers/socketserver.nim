@@ -41,9 +41,12 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
       let res = await rpc.route(req)
       discard await transport.write(res & "\r\n")
   except TransportError as ex:
-    error "Transport closed during processing client", msg=ex.msg
-  except CatchableError as ex:
-    error "Error occured during processing client", msg=ex.msg
+    error "Transport closed during processing client",
+      address = transport.remoteAddress(),
+      msg=ex.msg
+  except CancelledError:
+    error "JSON-RPC request processing cancelled",
+      address = transport.remoteAddress()
 
 # Utility functions for setting up servers using stream transport addresses
 

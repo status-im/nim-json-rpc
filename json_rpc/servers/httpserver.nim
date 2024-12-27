@@ -81,7 +81,7 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
-    debug "Internal error while processing JSON-RPC call"
+    debug "Internal error while processing JSON-RPC call", msg=exc.msg
     defaultResponse(exc)
 
 proc processClientRpc(rpcServer: RpcHttpServer): HttpProcessCallback2 =
