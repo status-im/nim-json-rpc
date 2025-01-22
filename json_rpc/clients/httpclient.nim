@@ -181,7 +181,7 @@ method callBatch*(client: RpcHttpClient,
                   calls: RequestBatchTx): Future[ResponseBatchRx]
                     {.async.} =
   let reqBody = requestBatchEncode(calls)
-  debug "Sending JSON-RPC batch",
+  trace "Sending JSON-RPC batch",
         address = $client.httpAddress, len = len(reqBody)
   let resText = await client.callImpl(reqBody)
 
