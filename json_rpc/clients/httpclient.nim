@@ -40,7 +40,7 @@ type
 # ------------------------------------------------------------------------------
 
 proc `$`(v: HttpAddress): string =
-  v.id
+  when defined(obfuscatedurl): "**obfuscateurl**" else: v.id
 
 proc new(
     T: type RpcHttpClient, maxBodySize = MaxMessageBodyBytes, secure = false,
@@ -145,7 +145,7 @@ method call*(client: RpcHttpClient, name: string,
     id = client.getNextId()
     reqBody = requestTxEncode(name, params, id)
 
-  trace "Sending JSON-RPC request",
+  debug "Sending JSON-RPC request",
          address = client.httpAddress, len = len(reqBody), name, id
   trace "Message", msg = reqBody
 
@@ -181,7 +181,7 @@ method callBatch*(client: RpcHttpClient,
                   calls: RequestBatchTx): Future[ResponseBatchRx]
                     {.async.} =
   let reqBody = requestBatchEncode(calls)
-  trace "Sending JSON-RPC batch",
+  debug "Sending JSON-RPC batch",
         address = $client.httpAddress, len = len(reqBody)
   let resText = await client.callImpl(reqBody)
 
