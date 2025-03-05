@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -21,10 +21,7 @@ type
   RefObject = ref object
     name: string
 
-template derefType(T: type): untyped =
-  typeof(T()[])
-
-derefType(RefObject).useDefaultSerializationIn JrpcConv
+RefObject.useDefaultSerializationIn JrpcConv
 
 createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs.nim")
 

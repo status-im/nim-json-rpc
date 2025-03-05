@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -51,6 +51,14 @@ proc setupConversion(reqParams, params: NimNode): NimNode =
     result.add quote do:
       `reqParams`.positional.add encode(JrpcConv, `parName`).JsonString
 
+template maybeUnwrapClientResult*(client, meth, reqParams, returnType): auto =
+  ## Don't decode e.g. JsonString, return as is
+  when noWrap(typeof returnType):
+    await client.call(meth, reqParams)
+  else:
+    let res = await client.call(meth, reqParams)
+    decode(JrpcConv, res.string, typeof returnType)
+
 proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
   ## This procedure will generate something like this:
   ## - Currently it always send positional parameters to the server
@@ -82,17 +90,6 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
     reqParams = ident "reqParams"
     setup = setupConversion(reqParams, params)
     clientIdent = ident"client"
-    # temporary variable to hold `Response` from rpc call
-    rpcResult = ident "res"
-    # proc return variable
-    procRes = ident"result"
-    doDecode = quote do:
-      `procRes` = decode(JrpcConv, `rpcResult`.string, typeof `returnType`)
-    maybeWrap =
-      if returnType.noWrap: quote do:
-        `procRes` = `rpcResult`
-      else: doDecode
-
     batchParams = params.copy
     batchIdent = ident "batch"
 
@@ -110,11 +107,7 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
   let callBody = quote do:
     # populate request params
     `setup`
-
-    # `rpcResult` is of type `JsonString`
-    let `rpcResult` = await `clientIdent`.call(`pathStr`, `reqParams`)
-    `maybeWrap`
-
+    maybeUnwrapClientResult(`clientIdent`, `pathStr`, `reqParams`, `returnType`)
 
   # insert RpcBatchCallRef as first parameter
   batchParams.insert(1, nnkIdentDefs.newTree(
