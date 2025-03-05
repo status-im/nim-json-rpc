@@ -31,6 +31,9 @@ export
   ResponseBatchRx,
   results
 
+logScope:
+  topics = "JSONRPC-CLIENT"
+
 const MaxMessageBodyBytes* = 128 * 1024 * 1024  # 128 MB (JSON encoded)
 
 type
