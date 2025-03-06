@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -214,6 +214,15 @@ func setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
     for `x` in `paramsIdent`.named:
       `caseStmt`
 
+template maybeWrapServerResult*(resFut): auto =
+  ## Don't encode e.g. JsonString, return as is
+  type ResType = typeof(await resFut)
+  when noWrap(ResType):
+    await resFut
+  else:
+    let res = await resFut
+    JsonString(encode(JrpcConv, res))
+
 func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode): NimNode =
   ## This proc generate something like this:
   ##
@@ -301,11 +310,6 @@ func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
         expectParamsLen(`paramsIdent`, 0)
 
   let
-    awaitedResult = ident "awaitedResult"
-    doEncode = quote do: encode(JrpcConv, `awaitedResult`)
-    maybeWrap =
-      if returnType.noWrap: awaitedResult
-      else: ident"JsonString".newCall doEncode
     executeCall = newCall(handlerName, executeParams)
 
   result = newStmtList()
@@ -315,5 +319,5 @@ func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
       # Avoid 'yield in expr not lowered' with an intermediate variable.
       # See: https://github.com/nim-lang/Nim/issues/17849
       `setup`
-      let `awaitedResult` = await `executeCall`
-      return `maybeWrap`
+      let resFut = `executeCall`
+      maybeWrapServerResult(resFut)

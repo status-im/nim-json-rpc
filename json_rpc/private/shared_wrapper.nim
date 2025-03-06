@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2024 Status Research & Development GmbH
+# Copyright (c) 2024-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -32,11 +32,10 @@ func ensureReturnType*(params: NimNode): NimNode =
 
   params
 
-func noWrap*(returnType: NimNode): bool =
+template noWrap*(returnType: type): auto =
   ## Condition when return type should not be encoded
   ## to Json
-  returnType.repr == "JsonString" or
-    returnType.repr == "JsonString"
+  returnType is JsonString
 
 func paramsTx*(params: JsonNode): RequestParamsTx =
   if params.kind == JArray:
