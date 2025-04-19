@@ -14,7 +14,7 @@ import
   ./shared_wrapper,
   ./jrpc_sys
 
-proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
+func createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree
   var paramList = newSeq[NimNode]()
   for p in parameters: paramList.add(p)
@@ -27,7 +27,7 @@ proc createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 
-proc createBatchCallProc(procName, parameters, callBody: NimNode): NimNode =
+func createBatchCallProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree
   var paramList = newSeq[NimNode]()
   for p in parameters: paramList.add(p)
@@ -38,7 +38,7 @@ proc createBatchCallProc(procName, parameters, callBody: NimNode): NimNode =
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 
-proc setupConversion(reqParams, params: NimNode): NimNode =
+func setupConversion(reqParams, params: NimNode): NimNode =
   # populate json params
   # even rpcs with no parameters have an empty json array node sent
 
@@ -59,7 +59,7 @@ template maybeUnwrapClientResult*(client, meth, reqParams, returnType): auto =
     let res = await client.call(meth, reqParams)
     decode(JrpcConv, res.string, typeof returnType)
 
-proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
+func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
   ## This procedure will generate something like this:
   ## - Currently it always send positional parameters to the server
   ##
@@ -134,7 +134,7 @@ proc createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
   when defined(nimDumpRpcs):
     echo pathStr, ":\n", result.repr
 
-proc processRpcSigs*(clientType, parsedCode: NimNode): NimNode =
+func processRpcSigs*(clientType, parsedCode: NimNode): NimNode =
   result = newStmtList()
 
   for line in parsedCode:
@@ -142,7 +142,7 @@ proc processRpcSigs*(clientType, parsedCode: NimNode): NimNode =
       var procDef = createRpcFromSig(clientType, line)
       result.add(procDef)
 
-proc cresteSignaturesFromString*(clientType: NimNode, sigStrings: string): NimNode =
+func cresteSignaturesFromString*(clientType: NimNode, sigStrings: string): NimNode =
   try:
     result = processRpcSigs(clientType, sigStrings.parseStmt())
   except ValueError as exc:
