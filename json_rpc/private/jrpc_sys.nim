@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -308,7 +308,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
   else:
     r.raiseUnexpectedValue("ResponseBatch must be either array or object, got=" & $tok)
 
-proc toTx*(params: RequestParamsRx): RequestParamsTx =
+func toTx*(params: RequestParamsRx): RequestParamsTx =
   case params.kind:
   of rpPositional:
     result = RequestParamsTx(kind: rpPositional)
