@@ -8,6 +8,6 @@ on:
 
 jobs:
   build:
-    env:
-      NIMBLE_COMMIT: v0.20.1
-    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@nimblecommit
+    with:
+      nimble-version: v0.20.1
