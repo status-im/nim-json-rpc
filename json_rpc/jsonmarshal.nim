@@ -26,4 +26,6 @@ createJsonFlavor JrpcConv,
 # JrpcConv is a namespace/flavor for encoding and decoding
 # parameters and return value of a rpc method.
 
-JrpcConv.automaticSerialization(JsonNode, true)
+when declared(automaticSerialization):
+  # Nim 1.6 cannot use this new feature
+  JrpcConv.automaticSerialization(JsonNode, true)

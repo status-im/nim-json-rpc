@@ -25,7 +25,8 @@ requires "nim >= 1.6.0",
          "httputils >= 0.3.0 & < 0.4.0",
          "chronicles",
          "websock >= 0.2.0 & < 0.3.0",
-         "json_serialization",
+         "serialization >= 0.4.4",
+         "json_serialization >= 0.4.2",
          "unittest2"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
