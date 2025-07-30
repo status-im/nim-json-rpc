@@ -23,6 +23,9 @@ export
   jsonmarshal,
   json
 
+logScope:
+  topics = "json-rpc-router"
+
 type
   # Procedure signature accepted as an RPC call by server
   RpcProc* = proc(params: RequestParamsRx): Future[JsonString]
