@@ -50,6 +50,20 @@ MyOptional.useDefaultSerializationIn JrpcConv
 MyOptionalNotBuiltin.useDefaultSerializationIn JrpcConv
 MuscleCar.useDefaultSerializationIn JrpcConv
 
+when declared(json_serialization.automaticSerialization):
+  # Nim 1.6 cannot use this new feature
+  JrpcConv.automaticSerialization(int, true)
+  JrpcConv.automaticSerialization(string, true)
+  JrpcConv.automaticSerialization(array, true)
+  JrpcConv.automaticSerialization(byte, true)
+  JrpcConv.automaticSerialization(seq, true)
+  JrpcConv.automaticSerialization(float, true)
+  JrpcConv.automaticSerialization(JsonString, true)
+  JrpcConv.automaticSerialization(bool, true)
+  JrpcConv.automaticSerialization(int64, true)
+  JrpcConv.automaticSerialization(ref, true)
+  JrpcConv.automaticSerialization(enum, true)
+
 proc readValue*(r: var JsonReader[JrpcConv], val: var MyEnum)
        {.gcsafe, raises: [IOError, SerializationError].} =
   let intVal = r.parseInt(int)
