@@ -13,7 +13,7 @@ import
   std/hashes,
   results,
   json_serialization,
-  json_serialization/stew/results as jser_results
+  json_serialization/pkg/results as jser_results
 
 export
   results,

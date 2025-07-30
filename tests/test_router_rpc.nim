@@ -11,13 +11,13 @@ import
   unittest2,
   ../json_rpc/router,
   json_serialization/std/options,
-  json_serialization/stew/results
+  json_serialization/pkg/results
 
 var server = RpcRouter()
 
 type
   OptAlias[T] = results.Opt[T]
-  
+
 server.rpc("std_option") do(A: int, B: Option[int], C: string, D: Option[int], E: Option[string]) -> string:
   var res = "A: " & $A
   res.add ", B: " & $B.get(99)
@@ -49,7 +49,7 @@ server.rpc("alias_opt") do(A: int, B: OptAlias[int], C: string, D: Option[int], 
   res.add ", D: " & $D.get(77)
   res.add ", E: " & E.get("none")
   return res
-  
+
 server.rpc("noParams") do() -> int:
   return 123
 
@@ -93,7 +93,7 @@ template test_optional(meth: static[string]) =
       check res == """{"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"`mixed_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"}}"""
     else:
       check res == """{"jsonrpc":"2.0","id":0,"error":{"code":-32000,"message":"`alias_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"}}"""
-      
+
   test meth & " D extra, positional":
     let n = req(meth, "[44, 567, \"apple\", 999, \"banana\", true]")
     let res = waitFor server.route(n)

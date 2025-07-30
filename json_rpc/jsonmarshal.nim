@@ -20,7 +20,12 @@ createJsonFlavor JrpcConv,
   requireAllFields = false,
   omitOptionalFields = false, # Don't skip optional fields==none in Writer
   allowUnknownFields = true,
-  skipNullFields = true       # Skip optional fields==null in Reader
+  skipNullFields = true,      # Skip optional fields==null in Reader
+  automaticPrimitivesSerialization = false
 
 # JrpcConv is a namespace/flavor for encoding and decoding
 # parameters and return value of a rpc method.
+
+when declared(json_serialization.automaticSerialization):
+  # Nim 1.6 cannot use this new feature
+  JrpcConv.automaticSerialization(JsonNode, true)
