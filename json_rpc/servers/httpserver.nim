@@ -17,6 +17,12 @@ import
   ../errors,
   ../server
 
+when tryImport json_serialization/pkg/chronos as jschronos:
+  export jschronos
+else:
+  import json_serialization/std/net as jsnet
+  export jsnet
+
 export
   server, shttpserver
 

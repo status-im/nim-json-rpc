@@ -13,11 +13,17 @@ import
   std/[tables, uri],
   stew/byteutils,
   results,
-  chronos/apps/http/httpclient as chronosHttpClient,
-  chronicles, httputils, json_serialization/std/net,
+  chronos/apps/http/httpclient,
+  chronicles, httputils,
   ../client,
   ../errors,
-  ../private/jrpc_sys
+  ../private/[jrpc_sys, utils]
+
+when tryImport json_serialization/pkg/chronos as jschronos:
+  export jschronos
+else:
+  import json_serialization/std/net as jsnet
+  export jsnet
 
 export
   client, errors, HttpClientFlag, HttpClientFlags

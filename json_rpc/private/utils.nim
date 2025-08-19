@@ -1,5 +1,15 @@
 import chronos, ../errors
 
+template tryImport*(v: untyped): bool =
+  # TODO https://github.com/nim-lang/Nim/issues/25108
+  template importTest =
+    import v
+  when compiles(importTest):
+    importTest
+    true
+  else:
+    false
+
 from std/net import IPv6_any, IPv4_any
 
 template processResolvedAddresses(what: string) =

@@ -13,11 +13,9 @@ import
   std/hashes,
   results,
   json_serialization,
-  json_serialization/pkg/results as jser_results
+  json_serialization/pkg/results as jsresults
 
-export
-  results,
-  json_serialization
+export results, json_serialization, jsresults
 
 # This module implements JSON-RPC 2.0 Specification
 # https://www.jsonrpc.org/specification
