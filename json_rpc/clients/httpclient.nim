@@ -152,7 +152,7 @@ method call*(client: RpcHttpClient, name: string,
     reqBody = requestTxEncode(name, params, id)
 
   debug "Sending JSON-RPC request",
-         address = client.httpAddress, len = len(reqBody), name, id
+         address = $client.httpAddress, len = len(reqBody), name, id
   trace "Message", msg = reqBody
 
   let resText = await client.callImpl(reqBody)

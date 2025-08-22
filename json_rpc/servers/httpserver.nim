@@ -17,11 +17,8 @@ import
   ../errors,
   ../server
 
-when tryImport json_serialization/pkg/chronos as jschronos:
-  export jschronos
-else:
-  import json_serialization/std/net as jsnet
-  export jsnet
+import json_serialization/pkg/chronos as jschronos
+export jschronos
 
 export
   server, shttpserver
@@ -55,9 +52,9 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
        Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
   try:
     let req = await request.getBody()
-    debug "Received JSON-RPC request",
-      address = request.remote().valueOr(default(TransportAddress)),
-      len = req.len
+    # debug "Received JSON-RPC request",
+    #   address = request.remote().valueOr(default(TransportAddress)),
+    #   len = req.len
 
     let
       data = await rpcServer.route(req)
