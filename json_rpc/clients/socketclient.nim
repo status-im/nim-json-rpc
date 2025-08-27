@@ -14,17 +14,12 @@ import
   chronicles,
   results,
   chronos,
+  json_serialization/std/net as jsnet,
   ../client,
   ../errors,
-  ../private/[jrpc_sys, utils]
+  ../private/jrpc_sys
 
-when tryImport json_serialization/pkg/chronos as jschronos:
-  export jschronos
-else:
-  import json_serialization/std/net as jsnet
-  export jsnet
-
-export client, errors
+export client, errors, jsnet
 
 logScope:
   topics = "JSONRPC-SOCKET-CLIENT"

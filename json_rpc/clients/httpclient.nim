@@ -15,18 +15,13 @@ import
   results,
   chronos/apps/http/httpclient,
   chronicles, httputils,
+  json_serialization/std/net as jsnet,
   ../client,
   ../errors,
-  ../private/[jrpc_sys, utils]
-
-when tryImport json_serialization/pkg/chronos as jschronos:
-  export jschronos
-else:
-  import json_serialization/std/net as jsnet
-  export jsnet
+  ../private/jrpc_sys
 
 export
-  client, errors, HttpClientFlag, HttpClientFlags
+  client, errors, jsnet, HttpClientFlag, HttpClientFlags
 
 logScope:
   topics = "JSONRPC-HTTP-CLIENT"
@@ -37,7 +32,7 @@ type
 
   RpcHttpClient* = ref object of RpcClient
     httpSession: HttpSessionRef
-    httpAddress: HttpResult[HttpAddress]
+    httpAddress: HttpAddress
     maxBodySize: int
     getHeaders: GetJsonRpcRequestHeaders
 
@@ -82,8 +77,9 @@ template closeRefs(req, res: untyped) =
 
 proc callImpl(client: RpcHttpClient, reqBody: string): Future[string] {.async.} =
   doAssert client.httpSession != nil
-  if client.httpAddress.isErr:
-    raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
+  if client.httpAddress.addresses.len == 0:
+    raise newException(RpcPostError, "Not connected")
+
 
   var headers =
     if not isNil(client.getHeaders):
@@ -96,7 +92,7 @@ proc callImpl(client: RpcHttpClient, reqBody: string): Future[string] {.async.} 
   var res: HttpClientResponseRef
 
   req = HttpClientRequestRef.post(client.httpSession,
-                                  client.httpAddress.get,
+                                  client.httpAddress,
                                   body = reqBody.toOpenArrayByte(0, reqBody.len - 1),
                                   headers = headers)
   res =
@@ -146,13 +142,12 @@ proc newRpcHttpClient*(
 method call*(client: RpcHttpClient, name: string,
              params: RequestParamsTx): Future[JsonString]
             {.async.} =
-
   let
     id = client.getNextId()
     reqBody = requestTxEncode(name, params, id)
 
   debug "Sending JSON-RPC request",
-         address = client.httpAddress, len = len(reqBody), name, id
+         address = $client.httpAddress, len = len(reqBody), name, id
   trace "Message", msg = reqBody
 
   let resText = await client.callImpl(reqBody)
@@ -213,20 +208,16 @@ method callBatch*(client: RpcHttpClient,
     raise newException(InvalidResponse, "Invalid response")
 
 proc connect*(client: RpcHttpClient, url: string) {.async.} =
-  client.httpAddress = client.httpSession.getAddress(url)
-  if client.httpAddress.isErr:
+  client.httpAddress = client.httpSession.getAddress(url).valueOr:
     raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
 
 proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) {.async.} =
-  var uri = Uri(
+  let uri = Uri(
     scheme: if secure: "https" else: "http",
     hostname: address,
     port: $port)
 
-  let res = getAddress(client.httpSession, uri)
-  if res.isOk:
-    client.httpAddress = res
-  else:
+  client.httpAddress = getAddress(client.httpSession, uri).valueOr:
     raise newException(RpcAddressUnresolvableError, res.error)
 
 method close*(client: RpcHttpClient) {.async.} =

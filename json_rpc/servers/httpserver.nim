@@ -13,18 +13,13 @@ import
   std/sequtils,
   chronicles, httputils, chronos,
   chronos/apps/http/[httpserver, shttpserver],
+  json_serialization/std/net as jsnet,
   ../private/utils,
   ../errors,
   ../server
 
-when tryImport json_serialization/pkg/chronos as jschronos:
-  export jschronos
-else:
-  import json_serialization/std/net as jsnet
-  export jsnet
-
 export
-  server, shttpserver
+  server, shttpserver, jsnet
 
 logScope:
   topics = "JSONRPC-HTTP-SERVER"
