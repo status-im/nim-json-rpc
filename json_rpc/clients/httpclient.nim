@@ -209,7 +209,7 @@ method callBatch*(client: RpcHttpClient,
 
 proc connect*(client: RpcHttpClient, url: string) {.async.} =
   client.httpAddress = client.httpSession.getAddress(url).valueOr:
-    raise newException(RpcAddressUnresolvableError, client.httpAddress.error)
+    raise newException(RpcAddressUnresolvableError, error)
 
 proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) {.async.} =
   let uri = Uri(
@@ -218,7 +218,7 @@ proc connect*(client: RpcHttpClient, address: string, port: Port, secure: bool) 
     port: $port)
 
   client.httpAddress = getAddress(client.httpSession, uri).valueOr:
-    raise newException(RpcAddressUnresolvableError, res.error)
+    raise newException(RpcAddressUnresolvableError, error)
 
 method close*(client: RpcHttpClient) {.async.} =
   if not client.httpSession.isNil:
