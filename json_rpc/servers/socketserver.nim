@@ -12,12 +12,12 @@
 import
   std/sequtils,
   chronicles,
-  json_serialization/std/net,
+  json_serialization/std/net as jsnet,
   ../private/utils,
   ../errors,
   ../server
 
-export errors, server
+export errors, server, jsnet
 
 type
   RpcSocketServer* = ref object of RpcServer

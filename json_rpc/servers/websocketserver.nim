@@ -12,10 +12,12 @@
 import
   chronicles, chronos, websock/[websock, types],
   websock/extensions/compression/deflate,
-  stew/byteutils, json_serialization/std/net,
-  ".."/[errors, server]
+  stew/byteutils,
+  json_serialization/std/net as jsnet,
 
-export errors, server, net
+  ../[errors, server]
+
+export errors, server, jsnet
 
 logScope:
   topics = "JSONRPC-WS-SERVER"
@@ -84,8 +86,7 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
 
 proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest)
                     {.async: (raises: [CancelledError]).} =
-  trace "Handling request:", uri = request.uri.path
-  trace "Initiating web socket connection."
+  trace "Handling request:", uri = $request.uri
 
   # if hook result is false,
   # it means we should return immediately
