@@ -258,13 +258,13 @@ proc start*(server: RpcHttpServer) =
     info "Starting JSON-RPC HTTP server", url = item.baseUri
     item.start()
 
-proc stop*(server: RpcHttpServer) {.async.} =
+proc stop*(server: RpcHttpServer) {.async: (raises: []).} =
   ## Stop the RPC server.
   for item in server.httpServers:
     await item.stop()
     info "Stopped JSON-RPC HTTP server", url = item.baseUri
 
-proc closeWait*(server: RpcHttpServer) {.async.} =
+proc closeWait*(server: RpcHttpServer) {.async: (raises: []).} =
   ## Cleanup resources of RPC server.
   for item in server.httpServers:
     await item.closeWait()

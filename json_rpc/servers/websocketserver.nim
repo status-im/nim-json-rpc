@@ -12,9 +12,7 @@
 import
   chronicles, chronos, websock/[websock, types],
   websock/extensions/compression/deflate,
-  stew/byteutils,
   json_serialization/std/net as jsnet,
-
   ../[errors, server]
 
 export errors, server, jsnet
@@ -246,7 +244,7 @@ proc close*(server: RpcWebSocketServer) =
   ## Cleanup resources of RPC server.
   server.server.close()
 
-proc closeWait*(server: RpcWebSocketServer) {.async.} =
+proc closeWait*(server: RpcWebSocketServer) {.async: (raises: []).} =
   ## Cleanup resources of RPC server.
   await server.server.closeWait()
 
