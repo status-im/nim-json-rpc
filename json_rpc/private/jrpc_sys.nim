@@ -59,26 +59,30 @@ type
 
   RequestId* = object
     case kind*: RequestIdKind
+    of riNull:
+      discard
     of riNumber:
       num*: int
     of riString:
       str*: string
-    of riNull:
-      discard
+
+  ReqRespHeader* = object
+    ## Helper type to extract id from message (for example for logging)
+    id*      : results.Opt[RequestId]
 
   # Request received by server
   RequestRx* = object
     jsonrpc* : results.Opt[JsonRPC2]
-    id*      : RequestId
     `method`*: results.Opt[string]
     params*  : RequestParamsRx
+    id*      : RequestId
 
   # Request sent by client
   RequestTx* = object
     jsonrpc* : JsonRPC2
-    id*      : results.Opt[RequestId]
     `method`*: string
     params*  : RequestParamsTx
+    id*      : results.Opt[RequestId]
 
   ResponseError* = object
     code*   : int
@@ -86,25 +90,28 @@ type
     data*   : results.Opt[JsonString]
 
   ResponseKind* = enum
-    rkResult
     rkError
+    rkResult
 
   # Response sent by server
   ResponseTx* = object
     jsonrpc*  : JsonRPC2
-    id*       : RequestId
     case kind*: ResponseKind
     of rkResult:
       result* : JsonString
     of rkError:
       error*  : ResponseError
+    id*       : RequestId
 
   # Response received by client
   ResponseRx* = object
-    jsonrpc*: results.Opt[JsonRPC2]
-    id*     : results.Opt[RequestId]
-    result* : JsonString
-    error*  : results.Opt[ResponseError]
+    jsonrpc*: JsonRPC2
+    case kind*: ResponseKind
+    of rkResult:
+      result* : JsonString
+    of rkError:
+      error*  : ResponseError
+    id*     : RequestId
 
   ReBatchKind* = enum
     rbkSingle
@@ -150,9 +157,12 @@ createJsonFlavor JrpcSys,
 ResponseError.useDefaultSerializationIn JrpcSys
 RequestTx.useDefaultWriterIn JrpcSys
 RequestRx.useDefaultReaderIn JrpcSys
+ReqRespHeader.useDefaultReaderIn JrpcSys
 
 const
   JsonRPC2Literal = JsonString("\"2.0\"")
+  MaxIdStringLength = 256
+    ## Maximum length of id, when represented as a string (to avoid spam)
 
 func hash*(x: RequestId): hashes.Hash =
   var h = 0.Hash
@@ -197,7 +207,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestId)
   of JsonValueKind.Number:
     val = RequestId(kind: riNumber, num: r.parseInt(int))
   of JsonValueKind.String:
-    val = RequestId(kind: riString, str: r.parseString())
+    val = RequestId(kind: riString, str: r.parseString(MaxIdStringLength))
   of JsonValueKind.Null:
     val = RequestId(kind: riNull)
     r.parseNull()
@@ -256,15 +266,37 @@ proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseTx)
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
-  # We need to overload ResponseRx reader because
-  # we don't want to skip null fields
+  # https://www.jsonrpc.org/specification#response_object
+
+  var
+    jsonrpcOpt: Opt[JsonRPC2]
+    idOpt: Opt[RequestId]
+    resultOpt: Opt[JsonString]
+    errorOpt: Opt[ResponseError]
+
   r.parseObjectWithoutSkip(key):
     case key
-    of "jsonrpc": r.readValue(val.jsonrpc)
-    of "id"     : r.readValue(val.id)
-    of "result" : val.result = r.parseAsString()
-    of "error"  : r.readValue(val.error)
+    of "jsonrpc": r.readValue(jsonrpcOpt)
+    of "id"     : r.readValue(idOpt)
+    of "result" : resultOpt.ok r.parseAsString()
+    of "error"  : r.readValue(errorOpt)
     else: discard
+
+  if jsonrpcOpt.isNone:
+    r.raiseIncompleteObject("Missing or invalid `jsonrpc` version")
+  let id = idOpt.valueOr:
+    r.raiseIncompleteObject("Missing `id` field")
+
+  if resultOpt.isNone() and errorOpt.isNone():
+    r.raiseIncompleteObject("Missing `result` or `error` field")
+
+  if errorOpt.isSome():
+    if resultOpt.isSome():
+      r.raiseIncompleteObject("Both `result` and `error` fields present")
+
+    val = ResponseRx(id: id, kind: ResponseKind.rkError, error: move(errorOpt[]))
+  else:
+    val = ResponseRx(id: id, kind: ResponseKind.rkResult, result: move(resultOpt[]))
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestBatchTx)
        {.gcsafe, raises: [IOError].} =
@@ -315,5 +347,21 @@ func toTx*(params: RequestParamsRx): RequestParamsTx =
   of rpNamed:
     result = RequestParamsTx(kind: rpNamed)
     result.named = params.named
+
+template requestTxEncode*(writer: var JrpcSys.Writer, name: string, params: RequestParamsTx, id: int) =
+  writer.writeObject:
+    writer.writeMember("jsonrpc", JsonRPC2())
+    writer.writeMember("id", id)
+    writer.writeMember("method", name)
+    writer.writeMember("params", params)
+
+template withWriter*(_: type JrpcSys, writer, body: untyped): seq[byte] =
+  var stream = memoryOutput()
+
+  {.cast(noSideEffect), cast(raises: []).}:
+    var writer = JrpcSys.Writer.init(stream)
+    body
+
+  stream.getOutput(seq[byte])
 
 {.pop.}

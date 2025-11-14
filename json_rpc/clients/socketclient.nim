@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -10,19 +10,11 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/tables,
-  chronicles,
-  results,
-  chronos,
-  json_serialization/std/net as jsnet,
-  ../client,
-  ../errors,
+  stew/byteutils,
+  ../[client, errors],
   ../private/jrpc_sys
 
-export client, errors, jsnet
-
-logScope:
-  topics = "JSONRPC-SOCKET-CLIENT"
+export client, errors
 
 type
   RpcSocketClient* = ref object of RpcClient
@@ -30,110 +22,87 @@ type
     address*: TransportAddress
     loop*: Future[void]
 
-const defaultMaxRequestLength* = 1024 * 128
+proc new*(T: type RpcSocketClient, maxMessageSize = defaultMaxMessageSize): T =
+  T(maxMessageSize: maxMessageSize)
 
-proc new*(T: type RpcSocketClient): T =
-  T()
-
-proc newRpcSocketClient*: RpcSocketClient =
+proc newRpcSocketClient*(maxMessageSize = defaultMaxMessageSize): RpcSocketClient =
   ## Creates a new client instance.
-  RpcSocketClient.new()
+  RpcSocketClient.new(maxMessageSize)
 
-method call*(client: RpcSocketClient, name: string,
-             params: RequestParamsTx): Future[JsonString] {.async.} =
+method request(
+    client: RpcSocketClient, reqData: seq[byte]
+): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
   if client.transport.isNil:
-    raise newException(JsonRpcError,
-                    "Transport is not initialised (missing a call to connect?)")
+    raise newException(
+      RpcTransportError, "Transport is not initialised (missing a call to connect?)"
+    )
+  let transport = client.transport
 
-  let
-    id = client.getNextId()
-    reqBody = requestTxEncode(name, params, id) & "\r\n"
-    newFut = newFuture[JsonString]()  # completed by processMessage
+  client.withPendingFut(fut):
+    try:
+      discard await transport.write(reqData)
+      discard await transport.write("\r\n")
+    except TransportError as exc:
+      # If there's an error sending, the "next messages" facility will be
+      # broken since we don't know if the server observed the message or not
+      transport.close()
+      raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
-  # add to awaiting responses
-  client.awaiting[id] = newFut
-
-  debug "Sending JSON-RPC request",
-         address = $client.address, len = len(reqBody), name, id
-
-  let res = await client.transport.write(reqBody)
-  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == reqBody.len)
-
-  return await newFut
-
-method callBatch*(client: RpcSocketClient,
-                  calls: RequestBatchTx): Future[ResponseBatchRx]
-                    {.async.} =
-  if client.transport.isNil:
-    raise newException(JsonRpcError,
-      "Transport is not initialised (missing a call to connect?)")
-
-  if client.batchFut.isNil or client.batchFut.finished():
-    client.batchFut = newFuture[ResponseBatchRx]()
-
-  let reqBody = requestBatchEncode(calls) & "\r\n"
-  debug "Sending JSON-RPC batch",
-        address = $client.address, len = len(reqBody)
-  let res = await client.transport.write(reqBody)
-
-  # TODO: Add actions when not full packet was send, e.g. disconnect peer.
-  doAssert(res == reqBody.len)
-
-  return await client.batchFut
+    await fut
 
 proc processData(client: RpcSocketClient) {.async: (raises: []).} =
+  let transport = client.transport
+  var lastError: ref JsonRpcError
   while true:
-    var localException: ref JsonRpcError
-    while true:
+    let data =
       try:
-        var value = await client.transport.readLine(defaultMaxRequestLength)
-        if value == "":
-          # transmission ends
-          await client.transport.closeWait()
-          break
-
-        let res = client.processMessage(value)
-        if res.isErr:
-          localException = newException(JsonRpcError, res.error)
-          break
-      except TransportError as exc:
-        localException = newException(JsonRpcError, exc.msg)
-        await client.transport.closeWait()
-        break
-      except CancelledError as exc:
-        localException = newException(JsonRpcError, exc.msg)
-        await client.transport.closeWait()
+        await transport.readLine(client.maxMessageSize)
+      except CatchableError as exc:
+        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
         break
 
-    if localException.isNil.not:
-      for _,fut in client.awaiting:
-        fut.fail(localException)
-      if client.batchFut.isNil.not and not client.batchFut.completed():
-        client.batchFut.fail(localException)
+    if data == "":
+      break
 
-    # async loop reconnection and waiting
+    client.processMessage(data.toBytes()).isOkOr:
+      lastError = (ref RequestDecodeError)(msg: error, payload: data.toBytes())
+      break
+
+  if lastError == nil:
+    lastError = (ref RpcTransportError)(msg: "Connection closed")
+
+  client.clearPending(lastError)
+
+  await transport.closeWait()
+  client.transport = nil
+  if not client.onDisconnect.isNil:
+    client.onDisconnect()
+
+
+proc connect*(
+    client: RpcSocketClient, address: TransportAddress
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  client.transport =
     try:
-      info "Reconnect to server", address=`$`(client.address)
-      client.transport = await connect(client.address)
+      await connect(address)
     except TransportError as exc:
-      error "Error when reconnecting to server", msg=exc.msg
-      break
-    except CancelledError as exc:
-      debug "Server connection was cancelled", msg=exc.msg
-      break
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
 
-proc connect*(client: RpcSocketClient, address: string, port: Port) {.async.} =
-  let addresses = resolveTAddress(address, port)
-  client.transport = await connect(addresses[0])
-  client.address = addresses[0]
-  client.loop = processData(client)
-
-proc connect*(client: RpcSocketClient, address: TransportAddress) {.async.} =
-  client.transport = await connect(address)
   client.address = address
+  client.remote = $client.address
   client.loop = processData(client)
+
+proc connect*(
+    client: RpcSocketClient, address: string, port: Port
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  let addresses =
+    try:
+      resolveTAddress(address, port)
+    except TransportError as exc:
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+
+  await client.connect(addresses[0])
 
 method close*(client: RpcSocketClient) {.async: (raises: []).} =
   await client.loop.cancelAndWait()

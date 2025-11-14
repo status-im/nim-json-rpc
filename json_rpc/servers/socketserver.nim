@@ -24,6 +24,9 @@ type
     servers: seq[StreamServer]
     processClientHook: StreamCallback2
 
+# TODO replace with configurable value
+const defaultMaxRequestLength* = 1024 * 128
+
 proc processClient(server: StreamServer, transport: StreamTransport) {.async: (raises: []).} =
   ## Process transport data to the RPC server
   try:
