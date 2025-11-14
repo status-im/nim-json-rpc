@@ -21,7 +21,7 @@ requires "nim >= 1.6.0",
          "stew",
          "nimcrypto",
          "stint",
-         "chronos >= 4.0.3 & < 4.1.0",
+         "chronos >= 4.0.3 & < 5.0.0",
          "httputils >= 0.3.0",
          "chronicles",
          "websock >= 0.2.0 & < 0.3.0",
@@ -37,7 +37,7 @@ let verbose = getEnv("V", "") notin ["", "0"]
 let cfg =
   " --styleCheck:usages --styleCheck:error" &
   (if verbose: "" else: " --verbosity:0") &
-  " --skipParentCfg --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
+  " --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
   " --threads:on -d:chronicles_log_level=ERROR"
 
 proc build(args, path: string) =
