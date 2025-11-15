@@ -61,6 +61,9 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
       except CatchableError as exc:
         lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
         break
+    debugEcho data
+    if data == "":
+      break
 
     client.processMessage(data.toBytes()).isOkOr:
       lastError = (ref RequestDecodeError)(msg: error, payload: data.toBytes())
