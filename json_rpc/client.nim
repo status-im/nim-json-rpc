@@ -101,8 +101,9 @@ proc processMessage*(client: RpcClient, line: sink seq[byte]): Result[void, stri
   # Messages are assumed to arrive one by one - even if the future was cancelled,
   # we therefore consume one message for every line we don't have to process
   if client.pendingRequests.len() == 0:
+    let id {.used.} = JrpcSys.decode(line, ReqRespHeader).id
     debug "Received message even though there's nothing queued, dropping",
-      id = JrpcSys.decode(line, ReqRespHeader).id
+      id
     return ok()
 
   let fut = client.pendingRequests.popFirst()

@@ -62,9 +62,6 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
         lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
         break
 
-    if data == "":
-      break
-
     client.processMessage(data.toBytes()).isOkOr:
       lastError = (ref RequestDecodeError)(msg: error, payload: data.toBytes())
       break
