@@ -140,7 +140,7 @@ proc call*(client: RpcClient, name: string,
                {.async: (raw: true).} =
   client.call(name, params.paramsTx)
 
-method close*(client: RpcClient): Future[void] {.base, async.} =
+method close*(client: RpcClient): Future[void] {.base, async: (raises: []).} =
   raiseAssert("`RpcClient.close` not implemented")
 
 method callBatch*(client: RpcClient,

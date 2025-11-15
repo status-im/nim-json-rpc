@@ -151,8 +151,12 @@ proc connect*(
   client.uri = uri
   client.loop = processData(client)
 
-method close*(client: RpcWebSocketClient) {.async.} =
+method close*(client: RpcWebSocketClient) {.async: (raises: []).} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:
-    await client.transport.close()
+    try:
+      # TODO https://github.com/status-im/nim-websock/pull/178
+      await noCancel client.transport.close()
+    except CatchableError as exc:
+      warn "Unexpected exception while closing transport", err = exc.msg
     client.transport = nil

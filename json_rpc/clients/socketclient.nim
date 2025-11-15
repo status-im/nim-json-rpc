@@ -135,7 +135,7 @@ proc connect*(client: RpcSocketClient, address: TransportAddress) {.async.} =
   client.address = address
   client.loop = processData(client)
 
-method close*(client: RpcSocketClient) {.async.} =
+method close*(client: RpcSocketClient) {.async: (raises: []).} =
   await client.loop.cancelAndWait()
   if not client.transport.isNil:
     client.transport.close()

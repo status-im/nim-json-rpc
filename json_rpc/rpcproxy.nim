@@ -120,11 +120,11 @@ proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) =
     # Adding proc type to table gives invalid exception tracking, see Nim bug: https://github.com/nim-lang/Nim/issues/18376
     raiseAssert err.msg
 
-proc stop*(proxy: RpcProxy) {.async.} =
+proc stop*(proxy: RpcProxy) {.async: (raises: []).} =
   await proxy.getClient().close()
   await proxy.rpcHttpServer.stop()
 
-proc closeWait*(proxy: RpcProxy) {.async.} =
+proc closeWait*(proxy: RpcProxy) {.async: (raises: []).} =
   await proxy.rpcHttpServer.closeWait()
 
 func localAddress*(proxy: RpcProxy): seq[TransportAddress] =

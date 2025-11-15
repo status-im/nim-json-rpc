@@ -127,7 +127,7 @@ proc close*(server: RpcSocketServer) =
   for item in server.servers:
     item.close()
 
-proc closeWait*(server: RpcSocketServer) {.async.} =
+proc closeWait*(server: RpcSocketServer) {.async: (raises: []).} =
   ## Cleanup resources of RPC server.
   for item in server.servers:
     await item.closeWait()
