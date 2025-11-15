@@ -238,9 +238,10 @@ proc send*(
     len = requestData.len, lastId, remote = batch.client.remote
 
   proc complete(
-      client: RpcClient, request: auto, map: sink auto, lastId: int
+      client: RpcClient, request: auto, map: sink Table[int, int], lastId: int
   ): Future[Result[seq[RpcBatchResponse], string]] {.async: (raises: [CancelledError]).} =
     var
+      map = move(map) # 2.0 compat
       res =
         try:
           let resData = await request
