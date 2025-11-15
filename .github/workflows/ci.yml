@@ -8,6 +8,9 @@ on:
 
 jobs:
   build:
-    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@nimblecommit
+    uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@verbose-build
     with:
-      nimble-version: b920dad9ed76c6619be3ec0cfbf0dde6f9e39092
+      nimble-version: 6fe9d817a70a14fa57022a9cca46eb443ee5a040
+      test-command: |
+        nimble setup -l
+        nimble test
