@@ -34,6 +34,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
     while true:
       let req = await transport.readLine(defaultMaxRequestLength)
       if req == "":
+        debugEcho "closing, ", transport.atEof()
         break
 
       debug "Received JSON-RPC request",
@@ -41,7 +42,6 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
         len = req.len
 
       let res = await rpc.route(req)
-      debugEcho "c '", res, "'"
       discard await transport.write(res & "\r\n")
   except TransportError as ex:
     error "Transport closed during processing client",

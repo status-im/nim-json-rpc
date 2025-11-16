@@ -79,7 +79,6 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
   if not client.onDisconnect.isNil:
     client.onDisconnect()
 
-
 proc connect*(
     client: RpcSocketClient, address: TransportAddress
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
