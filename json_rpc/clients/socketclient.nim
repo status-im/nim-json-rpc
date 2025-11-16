@@ -53,16 +53,15 @@ method request(
     await fut
 
 proc processData(client: RpcSocketClient) {.async: (raises: []).} =
-  let transport = client.transport
   var lastError: ref JsonRpcError
   while true:
     let data =
       try:
-        await transport.readLine(client.maxMessageSize)
+        await client.transport.readLine(client.maxMessageSize)
       except CatchableError as exc:
         lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
         break
-    debugEcho "A '", data, "'"
+    debugEcho "A '", data, "'", client.transport.atEof
     if data == "":
       break
 
@@ -75,7 +74,7 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
 
   client.clearPending(lastError)
 
-  await transport.closeWait()
+  await client.transport.closeWait()
   client.transport = nil
   if not client.onDisconnect.isNil:
     client.onDisconnect()

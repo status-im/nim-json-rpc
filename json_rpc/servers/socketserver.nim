@@ -34,7 +34,6 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
     while true:
       let req = await transport.readLine(defaultMaxRequestLength)
       if req == "":
-        await transport.closeWait()
         break
 
       debug "Received JSON-RPC request",
@@ -51,6 +50,8 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
   except CancelledError:
     error "JSON-RPC request processing cancelled",
       address = transport.remoteAddress()
+  finally:
+    await transport.closeWait()
 
 # Utility functions for setting up servers using stream transport addresses
 
