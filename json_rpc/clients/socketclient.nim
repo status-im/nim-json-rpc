@@ -42,8 +42,6 @@ method request(
   client.withPendingFut(fut):
     try:
       discard await transport.write(reqData & "\r\n".toBytes())
-      debugEcho "B '", reqData, "'"
-      # discard await transport.write("\r\n")
     except TransportError as exc:
       # If there's an error sending, the "next messages" facility will be
       # broken since we don't know if the server observed the message or not
@@ -61,7 +59,6 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
       except CatchableError as exc:
         lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
         break
-    debugEcho "A '", data, "'", client.transport.atEof
     if data == "":
       break
 

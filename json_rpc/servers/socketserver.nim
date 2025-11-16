@@ -34,7 +34,6 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
     while true:
       let req = await transport.readLine(defaultMaxRequestLength)
       if req == "":
-        debugEcho "closing, ", transport.atEof()
         break
 
       debug "Received JSON-RPC request",
