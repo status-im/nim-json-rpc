@@ -63,9 +63,9 @@ func paramsTx*(params: JsonNode): RequestParamsTx =
       positional: @[JrpcConv.encode(params).JsonString],
     )
 
-func requestTx*(name: string, params: RequestParamsTx, id: RequestId): RequestTx =
+func requestTx*(name: string, params: sink RequestParamsTx, id: int): RequestTx =
   RequestTx(
-    id: Opt.some(id),
+    id: Opt.some(RequestId(kind: riNumber, num: id)),
     `method`: name,
     params: params,
   )

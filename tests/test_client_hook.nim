@@ -89,7 +89,7 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
     var rpc = getUserData[TestSocketServer](server)
     while true:
       var
-        value = await transport.readLine(router.defaultMaxRequestLength)
+        value = await transport.readLine(defaultMaxRequestLength)
       if value == "":
         await transport.closeWait()
         break

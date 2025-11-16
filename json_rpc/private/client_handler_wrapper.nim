@@ -132,7 +132,7 @@ func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
   result.add createBatchCallProc(procName, batchParams, batchCallBody)
 
   when defined(nimDumpRpcs):
-    echo pathStr, ":\n", result.repr
+    debugEcho pathStr, ":\n", result.repr
 
 func processRpcSigs*(clientType, parsedCode: NimNode): NimNode =
   result = newStmtList()

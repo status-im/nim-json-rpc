@@ -14,6 +14,7 @@ import
   chronos,
   ./router,
   ./jsonmarshal,
+  ./client,
   ./private/jrpc_sys,
   ./private/shared_wrapper,
   ./errors
@@ -49,17 +50,11 @@ proc executeMethod*(server: RpcServer,
                     params: RequestParamsTx): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError]).} =
 
   let
-    req = requestTx(methodName, params, RequestId(kind: riNumber, num: 0))
+    req = requestTx(methodName, params, 0)
     reqData = JrpcSys.encode(req)
     respData = await server.router.route(reqData)
-    resp = try:
-      JrpcSys.decode(respData, ResponseRx)
-    except CatchableError as exc:
-      raise (ref JsonRpcError)(msg: exc.msg)
 
-  if resp.error.isSome:
-    raise (ref JsonRpcError)(msg: $resp.error.get)
-  resp.result
+  processsSingleResponse(respData.toOpenArrayByte(0, respData.high()), 0)
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,

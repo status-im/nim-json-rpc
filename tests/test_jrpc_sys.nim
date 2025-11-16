@@ -171,40 +171,32 @@ suite "jrpc_sys conversion":
     let txBytes = JrpcSys.encode(tx)
     let rx = JrpcSys.decode(txBytes, ResponseRx)
     check:
-      rx.jsonrpc.isSome
-      rx.id.isSome
-      rx.id.get.num == 777
+      rx.id.num == 777
+      rx.kind == ResponseKind.rkResult
       rx.result.string.len > 0
       rx.result == JsonString("true")
-      rx.error.isNone
 
   test "ResponseTx -> ResponseRx: id(string), err: nodata":
     let tx = res("gum", resErr(999, "fatal"))
     let txBytes = JrpcSys.encode(tx)
     let rx = JrpcSys.decode(txBytes, ResponseRx)
     check:
-      rx.jsonrpc.isSome
-      rx.id.isSome
-      rx.id.get.str == "gum"
-      rx.result.string.len == 0
-      rx.error.isSome
-      rx.error.get.code == 999
-      rx.error.get.message == "fatal"
-      rx.error.get.data.isNone
+      rx.id.str == "gum"
+      rx.kind == ResponseKind.rkError
+      rx.error.code == 999
+      rx.error.message == "fatal"
+      rx.error.data.isNone
 
   test "ResponseTx -> ResponseRx: id(string), err: some data":
     let tx = res("gum", resErr(999, "fatal", JsonString("888.999")))
     let txBytes = JrpcSys.encode(tx)
     let rx = JrpcSys.decode(txBytes, ResponseRx)
     check:
-      rx.jsonrpc.isSome
-      rx.id.isSome
-      rx.id.get.str == "gum"
-      rx.result.string.len == 0
-      rx.error.isSome
-      rx.error.get.code == 999
-      rx.error.get.message == "fatal"
-      rx.error.get.data.get == JsonString("888.999")
+      rx.id.str == "gum"
+      rx.kind == ResponseKind.rkError
+      rx.error.code == 999
+      rx.error.message == "fatal"
+      rx.error.data.get == JsonString("888.999")
 
   test "RequestBatchTx -> RequestBatchRx: single":
     let tx1 = req(123, "int_positional", pp1)

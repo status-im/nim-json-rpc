@@ -16,9 +16,9 @@ import
   ./private/ethprocs,
   ./private/stintjson
 
-from os import getCurrentDir, DirSep
+from os import getCurrentDir, DirSep, AltSep
 from strutils import rsplit
-template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
+template sourceDir: string = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
 
 var
   server = newRpcSocketServer("127.0.0.1", Port(0))
