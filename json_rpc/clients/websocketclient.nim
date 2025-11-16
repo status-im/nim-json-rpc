@@ -59,7 +59,7 @@ method request*(
       # broken since we don't know if the server observed the message or not
       try:
         await noCancel transport.close()
-      except CatchableError as exc:
+      except CatchableError:
         # TODO https://github.com/status-im/nim-websock/pull/178
         raiseAssert "Doesn't actually raise"
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
@@ -67,7 +67,6 @@ method request*(
     await fut
 
 proc processData(client: RpcWebSocketClient) {.async: (raises: []).} =
-  let transport = client.transport
   var lastError: ref JsonRpcError
   while client.transport.readyState != ReadyState.Closed:
     var data =
