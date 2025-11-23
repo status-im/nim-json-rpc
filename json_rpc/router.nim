@@ -35,6 +35,7 @@ type
     procs*: Table[string, RpcProc]
 
 const
+  # https://www.jsonrpc.org/specification#error_object
   JSON_PARSE_ERROR* = -32700
   INVALID_REQUEST* = -32600
   METHOD_NOT_FOUND* = -32601
@@ -42,8 +43,6 @@ const
   INTERNAL_ERROR* = -32603
   SERVER_ERROR* = -32000
   JSON_ENCODE_ERROR* = -32001
-
-  defaultMaxRequestLength* = 1024 * 128
 
 # ------------------------------------------------------------------------------
 # Private helpers

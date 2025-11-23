@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -15,18 +15,24 @@ type
   JsonRpcError* = object of CatchableError
     ## Base type of all nim-json-rpc errors
 
-  ErrorResponse* = object of JsonRpcError
+  RpcTransportError* = object of JsonRpcError
+    ## Raised when there is an issue with the underlying transport - the parent
+    ## exception may be set to provide more information
+
+  FailedHttpResponse* {.deprecated: "RpcTransportError".} = RpcTransportError
+    ## Obsolete name for RpcTransportError
+
+  ErrorResponse* = object of RpcTransportError
     status*: int
-    ## raised when the server responded with an error
+    ## Raised when the server responds with a HTTP-style error status code
+    ## indicating that the call was not processed
+
+  RpcPostError* = object of RpcTransportError
+    ## raised when the underlying transport fails to send the request - the
+    ## underlying client may or may not have received the request
 
   InvalidResponse* = object of JsonRpcError
     ## raised when the server response violates the JSON-RPC protocol
-
-  FailedHttpResponse* = object of JsonRpcError
-    ## raised when fail to read the underlying HTTP server response
-
-  RpcPostError* = object of JsonRpcError
-    ## raised when the client fails to send the POST request with JSON-RPC
 
   RpcBindError* = object of JsonRpcError
   RpcAddressUnresolvableError* = object of JsonRpcError
@@ -37,9 +43,7 @@ type
 
   RequestDecodeError* = object of JsonRpcError
     ## raised when fail to decode RequestRx
-
-  ParamsEncodeError* = object of JsonRpcError
-    ## raised when fail to encode RequestParamsTx
+    payload*: seq[byte]
 
   ApplicationError* = object of JsonRpcError
     ## Error to be raised by the application request handlers when the server
@@ -47,5 +51,4 @@ type
     ## be outside the range of -32768 to -32000. A custom JSON data object may
     ## be provided.
     code*: int
-    message*: string
     data*: results.Opt[JsonString]
