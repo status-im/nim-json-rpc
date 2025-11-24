@@ -242,8 +242,10 @@ suite "jrpc_sys conversion":
       discard JrpcSys.decode("""{"method":"test"}""", RequestRx2)
 
     # missing params/id ok
-    discard JrpcSys.decode("""{"jsonrpc":"2.0","method":"test"}""", RequestRx2)
+    block:
+      discard JrpcSys.decode("""{"jsonrpc":"2.0","method":"test"}""", RequestRx2)
 
-    # legacy (used in web3 0.8.0)
-    check:
-      JrpcSys.decode("""{"jsonrpc":"2.0", "id":"null"}""", RequestRx).`method`.isNone
+    block: # legacy (used in web3 0.8.0)
+      let rx = JrpcSys.decode("""{"jsonrpc":"2.0", "id":"null"}""", RequestRx)
+      check:
+        rx.`method`.isNone
