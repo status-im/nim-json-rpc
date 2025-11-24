@@ -58,9 +58,9 @@ method request*(
       # the same goes for cancellation during write
       try:
         await noCancel transport.close()
-      except CatchableError:
+      except CatchableError as exc:
         # TODO https://github.com/status-im/nim-websock/pull/178
-        raiseAssert "Doesn't actually raise"
+        raiseAssert exc.msg
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut
@@ -85,10 +85,11 @@ proc processData(client: RpcWebSocketClient) {.async: (raises: []).} =
   client.clearPending(lastError)
 
   try:
-    await client.transport.close()
+    await noCancel client.transport.close()
     client.transport = nil
-  except CatchableError:
-    raiseAssert "Doesn't actually raise"
+  except CatchableError as exc:
+    # TODO https://github.com/status-im/nim-websock/pull/178
+    raiseAssert exc.msg
 
   if not client.onDisconnect.isNil:
     client.onDisconnect()
