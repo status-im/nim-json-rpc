@@ -7,6 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
+{.used.}
+
 import
   ../../json_rpc/router
 
@@ -17,3 +19,17 @@ template `==`*(a: JsonString, b: JsonNode): bool =
 
 template `==`*(a: JsonNode, b: JsonString): bool =
   a == parseJson(string b)
+
+when declared(json_serialization.automaticSerialization):
+  # Nim 1.6 cannot use this new feature
+  JrpcConv.automaticSerialization(int, true)
+  JrpcConv.automaticSerialization(string, true)
+  JrpcConv.automaticSerialization(array, true)
+  JrpcConv.automaticSerialization(byte, true)
+  JrpcConv.automaticSerialization(seq, true)
+  JrpcConv.automaticSerialization(float, true)
+  JrpcConv.automaticSerialization(JsonString, true)
+  JrpcConv.automaticSerialization(bool, true)
+  JrpcConv.automaticSerialization(int64, true)
+  JrpcConv.automaticSerialization(ref, true)
+  JrpcConv.automaticSerialization(enum, true)

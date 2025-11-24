@@ -9,7 +9,8 @@
 
 import
   unittest2, chronos/unittest2/asynctests,
-  ../json_rpc/[rpcserver, rpcclient, jsonmarshal]
+  ../json_rpc/[rpcserver, rpcclient, jsonmarshal],
+  ./private/helpers
 
 const TestsCount = 100
 const bigChunkSize = 4 * 8192

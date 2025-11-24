@@ -107,79 +107,75 @@ suite "jrpc_sys conversion":
   let np1 = namedPar(("banana", JsonString("true")), ("apple", JsonString("123")))
   let pp1 = posPar(JsonString("123"), JsonString("true"), JsonString("\"hello\""))
 
-  test "RequestTx -> RequestRx: id(int), positional":
+  test "RequestTx -> RequestRx2: id(int), positional":
     let tx = req(123, "int_positional", pp1)
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx)
+    let rx = JrpcSys.decode(txBytes, RequestRx2)
 
     check:
-      rx.jsonrpc.isSome
-      rx.id.kind == riNumber
-      rx.id.num == 123
-      rx.meth.get == "int_positional"
+      rx.id[].kind == riNumber
+      rx.id[].num == 123
+      rx.meth == "int_positional"
       rx.params.kind == rpPositional
       rx.params.positional.len == 3
       rx.params.positional[0].kind == JsonValueKind.Number
       rx.params.positional[1].kind == JsonValueKind.Bool
       rx.params.positional[2].kind == JsonValueKind.String
 
-  test "RequestTx -> RequestRx: id(string), named":
+  test "RequestTx -> RequestRx2: id(string), named":
     let tx = req("word", "string_named", np1)
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx)
+    let rx = JrpcSys.decode(txBytes, RequestRx2)
 
     check:
-      rx.jsonrpc.isSome
-      rx.id.kind == riString
-      rx.id.str == "word"
-      rx.meth.get == "string_named"
+      rx.id[].kind == riString
+      rx.id[].str == "word"
+      rx.meth == "string_named"
       rx.params.kind == rpNamed
       rx.params.named[0].name == "banana"
       rx.params.named[0].value.string == "true"
       rx.params.named[1].name == "apple"
       rx.params.named[1].value.string == "123"
 
-  test "RequestTx -> RequestRx: id(null), named":
+  test "RequestTx -> RequestRx2: id(null), named":
     let tx = reqNull("null_named", np1)
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx)
+    let rx = JrpcSys.decode(txBytes, RequestRx2)
 
     check:
-      rx.jsonrpc.isSome
-      rx.id.kind == riNull
-      rx.meth.get == "null_named"
+      rx.id[].kind == riNull
+      rx.meth == "null_named"
       rx.params.kind == rpNamed
       rx.params.named[0].name == "banana"
       rx.params.named[0].value.string == "true"
       rx.params.named[1].name == "apple"
       rx.params.named[1].value.string == "123"
 
-  test "RequestTx -> RequestRx: none, none":
+  test "RequestTx -> RequestRx2: none, none":
     let tx = reqNoId("none_positional", posPar())
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx)
+    let rx = JrpcSys.decode(txBytes, RequestRx2)
 
     check:
-      rx.jsonrpc.isSome
-      rx.id.kind == riNull
-      rx.meth.get == "none_positional"
+      rx.id.isNone()
+      rx.meth == "none_positional"
       rx.params.kind == rpPositional
       rx.params.positional.len == 0
 
-  test "ResponseTx -> ResponseRx: id(int), res":
+  test "ResponseTx -> ResponseRx2: id(int), res":
     let tx = res(777, JsonString("true"))
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseRx)
+    let rx = JrpcSys.decode(txBytes, ResponseRx2)
     check:
       rx.id.num == 777
       rx.kind == ResponseKind.rkResult
       rx.result.string.len > 0
       rx.result == JsonString("true")
 
-  test "ResponseTx -> ResponseRx: id(string), err: nodata":
+  test "ResponseTx -> ResponseRx2: id(string), err: nodata":
     let tx = res("gum", resErr(999, "fatal"))
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseRx)
+    let rx = JrpcSys.decode(txBytes, ResponseRx2)
     check:
       rx.id.str == "gum"
       rx.kind == ResponseKind.rkError
@@ -187,10 +183,10 @@ suite "jrpc_sys conversion":
       rx.error.message == "fatal"
       rx.error.data.isNone
 
-  test "ResponseTx -> ResponseRx: id(string), err: some data":
+  test "ResponseTx -> ResponseRx2: id(string), err: some data":
     let tx = res("gum", resErr(999, "fatal", JsonString("888.999")))
     let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseRx)
+    let rx = JrpcSys.decode(txBytes, ResponseRx2)
     check:
       rx.id.str == "gum"
       rx.kind == ResponseKind.rkError
@@ -237,11 +233,17 @@ suite "jrpc_sys conversion":
       rx.kind == rbkMany
       rx.many.len == 3
 
-  test "skip null value":
-    let jsonBytes = """{"jsonrpc":null, "id":null, "method":null, "params":null}"""
-    let x = JrpcSys.decode(jsonBytes, RequestRx)
+  test "Request decoding errors":
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("""{"jsonrpc":"1.0","method":"test"}""", RequestRx2)
+    expect IncompleteObjectError:
+      discard JrpcSys.decode("""{"jsonrpc":"2.0"}""", RequestRx2)
+    expect IncompleteObjectError:
+      discard JrpcSys.decode("""{"method":"test"}""", RequestRx2)
+
+    # missing params/id ok
+    discard JrpcSys.decode("""{"jsonrpc":"2.0","method":"test"}""", RequestRx2)
+
+    # legacy (used in web3 0.8.0)
     check:
-      x.jsonrpc.isNone
-      x.id.kind == riNull
-      x.`method`.isNone
-      x.params.kind == rpPositional
+      JrpcSys.decode("""{"jsonrpc":"2.0", "id":"null"}""", RequestRx).`method`.isNone

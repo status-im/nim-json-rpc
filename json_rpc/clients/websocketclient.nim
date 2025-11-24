@@ -43,20 +43,19 @@ method request*(
     client: RpcWebSocketClient, reqData: seq[byte]
 ): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
-  if client.transport.isNil:
+  let transport = client.transport
+  if transport.isNil:
     raise newException(
       RpcTransportError, "Transport is not initialised (missing a call to connect?)"
     )
-  let transport = client.transport
 
   client.withPendingFut(fut):
     try:
       await transport.send(reqData, Opcode.Binary)
-    except CancelledError as exc:
-      raise exc
     except CatchableError as exc:
       # If there's an error sending, the "next messages" facility will be
-      # broken since we don't know if the server observed the message or not
+      # broken since we don't know if the server observed the message or not -
+      # the same goes for cancellation during write
       try:
         await noCancel transport.close()
       except CatchableError:

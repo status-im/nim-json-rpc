@@ -11,9 +11,9 @@
 
 import
   std/[deques, json, tables, macros],
+  chronos,
   chronicles,
   stew/byteutils,
-  chronos,
   results,
   ./private/[client_handler_wrapper, jrpc_sys, shared_wrapper],
   ./[errors, jsonmarshal, router]
@@ -21,7 +21,7 @@ import
 from strutils import replace
 
 export
-  chronos, chronicles, deques, tables, jsonmarshal, RequestParamsTx, RequestBatchTx,
+  chronos, deques, tables, jsonmarshal, RequestParamsTx, RequestBatchTx,
   ResponseBatchRx, RequestIdKind, RequestId, RequestTx, RequestParamKind, results
 
 logScope:
@@ -60,16 +60,16 @@ func parseResponse*(payload: openArray[byte], T: type): T {.raises: [JsonRpcErro
   try:
     JrpcSys.decode(payload, T)
   except SerializationError as exc:
-    raise (ref RequestDecodeError)(
+    raise (ref InvalidResponse)(
       msg: exc.formatMsg("msg"), payload: @payload, parent: exc
     )
 
 proc processsSingleResponse(
-    response: sink ResponseRx, id: int
+    response: sink ResponseRx2, id: int
 ): JsonString {.raises: [JsonRpcError].} =
   if response.id.kind != RequestIdKind.riNumber or response.id.num != id:
     raise
-      (ref RequestDecodeError)(msg: "Expected `id` " & $id & ", got " & $response.id)
+      (ref InvalidResponse)(msg: "Expected `id` " & $id & ", got " & $response.id)
 
   case response.kind
   of ResponseKind.rkError:
@@ -80,7 +80,7 @@ proc processsSingleResponse(
 proc processsSingleResponse*(
     body: openArray[byte], id: int
 ): JsonString {.raises: [JsonRpcError].} =
-  processsSingleResponse(parseResponse(body, ResponseRx), id)
+  processsSingleResponse(parseResponse(body, ResponseRx2), id)
 
 template withPendingFut*(client, fut, body: untyped): untyped =
   let fut = ResponseFut.init("jsonrpc.client.pending")
@@ -145,10 +145,11 @@ proc call*(
     # helps debugging, if nothing else
     id = client.getNextId()
     requestData = JrpcSys.withWriter(writer):
-      writer.requestTxEncode(name, params, id)
+      writer.writeRequest(name, params, id)
 
   debug "Sending JSON-RPC request",
     name, len = requestData.len, id, remote = client.remote
+  trace "Parameters", params
 
   # Release params memory earlier by using a raw proc for the initial
   # processing
@@ -175,14 +176,14 @@ proc call*(
 
 proc callBatch*(
     client: RpcClient, calls: seq[RequestTx]
-): Future[seq[ResponseRx]] {.
+): Future[seq[ResponseRx2]] {.
     async: (raises: [CancelledError, JsonRpcError], raw: true)
 .} =
   if calls.len == 0:
-    let res = Future[seq[ResponseRx]].Raising([CancelledError, JsonRpcError]).init(
+    let res = Future[seq[ResponseRx2]].Raising([CancelledError, JsonRpcError]).init(
         "empty batch"
       )
-    res.complete(default(seq[ResponseRx]))
+    res.complete(default(seq[ResponseRx2]))
     return res
 
   let requestData = JrpcSys.withWriter(writer):
@@ -194,12 +195,12 @@ proc callBatch*(
 
   proc complete(
       client: RpcClient, request: auto
-  ): Future[seq[ResponseRx]] {.async: (raises: [CancelledError, JsonRpcError]).} =
+  ): Future[seq[ResponseRx2]] {.async: (raises: [CancelledError, JsonRpcError]).} =
     try:
       let resData = await request
       debug "Processing JSON-RPC batch response",
         len = resData.len, remote = client.remote
-      parseResponse(resData, seq[ResponseRx])
+      parseResponse(resData, seq[ResponseRx2])
     except JsonRpcError as exc:
       debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
       raise exc
@@ -248,7 +249,7 @@ proc send*(
           debug "Processing JSON-RPC batch response",
             len = resData.len, lastId, remote = client.remote
 
-          parseResponse(resData, seq[ResponseRx])
+          parseResponse(resData, seq[ResponseRx2])
         except JsonRpcError as exc:
           debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
 
