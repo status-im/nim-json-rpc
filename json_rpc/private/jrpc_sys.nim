@@ -103,7 +103,7 @@ type
   # Response sent by server
   ResponseTx* = object
     jsonrpc*  : JsonRPC2
-    case kind*: ResponseKind
+    case kind*{.dontSerialize.}: ResponseKind
     of rkResult:
       result* : JsonString
     of rkError:
@@ -138,26 +138,12 @@ type
     of rbkSingle:
       single*: RequestRx2
 
-  RequestBatchTx* = object
-    case kind*: ReBatchKind
-    of rbkMany:
-      many*  : seq[RequestTx]
-    of rbkSingle:
-      single*: RequestTx
-
   ResponseBatchRx* = object
     case kind*: ReBatchKind
     of rbkMany:
       many*  : seq[ResponseRx2]
     of rbkSingle:
       single*: ResponseRx2
-
-  ResponseBatchTx* = object
-    case kind*: ReBatchKind
-    of rbkMany:
-      many*  : seq[ResponseTx]
-    of rbkSingle:
-      single*: ResponseTx
 
 # don't mix the json-rpc system encoding with the
 # actual response/params encoding
@@ -168,11 +154,15 @@ createJsonFlavor JrpcSys,
   allowUnknownFields = true,
   skipNullFields = false     # Skip optional fields==null in Reader
 
-ResponseError.useDefaultSerializationIn JrpcSys
-RequestTx.useDefaultWriterIn JrpcSys
+ReqRespHeader.useDefaultReaderIn JrpcSys
 RequestRx.useDefaultReaderIn JrpcSys
 RequestRx2.useDefaultReaderIn JrpcSys
-ReqRespHeader.useDefaultReaderIn JrpcSys
+
+ParamDescNamed.useDefaultWriterIn JrpcSys
+RequestTx.useDefaultWriterIn JrpcSys
+ResponseTx.useDefaultWriterIn JrpcSys
+
+ResponseError.useDefaultSerializationIn JrpcSys
 
 const
   JsonRPC2Literal = JsonString("\"2.0\"")
@@ -290,17 +280,6 @@ proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestParamsTx)
       w.writeField(x.name, x.value)
     w.endRecord()
 
-proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseTx)
-       {.gcsafe, raises: [IOError].} =
-  w.beginRecord ResponseTx
-  w.writeField("jsonrpc", val.jsonrpc)
-  w.writeField("id", val.id)
-  if val.kind == rkResult:
-    w.writeField("result", val.result)
-  else:
-    w.writeField("error", val.error)
-  w.endRecord()
-
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
   # We need to overload ResponseRx reader because
@@ -347,13 +326,6 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx2)
   else:
     val = ResponseRx2(id: id, kind: ResponseKind.rkResult, result: move(resultOpt[]))
 
-proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestBatchTx)
-       {.gcsafe, raises: [IOError].} =
-  if val.kind == rbkMany:
-    w.writeArray(val.many)
-  else:
-    w.writeValue(val.single)
-
 proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
   let tok = r.tokKind
@@ -368,13 +340,6 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
     r.readValue(val.single)
   else:
     r.raiseUnexpectedValue("RequestBatch must be either array or object, got=" & $tok)
-
-proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseBatchTx)
-       {.gcsafe, raises: [IOError].} =
-  if val.kind == rbkMany:
-    w.writeArray(val.many)
-  else:
-    w.writeValue(val.single)
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
        {.gcsafe, raises: [IOError, SerializationError].} =

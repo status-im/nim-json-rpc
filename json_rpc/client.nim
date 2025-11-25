@@ -21,8 +21,8 @@ import
 from strutils import replace
 
 export
-  chronos, deques, tables, jsonmarshal, RequestParamsTx, RequestBatchTx,
-  ResponseBatchRx, RequestIdKind, RequestId, RequestTx, RequestParamKind, results
+  chronos, deques, tables, jsonmarshal, RequestParamsTx, ResponseBatchRx, RequestIdKind,
+  RequestId, RequestTx, RequestParamKind, results
 
 logScope:
   topics = "JSONRPC-CLIENT"

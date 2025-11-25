@@ -10,7 +10,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, tables, json],
+  std/[macros, sequtils, tables, json],
   chronicles,
   chronos,
   ./private/server_handler_wrapper,
@@ -147,23 +147,18 @@ proc route*(router: RpcRouter, data: string|seq[byte]):
     except SerializationError as err:
       return wrapError(JSON_PARSE_ERROR, err.msg)
 
-  try:
-    if request.kind == rbkSingle:
-      let response = await router.route(request.single)
-      JrpcSys.encode(response)
-    elif request.many.len == 0:
-      wrapError(INVALID_REQUEST, "no request object in request array")
-    else:
-      var resFut: seq[Future[ResponseTx]]
-      for req in request.many:
-        resFut.add router.route(req)
-      await noCancel(allFutures(resFut))
-      var response = ResponseBatchTx(kind: rbkMany)
-      for fut in resFut:
-        response.many.add fut.read()
-      JrpcSys.encode(response)
-  except CatchableError as err:
-    wrapError(JSON_ENCODE_ERROR, err.msg)
+  case request.kind
+  of rbkSingle:
+    let response = await router.route(request.single)
+    JrpcSys.encode(response)
+  of rbkMany:
+    # check raising type to ensure `value` below is safe to use
+    let resFut: seq[Future[ResponseTx].Raising([])] =
+      request.many.mapIt(router.route(it))
+
+    await noCancel(allFutures(resFut))
+
+    JrpcSys.encode(resFut.mapIt(it.value))
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.

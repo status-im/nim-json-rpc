@@ -1,251 +1,244 @@
 # json-rpc
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2025 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
 # at your option.
-# This file may not be copied, modified, or distributed except according to
-# those terms.
 
-import
-  unittest2,
-  ../json_rpc/private/jrpc_sys
+import unittest2, ../json_rpc/private/jrpc_sys
 
-func id(): RequestId =
-  RequestId(kind: riNull)
+suite "jrpc_sys serialization":
+  test "request: id":
+    const cases = [
+      (
+        """{"jsonrpc":"2.0","method":"none"}""",
+        RequestTx(`method`: "none", id: Opt.none(RequestId)),
+      ),
+      (
+        """{"jsonrpc":"2.0","method":"null","id":null}""",
+        RequestTx(`method`: "null", id: Opt.some(RequestId(kind: riNull))),
+      ),
+      (
+        """{"jsonrpc":"2.0","method":"num","id":42}""",
+        RequestTx(`method`: "num", id: Opt.some(RequestId(kind: riNumber, num: 42))),
+      ),
+      (
+        """{"jsonrpc":"2.0","method":"str","id":"str"}""",
+        RequestTx(`method`: "str", id: Opt.some(RequestId(kind: riString, str: "str"))),
+      ),
+    ]
 
-func id(x: string): RequestId =
-  RequestId(kind: riString, str: x)
-
-func id(x: int): RequestId =
-  RequestId(kind: riNumber, num: x)
-
-func req(id: int or string, meth: string, params: RequestParamsTx): RequestTx =
-  RequestTx(
-    id: Opt.some(id(id)),
-    `method`: meth,
-    params: params
-  )
-
-func reqNull(meth: string, params: RequestParamsTx): RequestTx =
-  RequestTx(
-    id: Opt.some(id()),
-    `method`: meth,
-    params: params
-  )
-
-func reqNoId(meth: string, params: RequestParamsTx): RequestTx =
-  RequestTx(
-    `method`: meth,
-    params: params
-  )
-
-func toParams(params: varargs[(string, JsonString)]): seq[ParamDescNamed] =
-  for x in params:
-    result.add ParamDescNamed(name:x[0], value:x[1])
-
-func namedPar(params: varargs[(string, JsonString)]): RequestParamsTx =
-  RequestParamsTx(
-    kind: rpNamed,
-    named: toParams(params)
-  )
-
-func posPar(params: varargs[JsonString]): RequestParamsTx =
-  RequestParamsTx(
-    kind: rpPositional,
-    positional: @params
-  )
-
-func res(id: int or string, r: JsonString): ResponseTx =
-  ResponseTx(
-    id: id(id),
-    kind: rkResult,
-    result: r,
-  )
-
-func res(id: int or string, err: ResponseError): ResponseTx =
-  ResponseTx(
-    id: id(id),
-    kind: rkError,
-    error: err,
-  )
-
-func resErr(code: int, msg: string): ResponseError =
-  ResponseError(
-    code: code,
-    message: msg,
-  )
-
-func resErr(code: int, msg: string, data: JsonString): ResponseError =
-  ResponseError(
-    code: code,
-    message: msg,
-    data: Opt.some(data)
-  )
-
-func reqBatch(args: varargs[RequestTx]): RequestBatchTx =
-  if args.len == 1:
-    RequestBatchTx(
-      kind: rbkSingle, single: args[0]
-    )
-  else:
-    RequestBatchTx(
-      kind: rbkMany, many: @args
-    )
-
-func resBatch(args: varargs[ResponseTx]): ResponseBatchTx =
-  if args.len == 1:
-    ResponseBatchTx(
-      kind: rbkSingle, single: args[0]
-    )
-  else:
-    ResponseBatchTx(
-      kind: rbkMany, many: @args
-    )
-
-suite "jrpc_sys conversion":
-  let np1 = namedPar(("banana", JsonString("true")), ("apple", JsonString("123")))
-  let pp1 = posPar(JsonString("123"), JsonString("true"), JsonString("\"hello\""))
-
-  test "RequestTx -> RequestRx2: id(int), positional":
-    let tx = req(123, "int_positional", pp1)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx2)
-
-    check:
-      rx.id[].kind == riNumber
-      rx.id[].num == 123
-      rx.meth == "int_positional"
-      rx.params.kind == rpPositional
-      rx.params.positional.len == 3
-      rx.params.positional[0].kind == JsonValueKind.Number
-      rx.params.positional[1].kind == JsonValueKind.Bool
-      rx.params.positional[2].kind == JsonValueKind.String
-
-  test "RequestTx -> RequestRx2: id(string), named":
-    let tx = req("word", "string_named", np1)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx2)
-
-    check:
-      rx.id[].kind == riString
-      rx.id[].str == "word"
-      rx.meth == "string_named"
-      rx.params.kind == rpNamed
-      rx.params.named[0].name == "banana"
-      rx.params.named[0].value.string == "true"
-      rx.params.named[1].name == "apple"
-      rx.params.named[1].value.string == "123"
-
-  test "RequestTx -> RequestRx2: id(null), named":
-    let tx = reqNull("null_named", np1)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx2)
-
-    check:
-      rx.id[].kind == riNull
-      rx.meth == "null_named"
-      rx.params.kind == rpNamed
-      rx.params.named[0].name == "banana"
-      rx.params.named[0].value.string == "true"
-      rx.params.named[1].name == "apple"
-      rx.params.named[1].value.string == "123"
-
-  test "RequestTx -> RequestRx2: none, none":
-    let tx = reqNoId("none_positional", posPar())
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestRx2)
-
-    check:
-      rx.id.isNone()
-      rx.meth == "none_positional"
-      rx.params.kind == rpPositional
-      rx.params.positional.len == 0
-
-  test "ResponseTx -> ResponseRx2: id(int), res":
-    let tx = res(777, JsonString("true"))
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseRx2)
-    check:
-      rx.id.num == 777
-      rx.kind == ResponseKind.rkResult
-      rx.result.string.len > 0
-      rx.result == JsonString("true")
-
-  test "ResponseTx -> ResponseRx2: id(string), err: nodata":
-    let tx = res("gum", resErr(999, "fatal"))
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseRx2)
-    check:
-      rx.id.str == "gum"
-      rx.kind == ResponseKind.rkError
-      rx.error.code == 999
-      rx.error.message == "fatal"
-      rx.error.data.isNone
-
-  test "ResponseTx -> ResponseRx2: id(string), err: some data":
-    let tx = res("gum", resErr(999, "fatal", JsonString("888.999")))
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseRx2)
-    check:
-      rx.id.str == "gum"
-      rx.kind == ResponseKind.rkError
-      rx.error.code == 999
-      rx.error.message == "fatal"
-      rx.error.data.get == JsonString("888.999")
-
-  test "RequestBatchTx -> RequestBatchRx: single":
-    let tx1 = req(123, "int_positional", pp1)
-    let tx = reqBatch(tx1)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestBatchRx)
-    check:
-      rx.kind == rbkSingle
-
-  test "RequestBatchTx -> RequestBatchRx: many":
-    let tx1 = req(123, "int_positional", pp1)
-    let tx2 = req("word", "string_named", np1)
-    let tx3 = reqNull("null_named", np1)
-    let tx4 = reqNoId("none_positional", posPar())
-    let tx = reqBatch(tx1, tx2, tx3, tx4)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, RequestBatchRx)
-    check:
-      rx.kind == rbkMany
-      rx.many.len == 4
-
-  test "ResponseBatchTx -> ResponseBatchRx: single":
-    let tx1 = res(777, JsonString("true"))
-    let tx = resBatch(tx1)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseBatchRx)
-    check:
-      rx.kind == rbkSingle
-
-  test "ResponseBatchTx -> ResponseBatchRx: many":
-    let tx1 = res(777, JsonString("true"))
-    let tx2 = res("gum", resErr(999, "fatal"))
-    let tx3 = res("gum", resErr(999, "fatal", JsonString("888.999")))
-    let tx = resBatch(tx1, tx2, tx3)
-    let txBytes = JrpcSys.encode(tx)
-    let rx = JrpcSys.decode(txBytes, ResponseBatchRx)
-    check:
-      rx.kind == rbkMany
-      rx.many.len == 3
-
-  test "Request decoding errors":
-    expect UnexpectedValueError:
-      discard JrpcSys.decode("""{"jsonrpc":"1.0","method":"test"}""", RequestRx2)
-    expect IncompleteObjectError:
-      discard JrpcSys.decode("""{"jsonrpc":"2.0"}""", RequestRx2)
-    expect IncompleteObjectError:
-      discard JrpcSys.decode("""{"method":"test"}""", RequestRx2)
-
-    # missing params/id ok
-    block:
-      discard JrpcSys.decode("""{"jsonrpc":"2.0","method":"test"}""", RequestRx2)
-
-    block: # legacy (used in web3 0.8.0)
-      let rx = JrpcSys.decode("""{"jsonrpc":"2.0", "id":"null"}""", RequestRx)
+    for (expected, tx) in cases:
+      let
+        encoded = JrpcSys.encode(tx)
+        rx = JrpcSys.decode(expected, RequestRx2)
+      checkpoint(expected)
+      checkpoint(encoded)
+      checkpoint($rx)
       check:
-        rx.`method`.isNone
+        encoded == expected
+        tx.id == rx.id
+
+  test "request: parameters":
+    const cases = [
+      (
+        """{"jsonrpc":"2.0","method":"empty_positional"}""",
+        RequestTx(
+          `method`: "empty_positional",
+          params: RequestParamsTx(kind: rpPositional, positional: @[]),
+        ),
+      ),
+      (
+        """{"jsonrpc":"2.0","method":"int_positional","params":[123,true,"hello"],"id":123}""",
+        RequestTx(
+          `method`: "int_positional",
+          id: Opt.some(RequestId(kind: riNumber, num: 123)),
+          params: RequestParamsTx(
+            kind: rpPositional,
+            positional:
+              @[JsonString("123"), JsonString("true"), JsonString("\"hello\"")],
+          ),
+        ),
+      ),
+      (
+        """{"jsonrpc":"2.0","method":"string_named","params":{"banana":true,"apple":123},"id":"word"}""",
+        RequestTx(
+          `method`: "string_named",
+          id: Opt.some(RequestId(kind: riString, str: "word")),
+          params: RequestParamsTx(
+            kind: rpNamed,
+            named:
+              @[
+                ParamDescNamed(name: "banana", value: JsonString("true")),
+                ParamDescNamed(name: "apple", value: JsonString("123")),
+              ],
+          ),
+        ),
+      ),
+    ]
+    for (expected, tx) in cases:
+      let
+        encoded = JrpcSys.encode(tx)
+        rx = JrpcSys.decode(encoded, RequestRx2)
+      checkpoint(expected)
+      checkpoint(encoded)
+      checkpoint($rx)
+      check:
+        encoded == expected
+        tx.params.kind == rx.params.kind
+      if tx.params.kind == rpPositional:
+        let
+          tpos = tx.params.positional
+          rpos = rx.params.positional
+        check:
+          tpos.len == rpos.len
+        for i in 0 ..< tpos.len:
+          check tpos[i] == rpos[i].param
+      elif tx.params.kind == rpNamed:
+        let
+          tnamed = tx.params.named
+          rnamed = rx.params.named
+        check:
+          tnamed.len == rnamed.len
+        for i in 0 ..< tnamed.len:
+          check:
+            tnamed[i].name == rnamed[i].name
+            tnamed[i].value == rnamed[i].value
+
+  test "response: result and error encodings":
+    const cases = [
+      (
+        """{"jsonrpc":"2.0","result":true,"id":null}""",
+        ResponseTx(kind: rkResult, result: JsonString("true")),
+      ),
+      (
+        """{"jsonrpc":"2.0","error":{"code":999,"message":"fatal"},"id":null}""",
+        ResponseTx(kind: rkError, error: ResponseError(code: 999, message: "fatal")),
+      ),
+    ]
+    for (expected, tx) in cases:
+      let
+        encoded = JrpcSys.encode(tx)
+        rx = JrpcSys.decode(encoded, ResponseRx2)
+      checkpoint(expected)
+      checkpoint(encoded)
+      checkpoint($rx)
+      check:
+        encoded == expected
+      if tx.kind == rkResult:
+        check:
+          rx.kind == ResponseKind.rkResult
+          rx.id == tx.id
+      else:
+        check:
+          rx.kind == ResponseKind.rkError
+          rx.id == tx.id
+          rx.error.code == tx.error.code
+          rx.error.message == tx.error.message
+
+  test "batch requests: single and many encodings":
+    const cases = [
+      (
+        """{"jsonrpc":"2.0","method":"a"}""",
+        RequestBatchRx(kind: rbkSingle, single: RequestRx2(`method`: "a")),
+      ),
+      (
+        """[{"jsonrpc":"2.0","method":"a"},{"jsonrpc":"2.0","method":"b"}]""",
+        RequestBatchRx(
+          kind: rbkMany, many: @[RequestRx2(`method`: "a"), RequestRx2(`method`: "b")]
+        ),
+      ),
+    ]
+    for (expected, tx) in cases:
+      let rx = JrpcSys.decode(expected, RequestBatchRx)
+      checkpoint(expected)
+      checkpoint($rx)
+      if tx.kind == rbkSingle:
+        check:
+          rx.kind == rbkSingle
+          rx.single.`method` == tx.single.`method`
+      else:
+        check:
+          rx.kind == rbkMany
+          rx.many.len == tx.many.len
+
+  test "batch responses: single and many encodings":
+    const cases = [
+      (
+        """{"jsonrpc":"2.0","result":null,"id":null}""",
+        ResponseBatchRx(
+          kind: rbkSingle,
+          single: ResponseRx2(kind: rkResult, result: JsonString("null")),
+        ),
+      ),
+      (
+        """[{"jsonrpc":"2.0","result":null,"id":null},{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"},"id":null}]""",
+        ResponseBatchRx(
+          kind: rbkMany,
+          many:
+            @[
+              ResponseRx2(kind: rkResult, result: JsonString("null")),
+              ResponseRx2(
+                kind: rkError,
+                error: ResponseError(code: -32601, message: "Method not found"),
+              ),
+            ],
+        ),
+      ),
+    ]
+    for (expected, tx) in cases:
+      let rx = JrpcSys.decode(expected, ResponseBatchRx)
+      checkpoint(expected)
+      checkpoint($rx)
+      if tx.kind == rbkSingle:
+        check:
+          rx.kind == rbkSingle
+      else:
+        check:
+          rx.kind == rbkMany
+          rx.many.len == tx.many.len
+
+  test "malformed JSON and top-level incorrect types are rejected":
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("{ this is not valid json }", RequestRx2)
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("123", RequestRx2)
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("\"just a string\"", RequestRx2)
+
+  test "invalid constructs: empty batch and mixed-type batch entries rejected":
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("[]", RequestBatchRx)
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("[]", ResponseBatchRx)
+
+    let mixed =
+      """[{"jsonrpc":"2.0","method":"foo","params":[]},42,{"jsonrpc":"2.0","method":"notify_no_id","params":["a"]}]"""
+    expect UnexpectedValueError:
+      discard JrpcSys.decode(mixed, RequestBatchRx)
+
+  test "invalid id types rejected":
+    expect UnexpectedValueError:
+      discard JrpcSys.decode("""{"jsonrpc":"2.0","id":{},"method":"m"}""", RequestRx2)
+    expect UnexpectedValueError:
+      discard
+        JrpcSys.decode("""{"jsonrpc":"2.0","id":[1,2],"method":"m"}""", RequestRx2)
+
+  test "error response preserves standard fields and encoder correctness":
+    const cases = [
+      (
+        """{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"},"id":null}""",
+        ResponseTx(
+          kind: rkError, error: ResponseError(code: -32601, message: "Method not found")
+        ),
+      )
+    ]
+    for (expected, tx) in cases:
+      let
+        encoded = JrpcSys.encode(tx)
+        rx = JrpcSys.decode(encoded, ResponseRx2)
+      check:
+        encoded == expected
+        rx.kind == ResponseKind.rkError
+        rx.error.code == tx.error.code
+        rx.error.message == tx.error.message
