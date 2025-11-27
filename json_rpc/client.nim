@@ -9,6 +9,14 @@
 
 {.push raises: [], gcsafe.}
 
+import chronos/futures
+
+# json_rpc seems to frequently trigger this bug so add a workaround here
+when (NimMajor, NimMinor, NimPatch) < (2, 2, 6):
+  proc json_rpc_workaround_24844_future_string*() {.exportc.} =
+    # TODO https://github.com/nim-lang/Nim/issues/24844
+    discard Future[string]().value()
+
 import
   std/[deques, json, tables, macros],
   chronos,
