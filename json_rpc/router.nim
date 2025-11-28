@@ -92,7 +92,7 @@ proc validateRequest(router: RpcRouter, req: RequestRx2):
 
 proc wrapError(code: int, msg: string): string =
   """{"jsonrpc":"2.0","error":{"code":""" & $code &
-    ""","message":""" & escapeJson(msg) & ""","id":null}}"""
+    ""","message":""" & escapeJson(msg) & """},"id":null}"""
 
 # ------------------------------------------------------------------------------
 # Public functions
