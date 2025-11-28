@@ -75,24 +75,11 @@ method request(
     if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
      raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
-    let
-      resData = await res.getBodyBytes(client.maxMessageSize)
-      # TODO remove this processMessage hook when subscriptions / pubsub is
-      #      properly supported
-      fallback = client.callOnProcessMessage(resData).valueOr:
-        raise (ref RequestDecodeError)(msg: error, payload: resData)
-
-    if not fallback:
-      # TODO http channels are unidirectional, so it doesn't really make sense
-      #      to call onProcessMessage from http - this should be deprecated
-      #      as soon as bidirectionality is supported
-      raise (ref InvalidResponse)(msg: "onProcessMessage handled response")
-
-    resData
+    await res.getBodyBytes(client.maxMessageSize)
   except HttpError as exc:
     raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
   finally:
-    await req.closeWait()
+    await res.closeWait()
 
 proc newRpcHttpClient*(
     maxBodySize = defaultMaxMessageSize,

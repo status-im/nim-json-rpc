@@ -33,13 +33,10 @@ type
 
   InvalidResponse* = object of JsonRpcError
     ## raised when the server response violates the JSON-RPC protocol
+    payload*: seq[byte]
 
   RpcBindError* = object of JsonRpcError
   RpcAddressUnresolvableError* = object of JsonRpcError
-
-  InvalidRequest* = object of JsonRpcError
-    ## raised when the server recieves an invalid JSON request object
-    code*: int
 
   RequestDecodeError* = object of JsonRpcError
     ## raised when fail to decode RequestRx
@@ -52,3 +49,5 @@ type
     ## be provided.
     code*: int
     data*: results.Opt[JsonString]
+
+  InvalidRequest* {.deprecated: "ApplicationError".} = ApplicationError

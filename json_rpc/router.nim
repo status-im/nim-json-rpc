@@ -10,7 +10,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, tables, json],
+  std/[macros, sequtils, tables, json],
   chronicles,
   chronos,
   ./private/server_handler_wrapper,
@@ -27,9 +27,9 @@ logScope:
   topics = "json-rpc-router"
 
 type
-  # Procedure signature accepted as an RPC call by server
-  RpcProc* = proc(params: RequestParamsRx): Future[JsonString]
-              {.async.}
+  RpcProc* = proc(params: RequestParamsRx): Future[JsonString] {.async.}
+    ## Procedure signature accepted as an RPC call by server - if the function
+    ## has no return value, return `JsonString("null")`
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]
@@ -57,25 +57,31 @@ func methodNotFound(msg: string): ResponseError =
 func serverError(msg: string, data: JsonString): ResponseError =
   ResponseError(code: SERVER_ERROR, message: msg, data: Opt.some(data))
 
-func somethingError(code: int, msg: string): ResponseError =
-  ResponseError(code: code, message: msg)
-
 func applicationError(code: int, msg: string, data: Opt[JsonString]): ResponseError =
   ResponseError(code: code, message: msg, data: data)
 
-proc validateRequest(router: RpcRouter, req: RequestRx):
-                       Result[RpcProc, ResponseError] =
-  if req.jsonrpc.isNone:
-    return invalidRequest("'jsonrpc' missing or invalid").err
+proc respResult(req: RequestRx2, res: sink JsonString): ResponseTx =
+  ResponseTx(
+    kind: rkResult,
+    result: res,
+    id: req.id.expect("should have been checked in validateRequest"),
+  )
 
-  if req.id.kind == riNull:
+proc respError*(req: RequestRx2, error: sink ResponseError): ResponseTx =
+  ResponseTx(
+    kind: rkError,
+    error: error,
+    id: req.id.valueOr(default(RequestId)), # `null` id on responses we can't parse
+  )
+
+proc validateRequest(router: RpcRouter, req: RequestRx2):
+                       Result[RpcProc, ResponseError] =
+  if req.id.isNone:
+    # TODO implement notifications
     return invalidRequest("'id' missing or invalid").err
 
-  if req.meth.isNone:
-    return invalidRequest("'method' missing or invalid").err
-
   let
-    methodName = req.meth.get
+    methodName = req.meth
     rpcProc = router.procs.getOrDefault(methodName)
 
   if rpcProc.isNil:
@@ -84,30 +90,9 @@ proc validateRequest(router: RpcRouter, req: RequestRx):
 
   ok(rpcProc)
 
-proc wrapError(err: ResponseError, id: RequestId): ResponseTx =
-  ResponseTx(
-    id: id,
-    kind: rkError,
-    error: err,
-  )
-
-proc wrapError(code: int, msg: string, id: RequestId): ResponseTx =
-  ResponseTx(
-    id: id,
-    kind: rkError,
-    error: somethingError(code, msg),
-  )
-
-proc wrapReply(res: JsonString, id: RequestId): ResponseTx =
-  ResponseTx(
-    id: id,
-    kind: rkResult,
-    result: res,
-  )
-
 proc wrapError(code: int, msg: string): string =
-  """{"jsonrpc":"2.0","id":null,"error":{"code":""" & $code &
-    ""","message":""" & escapeJson(msg) & "}}"
+  """{"jsonrpc":"2.0","error":{"code":""" & $code &
+    ""","message":""" & escapeJson(msg) & """},"id":null}"""
 
 # ------------------------------------------------------------------------------
 # Public functions
@@ -116,11 +101,7 @@ proc wrapError(code: int, msg: string): string =
 proc init*(T: type RpcRouter): T = discard
 
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
-  # this proc should not raise exception
-  try:
-    router.procs[path] = call
-  except CatchableError as exc:
-    doAssert(false, exc.msg)
+  router.procs[path] = call
 
 proc clear*(router: var RpcRouter) =
   router.procs.clear
@@ -128,32 +109,30 @@ proc clear*(router: var RpcRouter) =
 proc hasMethod*(router: RpcRouter, methodName: string): bool =
   router.procs.hasKey(methodName)
 
-proc route*(router: RpcRouter, req: RequestRx):
+proc route*(router: RpcRouter, req: RequestRx2):
              Future[ResponseTx] {.async: (raises: []).} =
   let rpcProc = router.validateRequest(req).valueOr:
-    return wrapError(error, req.id)
+    return req.respError(error)
 
   try:
-    debug "Processing JSON-RPC request", id = req.id, name = req.`method`.get()
+    debug "Processing JSON-RPC request", id = req.id, name = req.meth
     let res = await rpcProc(req.params)
     debug "Returning JSON-RPC response",
-      id = req.id, name = req.`method`.get(), len = string(res).len
-    return wrapReply(res, req.id)
+      id = req.id, name = req.meth, len = string(res).len
+    req.respResult(res)
   except ApplicationError as err:
-    return wrapError(applicationError(err.code, err.msg, err.data), req.id)
-  except InvalidRequest as err:
-    # TODO: deprecate / remove this usage and use InvalidRequest only for
-    # internal errors.
-    return wrapError(err.code, err.msg, req.id)
+    req.respError(applicationError(err.code, err.msg, err.data))
   except CatchableError as err:
     # Note: Errors that are not specifically raised as `ApplicationError`s will
     # be returned as custom server errors.
-    let methodName = req.meth.get # this Opt already validated
+    let methodName = req.meth
     debug "Error occurred within RPC",
       methodName = methodName, err = err.msg
-    return serverError("`" & methodName & "` raised an exception",
-      escapeJson(err.msg).JsonString).
-      wrapError(req.id)
+    req.respError(
+      serverError(
+        "`" & methodName & "` raised an exception", escapeJson(err.msg).JsonString
+      )
+    )
 
 proc route*(router: RpcRouter, data: string|seq[byte]):
        Future[string] {.async: (raises: []).} =
@@ -163,26 +142,23 @@ proc route*(router: RpcRouter, data: string|seq[byte]):
   let request =
     try:
       JrpcSys.decode(data, RequestBatchRx)
-    except CatchableError as err:
+    except IncompleteObjectError as err:
+      return wrapError(INVALID_REQUEST, err.msg)
+    except SerializationError as err:
       return wrapError(JSON_PARSE_ERROR, err.msg)
 
-  try:
-    if request.kind == rbkSingle:
-      let response = await router.route(request.single)
-      JrpcSys.encode(response)
-    elif request.many.len == 0:
-      wrapError(INVALID_REQUEST, "no request object in request array")
-    else:
-      var resFut: seq[Future[ResponseTx]]
-      for req in request.many:
-        resFut.add router.route(req)
-      await noCancel(allFutures(resFut))
-      var response = ResponseBatchTx(kind: rbkMany)
-      for fut in resFut:
-        response.many.add fut.read()
-      JrpcSys.encode(response)
-  except CatchableError as err:
-    wrapError(JSON_ENCODE_ERROR, err.msg)
+  case request.kind
+  of rbkSingle:
+    let response = await router.route(request.single)
+    JrpcSys.encode(response)
+  of rbkMany:
+    # check raising type to ensure `value` below is safe to use
+    let resFut: seq[Future[ResponseTx].Raising([])] =
+      request.many.mapIt(router.route(it))
+
+    await noCancel(allFutures(resFut))
+
+    JrpcSys.encode(resFut.mapIt(it.value))
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.

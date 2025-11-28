@@ -24,7 +24,7 @@ requires "nim >= 1.6.0",
          "chronos >= 4.0.3 & < 5.0.0",
          "httputils >= 0.3.0",
          "chronicles",
-         "websock >= 0.2.0 & < 0.3.0",
+         "websock >= 0.2.1 & < 0.3.0",
          "serialization >= 0.4.4",
          "json_serialization >= 0.4.2",
          "unittest2"

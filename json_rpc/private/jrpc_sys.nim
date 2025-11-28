@@ -71,11 +71,18 @@ type
     id*      : results.Opt[RequestId]
 
   # Request received by server
-  RequestRx* = object
+  # TODO used in nim-web3 - remove eventually
+  RequestRx* {.deprecated: "ResultsRx2".} = object
     jsonrpc* : results.Opt[JsonRPC2]
     `method`*: results.Opt[string]
     params*  : RequestParamsRx
     id*      : RequestId
+
+  RequestRx2* = object
+    jsonrpc* : JsonRPC2
+    `method`*: string
+    params*  : RequestParamsRx
+    id*      : results.Opt[RequestId]
 
   # Request sent by client
   RequestTx* = object
@@ -96,7 +103,7 @@ type
   # Response sent by server
   ResponseTx* = object
     jsonrpc*  : JsonRPC2
-    case kind*: ResponseKind
+    case kind*{.dontSerialize.}: ResponseKind
     of rkResult:
       result* : JsonString
     of rkError:
@@ -104,7 +111,14 @@ type
     id*       : RequestId
 
   # Response received by client
-  ResponseRx* = object
+  # TODO used in nim-web3 tests
+  ResponseRx* {.deprecated.} = object
+    jsonrpc*: results.Opt[JsonRPC2]
+    id*     : results.Opt[RequestId]
+    result* : JsonString
+    error*  : results.Opt[ResponseError]
+
+  ResponseRx2* = object
     jsonrpc*: JsonRPC2
     case kind*: ResponseKind
     of rkResult:
@@ -120,44 +134,35 @@ type
   RequestBatchRx* = object
     case kind*: ReBatchKind
     of rbkMany:
-      many*  : seq[RequestRx]
+      many*  : seq[RequestRx2]
     of rbkSingle:
-      single*: RequestRx
-
-  RequestBatchTx* = object
-    case kind*: ReBatchKind
-    of rbkMany:
-      many*  : seq[RequestTx]
-    of rbkSingle:
-      single*: RequestTx
+      single*: RequestRx2
 
   ResponseBatchRx* = object
     case kind*: ReBatchKind
     of rbkMany:
-      many*  : seq[ResponseRx]
+      many*  : seq[ResponseRx2]
     of rbkSingle:
-      single*: ResponseRx
-
-  ResponseBatchTx* = object
-    case kind*: ReBatchKind
-    of rbkMany:
-      many*  : seq[ResponseTx]
-    of rbkSingle:
-      single*: ResponseTx
+      single*: ResponseRx2
 
 # don't mix the json-rpc system encoding with the
 # actual response/params encoding
 createJsonFlavor JrpcSys,
   automaticObjectSerialization = false,
-  requireAllFields = false,
+  requireAllFields = true,
   omitOptionalFields = true, # Skip optional fields==none in Writer
   allowUnknownFields = true,
-  skipNullFields = true      # Skip optional fields==null in Reader
+  skipNullFields = false     # Skip optional fields==null in Reader
+
+ReqRespHeader.useDefaultReaderIn JrpcSys
+RequestRx.useDefaultReaderIn JrpcSys
+RequestRx2.useDefaultReaderIn JrpcSys
+
+ParamDescNamed.useDefaultWriterIn JrpcSys
+RequestTx.useDefaultWriterIn JrpcSys
+ResponseTx.useDefaultWriterIn JrpcSys
 
 ResponseError.useDefaultSerializationIn JrpcSys
-RequestTx.useDefaultWriterIn JrpcSys
-RequestRx.useDefaultReaderIn JrpcSys
-ReqRespHeader.useDefaultReaderIn JrpcSys
 
 const
   JsonRPC2Literal = JsonString("\"2.0\"")
@@ -186,8 +191,21 @@ func `==`*(a, b: RequestId): bool =
   of riString: a.str == b.str
   of riNull: true
 
-func meth*(rx: RequestRx): Opt[string] =
+func meth*(rx: RequestRx | RequestRx2): string =
   rx.`method`
+
+template shouldWriteObjectField*(field: RequestParamsTx): bool =
+  case field.kind
+  of rpPositional:
+    field.positional.len > 0
+  of rpNamed:
+    field.named.len > 0
+
+func isFieldExpected*(_: type RequestParamsRx): bool {.compileTime.} =
+  # A Structured value that holds the parameter values to be used during the
+  # invocation of the method. This member MAY be omitted.
+
+  false
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var JsonRPC2)
       {.gcsafe, raises: [IOError, JsonReaderError].} =
@@ -195,6 +213,15 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var JsonRPC2)
   if version != JsonRPC2Literal:
     r.raiseUnexpectedValue("Invalid JSON-RPC version, want=" &
       JsonRPC2Literal.string & " got=" & version.string)
+
+proc readValue*(
+    r: var JsonReader, value: var results.Opt[RequestId]
+) {.raises: [IOError, SerializationError].} =
+  # Unlike the default reader in `results`, pass `null` to RequestId reader that
+  # will handle it
+  mixin readValue
+
+  value.ok r.readValue(RequestId)
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: JsonRPC2)
       {.gcsafe, raises: [IOError].} =
@@ -253,18 +280,19 @@ proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestParamsTx)
       w.writeField(x.name, x.value)
     w.endRecord()
 
-proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseTx)
-       {.gcsafe, raises: [IOError].} =
-  w.beginRecord ResponseTx
-  w.writeField("jsonrpc", val.jsonrpc)
-  w.writeField("id", val.id)
-  if val.kind == rkResult:
-    w.writeField("result", val.result)
-  else:
-    w.writeField("error", val.error)
-  w.endRecord()
-
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  # We need to overload ResponseRx reader because
+  # we don't want to skip null fields
+  r.parseObjectWithoutSkip(key):
+    case key
+    of "jsonrpc": r.readValue(val.jsonrpc)
+    of "id"     : r.readValue(val.id)
+    of "result" : val.result = r.parseAsString()
+    of "error"  : r.readValue(val.error)
+    else: discard
+
+proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx2)
        {.gcsafe, raises: [IOError, SerializationError].} =
   # https://www.jsonrpc.org/specification#response_object
 
@@ -292,18 +320,11 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
 
   if errorOpt.isSome():
     if resultOpt.isSome():
-      r.raiseIncompleteObject("Both `result` and `error` fields present")
+      r.raiseUnexpectedValue("Both `result` and `error` fields present")
 
-    val = ResponseRx(id: id, kind: ResponseKind.rkError, error: move(errorOpt[]))
+    val = ResponseRx2(id: id, kind: ResponseKind.rkError, error: move(errorOpt[]))
   else:
-    val = ResponseRx(id: id, kind: ResponseKind.rkResult, result: move(resultOpt[]))
-
-proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestBatchTx)
-       {.gcsafe, raises: [IOError].} =
-  if val.kind == rbkMany:
-    w.writeArray(val.many)
-  else:
-    w.writeValue(val.single)
+    val = ResponseRx2(id: id, kind: ResponseKind.rkResult, result: move(resultOpt[]))
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
@@ -312,18 +333,13 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
   of JsonValueKind.Array:
     val = RequestBatchRx(kind: rbkMany)
     r.readValue(val.many)
+    if val.many.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
   of JsonValueKind.Object:
     val = RequestBatchRx(kind: rbkSingle)
     r.readValue(val.single)
   else:
     r.raiseUnexpectedValue("RequestBatch must be either array or object, got=" & $tok)
-
-proc writeValue*(w: var JsonWriter[JrpcSys], val: ResponseBatchTx)
-       {.gcsafe, raises: [IOError].} =
-  if val.kind == rbkMany:
-    w.writeArray(val.many)
-  else:
-    w.writeValue(val.single)
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
@@ -332,6 +348,8 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
   of JsonValueKind.Array:
     val = ResponseBatchRx(kind: rbkMany)
     r.readValue(val.many)
+    if val.many.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
   of JsonValueKind.Object:
     val = ResponseBatchRx(kind: rbkSingle)
     r.readValue(val.single)
@@ -348,7 +366,7 @@ func toTx*(params: RequestParamsRx): RequestParamsTx =
     result = RequestParamsTx(kind: rpNamed)
     result.named = params.named
 
-template requestTxEncode*(writer: var JrpcSys.Writer, name: string, params: RequestParamsTx, id: int) =
+template writeRequest*(writer: var JrpcSys.Writer, name: string, params: RequestParamsTx, id: int) =
   writer.writeObject:
     writer.writeMember("jsonrpc", JsonRPC2())
     writer.writeMember("id", id)

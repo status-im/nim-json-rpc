@@ -22,8 +22,6 @@ func createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # build proc
   result = newProc(procName, paramList, callBody)
 
-  # make proc async
-  result.addPragma ident"async"
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 
@@ -53,11 +51,14 @@ func setupConversion(reqParams, params: NimNode): NimNode =
 
 template maybeUnwrapClientResult*(client, meth, reqParams, returnType): auto =
   ## Don't decode e.g. JsonString, return as is
-  when noWrap(typeof returnType):
-    await client.call(meth, reqParams)
+  when noWrap(returnType):
+    client.call(meth, reqParams)
   else:
-    let res = await client.call(meth, reqParams)
-    decode(JrpcConv, res.string, typeof returnType)
+    proc complete(f: auto): Future[returnType] {.async.} =
+      let res = await f
+      decode(JrpcConv, res.string, returnType)
+    let fut = client.call(meth, reqParams)
+    complete(fut)
 
 func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
   ## This procedure will generate something like this:
