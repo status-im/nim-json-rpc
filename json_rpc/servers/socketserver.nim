@@ -12,27 +12,36 @@
 import
   std/sequtils,
   chronicles,
+  chronos,
   json_serialization/std/net as jsnet,
   ../private/utils,
-  ../errors,
-  ../server
+  ../[errors, server],
+  ../clients/socketclient
 
 export errors, server, jsnet
+
+logScope:
+  topics = "jsonrpc server socket"
 
 type
   RpcSocketServer* = ref object of RpcServer
     servers: seq[StreamServer]
     processClientHook: StreamCallback2
-
-# TODO replace with configurable value
-const defaultMaxRequestLength* = 1024 * 128
+    maxMessageSize: int
 
 proc processClient(server: StreamServer, transport: StreamTransport) {.async: (raises: []).} =
   ## Process transport data to the RPC server
+
+  let
+    rpc = getUserData[RpcSocketServer](server)
+    remote = transport.remoteAddress2().valueOr(default(TransportAddress))
+    c = RpcSocketClient(transport: transport, address: remote, remote: $remote)
+
+  rpc.connections.add(c)
+
   try:
-    var rpc = getUserData[RpcSocketServer](server)
     while true:
-      let req = await transport.readLine(defaultMaxRequestLength)
+      let req = await transport.readLine(rpc.maxMessageSize)
       if req == "":
         break
 
@@ -41,16 +50,18 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
         len = req.len
 
       let res = await rpc.route(req)
-      discard await transport.write(res & "\r\n")
+      if res.len > 0:
+        discard await transport.write(res & "\r\n")
   except TransportError as ex:
     error "Transport closed during processing client",
-      address = transport.remoteAddress(),
+      remote,
       msg=ex.msg
   except CancelledError:
-    error "JSON-RPC request processing cancelled",
-      address = transport.remoteAddress()
-  finally:
-    await transport.closeWait()
+    debug "JSON-RPC request processing cancelled", remote
+
+  rpc.connections.keepItIf(it != c)
+
+  await transport.closeWait()
 
 # Utility functions for setting up servers using stream transport addresses
 
@@ -82,11 +93,16 @@ proc addStreamServers*(server: RpcSocketServer, addresses: openArray[string]) {.
 proc addStreamServer*(server: RpcSocketServer, address: string, port: Port) {.raises: [JsonRpcError].} =
   addStreamServers(server, toSeq(resolveIP(address, port)))
 
-proc new(T: type RpcSocketServer): T =
-  T(router: RpcRouter.init(), servers: @[], processClientHook: processClient)
+proc new(T: type RpcSocketServer, maxMessageSize = defaultMaxMessageSize): T =
+  T(
+    router: RpcRouter.init(),
+    servers: @[],
+    maxMessageSize: maxMessageSize,
+    processClientHook: processClient,
+  )
 
-proc newRpcSocketServer*(): RpcSocketServer =
-  RpcSocketServer.new()
+proc newRpcSocketServer*(maxMessageSize = defaultMaxMessageSize): RpcSocketServer =
+  RpcSocketServer.new(maxMessageSize)
 
 proc newRpcSocketServer*(addresses: openArray[TransportAddress]): RpcSocketServer {.raises: [JsonRpcError].} =
   ## Create new server and assign it to addresses ``addresses``.
