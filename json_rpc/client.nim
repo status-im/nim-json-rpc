@@ -139,7 +139,7 @@ proc processMessage*(
 
       return ok("")
     except SerializationError as exc:
-      return ok(wrapError(INVALID_REQUEST, exc.msg))
+      return ok(wrapError(router.INVALID_REQUEST, exc.msg))
 
   if client.router != nil:
     ok(await client.router[].route(request))

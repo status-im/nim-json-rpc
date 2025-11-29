@@ -109,9 +109,9 @@ proc route*(router: RpcRouter, req: RequestRx2):
       req.respError(methodNotFound("'" & req.meth & "' is not a registered RPC method"))
 
   try:
-    debug "Processing request", id = req.id, methodName = req.meth
+    debug "Processing JSON-RPC request", id = req.id, methodName = req.meth
     let res = await rpcProc(req.params)
-    debug "Processed request", id = req.id, methodName = req.meth, len = string(res).len
+    debug "Processed JSON-RPC request", id = req.id, methodName = req.meth, len = string(res).len
     req.respResult(res)
   except ApplicationError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg, code = err.code
