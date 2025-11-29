@@ -22,7 +22,7 @@ export
   server, shttpserver, jsnet
 
 logScope:
-  topics = "JSONRPC-HTTP-SERVER"
+  topics = "jsonrpc server http"
 
 const
   JsonRpcIdent = "nim-json-rpc"
@@ -119,7 +119,7 @@ proc addHttpServer*(
     backlogSize: int = 100,
     httpHeadersTimeout = 10.seconds,
     maxHeadersSize: int = 8192,
-    maxRequestBodySize: int = 1_048_576) {.raises: [JsonRpcError].} =
+    maxRequestBodySize: int = defaultMaxMessageSize) {.raises: [JsonRpcError].} =
   let server = HttpServerRef.new(
       address,
       processClientRpc(rpcServer),
@@ -148,7 +148,7 @@ proc addSecureHttpServer*(
     bufferSize: int = 4096,
     httpHeadersTimeout = 10.seconds,
     maxHeadersSize: int = 8192,
-    maxRequestBodySize: int = 1_048_576) {.raises: [JsonRpcError].} =
+    maxRequestBodySize: int = defaultMaxMessageSize) {.raises: [JsonRpcError].} =
   let server = SecureHttpServerRef.new(
       address,
       processClientRpc(rpcServer),

@@ -35,7 +35,7 @@ func ensureReturnType*(params: NimNode): NimNode =
 template noWrap*(returnType: type): auto =
   ## Condition when return type should not be encoded
   ## to Json
-  returnType is JsonString
+  returnType is JsonString or returnType is void
 
 func paramsTx*(params: JsonNode): RequestParamsTx =
   if params.kind == JArray:

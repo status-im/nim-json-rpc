@@ -33,7 +33,7 @@ export
   RequestId, RequestTx, RequestParamKind, results
 
 logScope:
-  topics = "JSONRPC-CLIENT"
+  topics = "jsonrpc client"
 
 const defaultMaxMessageSize* = 128 * 1024 * 1024  # 128 MB (JSON encoded)
 
@@ -54,13 +54,15 @@ type
   RpcClient* = ref object of RootRef
     lastId: int
     onDisconnect*: proc() {.gcsafe, raises: [].}
-    # TODO implement "JSON-RPC pubsub" / bidirectionality and deprecate this
-    onProcessMessage*: proc(client: RpcClient, line: string):
+    onProcessMessage* {.deprecated.}: proc(client: RpcClient, line: string):
       Result[bool, string] {.gcsafe, raises: [].}
     pendingRequests*: Deque[ResponseFut]
     remote*: string
       # Client identifier, for logging
     maxMessageSize*: int
+
+    router*: ref RpcRouter
+      ## Router used for transports that support bidirectional communication
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
@@ -95,6 +97,11 @@ template withPendingFut*(client, fut, body: untyped): untyped =
   client.pendingRequests.addLast fut
   body
 
+method send(
+    client: RpcClient, data: seq[byte]
+) {.base, async: (raises: [CancelledError, JsonRpcError]).} =
+  raiseAssert("`RpcClient.send` not implemented")
+
 proc callOnProcessMessage*(
     client: RpcClient, line: openArray[byte]
 ): Result[bool, string] =
@@ -103,24 +110,41 @@ proc callOnProcessMessage*(
   else:
     ok(true)
 
-proc processMessage*(client: RpcClient, line: sink seq[byte]): Result[void, string] =
+proc processMessage*(
+    client: RpcClient, line: sink seq[byte]
+): Future[Result[string, string]] {.async: (raises: []).} =
   if not ?client.callOnProcessMessage(line):
-    return ok()
-  # Messages are assumed to arrive one by one - even if the future was cancelled,
-  # we therefore consume one message for every line we don't have to process
-  if client.pendingRequests.len() == 0:
-    debug "Received message even though there's nothing queued, dropping",
-      id = (block: JrpcSys.decode(line, ReqRespHeader).id)
-    return ok()
+    return ok("")
 
-  let fut = client.pendingRequests.popFirst()
-  if fut.finished(): # probably cancelled
-    debug "Future already finished, dropping", state = fut.state()
-    return ok()
+  let request =
+    try:
+      JrpcSys.decode(line, RequestBatchRx)
+    except IncompleteObjectError:
+      # Messages are assumed to arrive one by one - even if the future was cancelled,
+      # we therefore consume one message for every line we don't have to process
+      if client.pendingRequests.len() == 0:
+        debug "Received message even though there's nothing queued, dropping",
+          id = (
+            block:
+              JrpcSys.decode(line, ReqRespHeader).id
+          )
+        return ok("")
 
-  fut.complete(line)
+      let fut = client.pendingRequests.popFirst()
+      if fut.finished(): # probably cancelled
+        debug "Future already finished, dropping", state = fut.state()
+        return ok("")
 
-  ok()
+      fut.complete(line)
+
+      return ok("")
+    except SerializationError as exc:
+      return ok(wrapError(router.INVALID_REQUEST, exc.msg))
+
+  if client.router != nil:
+    ok(await client.router[].route(request))
+  else:
+    ok("")
 
 proc clearPending*(client: RpcClient, exc: ref JsonRpcError) =
   while client.pendingRequests.len > 0:
@@ -143,6 +167,31 @@ method request(
 
 method close*(client: RpcClient): Future[void] {.base, async: (raises: []).} =
   raiseAssert("`RpcClient.close` not implemented")
+
+proc notify*(
+    client: RpcClient, name: string, params: RequestParamsTx
+) {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
+  ## Perform a "notification", ie a JSON-RPC request without response
+  let requestData = JrpcSys.withWriter(writer):
+    writer.writeNotification(name, params)
+
+  debug "Sending JSON-RPC notification",
+    name, len = requestData.len, remote = client.remote
+  trace "Parameters", params
+
+  # Release params memory earlier by using a raw proc for the initial
+  # processing
+  proc complete(
+      client: RpcClient, request: auto
+  ) {.async: (raises: [CancelledError, JsonRpcError]).} =
+    try:
+      await request
+    except JsonRpcError as exc:
+      debug "JSON-RPC notification failed", err = exc.msg, remote = client.remote
+      raise exc
+
+  let req = client.send(requestData)
+  client.complete(req)
 
 proc call*(
     client: RpcClient, name: string, params: RequestParamsTx

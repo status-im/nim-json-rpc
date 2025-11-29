@@ -14,7 +14,7 @@ import
   chronicles,
   websock/[websock, extensions/compression/deflate],
   chronos/apps/http/httptable,
-  ../[client, errors],
+  ../[client, errors, router],
   ../private/jrpc_sys
 
 export client, errors
@@ -30,14 +30,31 @@ proc new*(
     T: type RpcWebSocketClient,
     getHeaders: GetJsonRpcRequestHeaders = nil,
     maxMessageSize = defaultMaxMessageSize,
+    router = default(ref RpcRouter),
 ): T =
-  T(getHeaders: getHeaders, maxMessageSize: maxMessageSize)
+  T(getHeaders: getHeaders, maxMessageSize: maxMessageSize, router: router)
 
 proc newRpcWebSocketClient*(
-    getHeaders: GetJsonRpcRequestHeaders = nil, maxMessageSize = defaultMaxMessageSize
+    getHeaders: GetJsonRpcRequestHeaders = nil,
+    maxMessageSize = defaultMaxMessageSize,
+    router = default(ref RpcRouter),
 ): RpcWebSocketClient =
   ## Creates a new client instance.
-  RpcWebSocketClient.new(getHeaders, maxMessageSize)
+  RpcWebSocketClient.new(getHeaders, maxMessageSize, router)
+
+method send*(
+    client: RpcWebSocketClient, reqData: seq[byte]
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  if client.transport.isNil:
+    raise newException(
+      RpcTransportError, "Transport is not initialised (missing a call to connect?)"
+    )
+  try:
+    await client.transport.send(reqData, Opcode.Binary)
+  except CancelledError as exc:
+    raise exc
+  except CatchableError as exc:
+    raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
 method request*(
     client: RpcWebSocketClient, reqData: seq[byte]
@@ -75,9 +92,16 @@ proc processData(client: RpcWebSocketClient) {.async: (raises: []).} =
         lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
         break
 
-    client.processMessage(data).isOkOr:
+    let resp = await(client.processMessage(data)).valueOr:
       lastError = (ref RequestDecodeError)(msg: error, payload: data)
       break
+
+    if resp.len > 0:
+      try:
+        await client.transport.send(resp)
+      except CatchableError as exc:
+        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+        break
 
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")

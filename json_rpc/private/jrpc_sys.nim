@@ -369,7 +369,13 @@ func toTx*(params: RequestParamsRx): RequestParamsTx =
 template writeRequest*(writer: var JrpcSys.Writer, name: string, params: RequestParamsTx, id: int) =
   writer.writeObject:
     writer.writeMember("jsonrpc", JsonRPC2())
+    writer.writeMember("method", name)
+    writer.writeMember("params", params)
     writer.writeMember("id", id)
+
+template writeNotification*(writer: var JrpcSys.Writer, name: string, params: RequestParamsTx) =
+  writer.writeObject:
+    writer.writeMember("jsonrpc", JsonRPC2())
     writer.writeMember("method", name)
     writer.writeMember("params", params)
 
