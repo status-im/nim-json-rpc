@@ -10,15 +10,19 @@
 {.push raises: [], gcsafe.}
 
 import
-  chronicles, chronos, websock/[websock, types],
+  std/sequtils,
+  chronicles,
+  chronos,
+  websock/[websock, types],
   websock/extensions/compression/deflate,
   json_serialization/std/net as jsnet,
-  ../[errors, server]
+  ../[errors, server],
+  ../clients/websocketclient
 
 export errors, server, jsnet
 
 logScope:
-  topics = "JSONRPC-WS-SERVER"
+  topics = "jsonrpc server ws"
 
 type
   # WsAuthHook: handle CORS, JWT auth, etc. in HTTP header
@@ -34,6 +38,7 @@ type
   # e.g. combo HTTP server
   RpcWebSocketHandler* = ref object of RpcServer
     wsserver*: WSServer
+    maxMessageSize*: int
 
   RpcWebSocketServer* = ref object of RpcWebSocketHandler
     server: StreamServer
@@ -50,8 +55,11 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
       return
 
     trace "Websocket handshake completed"
+    let c = RpcWebSocketClient(transport: ws, remote: $request.uri)
+    rpc.connections.add(c)
+
     while ws.readyState != ReadyState.Closed:
-      let req = await ws.recvMsg()
+      let req = await ws.recvMsg(rpc.maxMessageSize)
       debug "Received JSON-RPC request",
         address = $request.uri,
         len = req.len
@@ -69,8 +77,10 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
 
       let data = await rpc.route(req)
 
-      trace "RPC result has been sent", address = $request.uri
-      await ws.send(data)
+      if data.len > 0:
+        await ws.send(data)
+
+    rpc.connections.keepItIf(it != c)
 
   except WebSocketError as exc:
     error "WebSocket error:",
@@ -119,13 +129,15 @@ proc initWebsocket(rpc: RpcWebSocketServer, compression: bool,
   rpc.authHooks = authHooks
 
 proc newRpcWebSocketServer*(
-  address: TransportAddress,
-  compression: bool = false,
-  flags: set[ServerFlags] = {ServerFlags.TcpNoDelay,ServerFlags.ReuseAddr},
-  authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
+    address: TransportAddress,
+    compression: bool = false,
+    flags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+    authHooks: seq[WsAuthHook] = @[],
+    rng = HmacDrbgContext.new(),
+    maxMessageSize = defaultMaxMessageSize,
+): RpcWebSocketServer {.raises: [JsonRpcError].} =
+  var server = RpcWebSocketServer(maxMessageSize: maxMessageSize)
 
-  var server = new(RpcWebSocketServer)
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 
@@ -142,20 +154,22 @@ proc newRpcWebSocketServer*(
   server
 
 proc newRpcWebSocketServer*(
-  host: string,
-  port: Port,
-  compression: bool = false,
-  flags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
-  authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
-
+    host: string,
+    port: Port,
+    compression: bool = false,
+    flags: set[ServerFlags] = {ServerFlags.TcpNoDelay, ServerFlags.ReuseAddr},
+    authHooks: seq[WsAuthHook] = @[],
+    rng = HmacDrbgContext.new(),
+    maxMessageSize = defaultMaxMessageSize,
+): RpcWebSocketServer {.raises: [JsonRpcError].} =
   try:
     newRpcWebSocketServer(
       initTAddress(host, port),
       compression,
       flags,
       authHooks,
-      rng
+      rng,
+      maxMessageSize,
     )
   except TransportError as exc:
     raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
@@ -171,9 +185,11 @@ proc newRpcWebSocketServer*(
   tlsMinVersion = TLSVersion.TLS12,
   tlsMaxVersion = TLSVersion.TLS12,
   authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
+  rng = HmacDrbgContext.new(),
+  maxMessageSize = defaultMaxMessageSize,
+  ): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
-  var server = new(RpcWebSocketServer)
+  var server = RpcWebSocketServer(maxMessageSize: maxMessageSize)
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 

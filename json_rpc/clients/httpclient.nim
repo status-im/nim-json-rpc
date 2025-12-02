@@ -44,6 +44,41 @@ proc new*(
     getHeaders: getHeaders,
   )
 
+method send(
+    client: RpcHttpClient, reqData: seq[byte]
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  doAssert client.httpSession != nil
+  if client.httpAddress.addresses.len == 0:
+    raise newException(RpcTransportError, "No remote addresses to connect to")
+
+  var headers =
+    if not isNil(client.getHeaders):
+      client.getHeaders()
+    else:
+      @[]
+  headers.add(("Content-Type", "application/json"))
+
+  let
+    req = HttpClientRequestRef.post(
+      client.httpSession, client.httpAddress, body = reqData, headers = headers
+    )
+
+    res =
+      try:
+        await req.send()
+      except HttpError as exc:
+        raise (ref RpcPostError)(msg: exc.msg, parent: exc)
+      finally:
+        await req.closeWait()
+
+  try:
+    if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
+     raise (ref ErrorResponse)(status: res.status, msg: res.reason)
+  except HttpError as exc:
+    raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+  finally:
+    await res.closeWait()
+
 method request(
     client: RpcHttpClient, reqData: seq[byte]
 ): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =

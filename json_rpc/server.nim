@@ -10,23 +10,23 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/json,
+  std/[json, sequtils],
   chronos,
-  ./router,
-  ./jsonmarshal,
-  ./client,
+  ./[client, errors, jsonmarshal, router],
   ./private/jrpc_sys,
-  ./private/shared_wrapper,
-  ./errors
+  ./private/shared_wrapper
 
 export
   chronos,
+  client,
   jsonmarshal,
   router
 
 type
   RpcServer* = ref object of RootRef
     router*: RpcRouter
+
+    connections*: seq[RpcClient]
 
 # ------------------------------------------------------------------------------
 # Constructors
@@ -81,6 +81,13 @@ proc route*(server: RpcServer, line: string): Future[string] {.async: (raises: [
   server.router.route(line)
 proc route*(server: RpcServer, line: seq[byte]): Future[string] {.async: (raises: [], raw: true).} =
   server.router.route(line)
+
+proc notify*(
+    server: RpcServer, name: string, params: RequestParamsTx
+) {.async: (raises: [CancelledError]).} =
+  let notifications = server.connections.mapIt(it.notify(name, params))
+  # Discard results, we don't care here ..
+  await allFutures(notifications)
 
 # Server registration
 

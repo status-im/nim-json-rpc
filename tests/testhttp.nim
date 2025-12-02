@@ -73,3 +73,18 @@ suite "JSON-RPC/http":
       data.len == bigChunkSize
 
     await client.close()
+
+  asyncTest "Simple RPC notification":
+    var notif = false
+
+    httpsrv.rpc("notif") do() -> void:
+      notif = true
+
+    var client = newRpcHttpClient()
+    await client.connect("http://" & serverAddress)
+
+    await client.notify("notif", RequestParamsTx())
+    await client.close()
+
+    check:
+      notif

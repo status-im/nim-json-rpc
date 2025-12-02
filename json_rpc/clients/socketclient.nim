@@ -11,7 +11,8 @@
 
 import
   stew/byteutils,
-  ../[client, errors],
+  chronicles,
+  ../[client, errors, router],
   ../private/jrpc_sys
 
 export client, errors
@@ -22,12 +23,32 @@ type
     address*: TransportAddress
     loop*: Future[void]
 
-proc new*(T: type RpcSocketClient, maxMessageSize = defaultMaxMessageSize): T =
-  T(maxMessageSize: maxMessageSize)
+proc new*(
+    T: type RpcSocketClient,
+    maxMessageSize = defaultMaxMessageSize,
+    router = default(ref RpcRouter),
+): T =
+  T(maxMessageSize: maxMessageSize, router: router)
 
-proc newRpcSocketClient*(maxMessageSize = defaultMaxMessageSize): RpcSocketClient =
+proc newRpcSocketClient*(
+    maxMessageSize = defaultMaxMessageSize, router = default(ref RpcRouter)
+): RpcSocketClient =
   ## Creates a new client instance.
-  RpcSocketClient.new(maxMessageSize)
+  RpcSocketClient.new(maxMessageSize, router)
+
+method send*(
+    client: RpcSocketClient, reqData: seq[byte]
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  if client.transport.isNil:
+    raise newException(
+      RpcTransportError, "Transport is not initialised (missing a call to connect?)"
+    )
+  try:
+    discard await client.transport.write(reqData & "\r\n".toBytes())
+  except CancelledError as exc:
+    raise exc
+  except TransportError as exc:
+    raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
 method request(
     client: RpcSocketClient, reqData: seq[byte]
@@ -62,9 +83,16 @@ proc processData(client: RpcSocketClient) {.async: (raises: []).} =
     if data == "":
       break
 
-    client.processMessage(data.toBytes()).isOkOr:
+    let resp = await(client.processMessage(data.toBytes())).valueOr:
       lastError = (ref RequestDecodeError)(msg: error, payload: data.toBytes())
       break
+
+    if resp.len > 0:
+      try:
+        discard await client.transport.write(resp & "\r\n")
+      except CatchableError as exc:
+        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+        break
 
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
