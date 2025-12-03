@@ -39,9 +39,14 @@ proc processClient(server: StreamServer, transport: StreamTransport) {.async: (r
 
   rpc.connections.add(c)
 
+  # Provide backwards compat with consumers that don't set a max message size
+  # for example by constructing RpcWebSocketHandler without going through init
+  let maxMessageSize =
+    if rpc.maxMessageSize == 0: defaultMaxMessageSize else: rpc.maxMessageSize
+
   try:
     while true:
-      let req = await transport.readLine(rpc.maxMessageSize)
+      let req = await transport.readLine(maxMessageSize)
       if req == "":
         break
 
