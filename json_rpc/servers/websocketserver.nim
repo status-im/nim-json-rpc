@@ -57,9 +57,13 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
     trace "Websocket handshake completed"
     let c = RpcWebSocketClient(transport: ws, remote: $request.uri)
     rpc.connections.add(c)
-
+    # Provide backwards compat with consumers that don't set a max message size
+    # for example by constructing RpcWebSocketHandler without going through init
+    let maxMessageSize =
+      if rpc.maxMessageSize == 0: defaultMaxMessageSize else: rpc.maxMessageSize
     while ws.readyState != ReadyState.Closed:
-      let req = await ws.recvMsg(rpc.maxMessageSize)
+
+      let req = await ws.recvMsg(maxMessageSize)
       debug "Received JSON-RPC request",
         address = $request.uri,
         len = req.len
