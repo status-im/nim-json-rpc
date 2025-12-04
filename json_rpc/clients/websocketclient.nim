@@ -20,7 +20,7 @@ import
 export client, errors
 
 type
-  RpcWebSocketClient* = ref object of RpcClient
+  RpcWebSocketClient* = ref object of RpcConnection
     transport*: WSSession
     uri*: Uri
     loop*: Future[void]
@@ -32,6 +32,13 @@ proc new*(
     maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
 ): T =
+  let router =
+    if router != nil:
+      proc(request: RequestBatchRx): Future[string] {.async: (raises: [], raw: true).} =
+        router[].route(request)
+    else:
+      nil
+
   T(getHeaders: getHeaders, maxMessageSize: maxMessageSize, router: router)
 
 proc newRpcWebSocketClient*(
@@ -82,26 +89,26 @@ method request*(
 
     await fut
 
-proc processData(client: RpcWebSocketClient) {.async: (raises: []).} =
+proc processMessages*(client: RpcWebSocketClient) {.async: (raises: []).} =
+  # Provide backwards compat with consumers that don't set a max message size
+  # for example by constructing RpcWebSocketHandler without going through init
+  let maxMessageSize =
+    if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
+
   var lastError: ref JsonRpcError
   while client.transport.readyState != ReadyState.Closed:
-    var data =
-      try:
-        await client.transport.recvMsg(client.maxMessageSize)
-      except CatchableError as exc:
-        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+    try:
+      let data = await client.transport.recvMsg(maxMessageSize)
+
+      let resp = await(client.processMessage(data)).valueOr:
+        lastError = (ref RequestDecodeError)(msg: error, payload: data)
         break
 
-    let resp = await(client.processMessage(data)).valueOr:
-      lastError = (ref RequestDecodeError)(msg: error, payload: data)
-      break
-
-    if resp.len > 0:
-      try:
+      if resp.len > 0:
         await client.transport.send(resp)
-      except CatchableError as exc:
-        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
-        break
+    except CatchableError as exc:
+      lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+      break
 
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
@@ -162,7 +169,7 @@ proc connect*(
   client.transport = ws
   client.uri = uri
   client.remote = uri.hostname & ":" & uri.port
-  client.loop = processData(client)
+  client.loop = processMessages(client)
 
 method close*(client: RpcWebSocketClient) {.async: (raises: []).} =
   await client.loop.cancelAndWait()

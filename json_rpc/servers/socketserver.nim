@@ -16,6 +16,7 @@ import
   json_serialization/std/net as jsnet,
   ../private/utils,
   ../[errors, server],
+  ../private/jrpc_sys,
   ../clients/socketclient
 
 export errors, server, jsnet
@@ -29,44 +30,30 @@ type
     processClientHook: StreamCallback2
     maxMessageSize: int
 
-proc processClient(server: StreamServer, transport: StreamTransport) {.async: (raises: []).} =
+proc processClient(
+    server: StreamServer, transport: StreamTransport
+) {.async: (raises: []).} =
   ## Process transport data to the RPC server
 
   let
     rpc = getUserData[RpcSocketServer](server)
     remote = transport.remoteAddress2().valueOr(default(TransportAddress))
-    c = RpcSocketClient(transport: transport, address: remote, remote: $remote)
+    c = RpcSocketClient(
+      transport: transport,
+      address: remote,
+      remote: $remote,
+      maxMessageSize: rpc.maxMessageSize,
+      router: proc(
+          request: RequestBatchRx
+      ): Future[string] {.async: (raises: [], raw: true).} =
+        rpc.router.route(request),
+    )
 
-  rpc.connections.add(c)
+  rpc.connections.incl(c)
 
-  # Provide backwards compat with consumers that don't set a max message size
-  # for example by constructing RpcWebSocketHandler without going through init
-  let maxMessageSize =
-    if rpc.maxMessageSize == 0: defaultMaxMessageSize else: rpc.maxMessageSize
+  await c.processMessages()
 
-  try:
-    while true:
-      let req = await transport.readLine(maxMessageSize)
-      if req == "":
-        break
-
-      debug "Received JSON-RPC request",
-        address = transport.remoteAddress(),
-        len = req.len
-
-      let res = await rpc.route(req)
-      if res.len > 0:
-        discard await transport.write(res & "\r\n")
-  except TransportError as ex:
-    error "Transport closed during processing client",
-      remote,
-      msg=ex.msg
-  except CancelledError:
-    debug "JSON-RPC request processing cancelled", remote
-
-  rpc.connections.keepItIf(it != c)
-
-  await transport.closeWait()
+  rpc.connections.excl(c)
 
 # Utility functions for setting up servers using stream transport addresses
 
