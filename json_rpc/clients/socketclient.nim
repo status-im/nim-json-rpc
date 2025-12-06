@@ -18,7 +18,7 @@ import
 export client, errors
 
 type
-  RpcSocketClient* = ref object of RpcClient
+  RpcSocketClient* = ref object of RpcConnection
     transport*: StreamTransport
     address*: TransportAddress
     loop*: Future[void]
@@ -28,6 +28,13 @@ proc new*(
     maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
 ): T =
+  let router =
+    if router != nil:
+      proc(request: RequestBatchRx): Future[string] {.async: (raises: [], raw: true).} =
+        router[].route(request)
+    else:
+      nil
+
   T(maxMessageSize: maxMessageSize, router: router)
 
 proc newRpcSocketClient*(
@@ -71,28 +78,28 @@ method request(
 
     await fut
 
-proc processData(client: RpcSocketClient) {.async: (raises: []).} =
+proc processMessages*(client: RpcSocketClient) {.async: (raises: []).} =
+  # Provide backwards compat with consumers that don't set a max message size
+  # for example by constructing RpcWebSocketHandler without going through init
+  let maxMessageSize =
+    if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
+
   var lastError: ref JsonRpcError
   while true:
-    let data =
-      try:
-        await client.transport.readLine(client.maxMessageSize)
-      except CatchableError as exc:
-        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+    try:
+      let data = await client.transport.readLine(maxMessageSize)
+      if data == "":
         break
-    if data == "":
-      break
 
-    let resp = await(client.processMessage(data.toBytes())).valueOr:
-      lastError = (ref RequestDecodeError)(msg: error, payload: data.toBytes())
-      break
+      let resp = await(client.processMessage(data.toBytes())).valueOr:
+        lastError = (ref RequestDecodeError)(msg: error, payload: data.toBytes())
+        break
 
-    if resp.len > 0:
-      try:
+      if resp.len > 0:
         discard await client.transport.write(resp & "\r\n")
-      except CatchableError as exc:
-        lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
-        break
+    except CatchableError as exc:
+      lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+      break
 
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
@@ -115,7 +122,7 @@ proc connect*(
 
   client.address = address
   client.remote = $client.address
-  client.loop = processData(client)
+  client.loop = processMessages(client)
 
 proc connect*(
     client: RpcSocketClient, address: string, port: Port

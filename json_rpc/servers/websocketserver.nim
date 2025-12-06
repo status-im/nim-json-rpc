@@ -10,13 +10,13 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/sequtils,
   chronicles,
   chronos,
   websock/[websock, types],
   websock/extensions/compression/deflate,
   json_serialization/std/net as jsnet,
   ../[errors, server],
+  ../private/jrpc_sys,
   ../clients/websocketclient
 
 export errors, server, jsnet
@@ -46,58 +46,39 @@ type
 
 proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
                   {.async: (raises: [CancelledError]).} =
-  try:
+  let ws = try:
     let server = rpc.wsserver
     let ws = await server.handleRequest(request)
     if ws.readyState != ReadyState.Open:
-      error "Failed to open websocket connection",
-        address = $request.uri
+      error "Failed to open websocket connection", address = $request.uri
       return
-
-    trace "Websocket handshake completed"
-    let c = RpcWebSocketClient(transport: ws, remote: $request.uri)
-    rpc.connections.add(c)
-    # Provide backwards compat with consumers that don't set a max message size
-    # for example by constructing RpcWebSocketHandler without going through init
-    let maxMessageSize =
-      if rpc.maxMessageSize == 0: defaultMaxMessageSize else: rpc.maxMessageSize
-    while ws.readyState != ReadyState.Closed:
-
-      let req = await ws.recvMsg(maxMessageSize)
-      debug "Received JSON-RPC request",
-        address = $request.uri,
-        len = req.len
-
-      if ws.readyState == ReadyState.Closed:
-        # if session already terminated by peer,
-        # no need to send response
-        break
-
-      if req.len == 0:
-        await ws.close(
-          reason = "cannot process zero length message"
-        )
-        break
-
-      let data = await rpc.route(req)
-
-      if data.len > 0:
-        await ws.send(data)
-
-    rpc.connections.keepItIf(it != c)
-
+    ws
   except WebSocketError as exc:
-    error "WebSocket error:",
-      address = $request.uri, msg = exc.msg
-
+    error "WebSocket error:", address = $request.uri, msg = exc.msg
+    return
   except CancelledError as exc:
     raise exc
-
   except CatchableError as exc:
-    debug "Internal error while processing JSON-RPC call", msg=exc.msg
+    debug "Internal error while processing JSON-RPC call", msg = exc.msg
+    return
 
-proc handleRequest(rpc: RpcWebSocketServer, request: HttpRequest)
-                    {.async: (raises: [CancelledError]).} =
+  trace "Websocket handshake completed"
+  let c = RpcWebSocketClient(
+    transport: ws,
+    remote: $request.uri,
+    maxMessageSize: rpc.maxMessageSize,
+    router: proc(request: RequestBatchRx): Future[string] {.async: (raises: [], raw: true).} =
+      rpc.router.route(request),
+  )
+  rpc.connections.incl(c)
+
+  await c.processMessages()
+
+  rpc.connections.excl(c)
+
+proc handleRequest(
+    rpc: RpcWebSocketServer, request: HttpRequest
+) {.async: (raises: [CancelledError]).} =
   trace "Handling request:", uri = $request.uri
 
   # if hook result is false,

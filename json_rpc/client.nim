@@ -18,7 +18,7 @@ when (NimMajor, NimMinor, NimPatch) < (2, 2, 6):
     discard Future[string]().value()
 
 import
-  std/[deques, json, tables, macros],
+  std/[deques, hashes, json, tables, macros],
   chronos,
   chronicles,
   stew/byteutils,
@@ -61,10 +61,15 @@ type
       # Client identifier, for logging
     maxMessageSize*: int
 
-    router*: ref RpcRouter
+  RpcConnection* = ref object of RpcClient
+    router*:
+      proc(request: RequestBatchRx): Future[string] {.async: (raises: []).}
       ## Router used for transports that support bidirectional communication
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
+
+func hash*(v: RpcClient): Hash =
+  cast[Hash](addr v[])
 
 func parseResponse*(payload: openArray[byte], T: type): T {.raises: [JsonRpcError].} =
   try:
@@ -111,7 +116,7 @@ proc callOnProcessMessage*(
     ok(true)
 
 proc processMessage*(
-    client: RpcClient, line: sink seq[byte]
+    client: RpcConnection, line: seq[byte]
 ): Future[Result[string, string]] {.async: (raises: []).} =
   if not ?client.callOnProcessMessage(line):
     return ok("")
@@ -142,7 +147,7 @@ proc processMessage*(
       return ok(wrapError(router.INVALID_REQUEST, exc.msg))
 
   if client.router != nil:
-    ok(await client.router[].route(request))
+    ok(await client.router(request))
   else:
     ok("")
 

@@ -10,23 +10,20 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[json, sequtils],
+  std/[json, sequtils, sets],
   chronos,
   ./[client, errors, jsonmarshal, router],
   ./private/jrpc_sys,
   ./private/shared_wrapper
 
-export
-  chronos,
-  client,
-  jsonmarshal,
-  router
+export chronos, client, jsonmarshal, router, sets
 
 type
   RpcServer* = ref object of RootRef
     router*: RpcRouter
 
-    connections*: seq[RpcClient]
+    # For servers that expose bidirectional connections, keep track of them
+    connections*: HashSet[RpcConnection]
 
 # ------------------------------------------------------------------------------
 # Constructors
