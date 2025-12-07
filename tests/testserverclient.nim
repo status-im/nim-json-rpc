@@ -43,10 +43,45 @@ template callTests(client: untyped) =
     except CatchableError as e:
       check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
 
-suite "Socket Server/Client RPC":
+suite "Socket Server/Client RPC/newLine":
   setup:
-    var srv = newRpcSocketServer(["127.0.0.1:0"])
-    var client = newRpcSocketClient()
+    const framing = Framing.newLine()
+    var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
+    var client = newRpcSocketClient(framing = framing)
+
+    srv.setupServer()
+    srv.start()
+    waitFor client.connect(srv.localAddress()[0])
+
+  teardown:
+    waitFor client.close()
+    srv.stop()
+    waitFor srv.closeWait()
+
+  callTests(client)
+
+suite "Socket Server/Client RPC/httpHeader":
+  setup:
+    const framing = Framing.httpHeader()
+    var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
+    var client = newRpcSocketClient(framing = framing)
+
+    srv.setupServer()
+    srv.start()
+    waitFor client.connect(srv.localAddress()[0])
+
+  teardown:
+    waitFor client.close()
+    srv.stop()
+    waitFor srv.closeWait()
+
+  callTests(client)
+
+suite "Socket Server/Client RPC/lengthHeaderBE32":
+  setup:
+    const framing = Framing.lengthHeaderBE32()
+    var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
+    var client = newRpcSocketClient(framing = framing)
 
     srv.setupServer()
     srv.start()
