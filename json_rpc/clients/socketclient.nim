@@ -19,6 +19,10 @@ import
 
 export client, errors
 
+when not declared(newSeqUninit): # nim 2.2+
+  template newSeqUninit[T: byte](len: int): seq[byte] =
+    newSeqUninitialized[byte](len)
+
 type
   RpcSocketClient* = ref object of RpcConnection
     ## StreamTransport-based bidirectional connection with pluggable framing
