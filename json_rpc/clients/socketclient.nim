@@ -107,22 +107,22 @@ proc recvMsgLengthHeaderBE32(
       consumed = 0
 
     if payload.len == 0:
-      consumed = lenBE32.toOpenArray(pos, lenBE32.high()).copyFrom(data)
+      let n = consumed = lenBE32.toOpenArray(pos, lenBE32.high()).copyFrom(data)
       pos += n
+      dataPos += n
 
       if pos < 4:
-        return (n, false)
+        return (dataPos, false)
 
-      dataPos += n
 
       let messageSize = uint32.fromBytesBE(lenBE32)
       if uint64(messageSize) > uint64(maxMessageSize):
         error =
           (ref TransportLimitError)(msg: "Maximum length exceeded: " & $messageSize)
-        return (n, true)
+        return (dataPos, true)
 
       if messageSize == 0:
-        return (n, true)
+        return (dataPos, true)
 
       payload = newSeqUninit[byte](int(messageSize))
       pos = 0
@@ -132,9 +132,9 @@ proc recvMsgLengthHeaderBE32(
       )
 
     pos += n
-    consumed += n
+    dataPos += n
 
-    (consumed, pos == payload.len())
+    (dataPos, pos == payload.len())
 
   await transport.readMessage(predicate)
 
