@@ -103,11 +103,12 @@ proc recvMsgLengthHeaderBE32(
     error: ref TransportError
 
   proc predicate(data: openArray[byte]): tuple[consumed: int, done: bool] =
-    debugEcho data
-    var dataPos = 0
+    var
+      dataPos = 0
+      consumed = 0
 
     if payload.len == 0:
-      let n = lenBE32.toOpenArray(pos, lenBE32.high()).copyFrom(data)
+      consumed = lenBE32.toOpenArray(pos, lenBE32.high()).copyFrom(data)
       pos += n
 
       if pos < 4:
@@ -132,8 +133,9 @@ proc recvMsgLengthHeaderBE32(
       )
 
     pos += n
+    consumed += n
 
-    (n, pos == payload.len())
+    (consumed, pos == payload.len())
 
   await transport.readMessage(predicate)
 
