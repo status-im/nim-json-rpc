@@ -103,6 +103,7 @@ proc recvMsgLengthHeaderBE32(
     error: ref TransportError
 
   proc predicate(data: openArray[byte]): tuple[consumed: int, done: bool] =
+    debugEcho data
     var dataPos = 0
 
     if payload.len == 0:
