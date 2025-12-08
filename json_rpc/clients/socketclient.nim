@@ -143,7 +143,7 @@ proc recvMsgLengthHeaderBE32(
 proc sendMsgLengthHeaderBE32(
     transport: StreamTransport, msg: seq[byte]
 ) {.async: (raises: [CancelledError, TransportError]).} =
-  let header = msg.len.uint32.toBytesBE()
+  var header = msg.len.uint32.toBytesBE()
   discard await transport.write(addr header[0], header.len)
   discard await transport.write(msg)
 
