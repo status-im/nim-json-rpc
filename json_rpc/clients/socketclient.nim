@@ -11,7 +11,6 @@
 
 import
   stew/[arrayops, byteutils, endians2],
-  std/strformat,
   chronicles,
   ../[client, errors, router],
   ../private/jrpc_sys,
@@ -79,7 +78,7 @@ proc recvMsgHttpHeader(
 proc sendMsgHttpHeader(
     transport: StreamTransport, msg: seq[byte]
 ) {.async: (raises: [CancelledError, TransportError]).} =
-  discard await transport.write(&"Content-Length: {msg.len}\r\n\r\n")
+  discard await transport.write("Content-Length: " & $msg.len & "\r\n\r\n")
   discard await transport.write(msg)
 
 proc httpHeader*(T: type Framing): T =
