@@ -288,7 +288,10 @@ echo localResult
 The following transports are available:
 
 * HTTP POST - unidirectional, one request/response pair per call
-* Sockets and pipes, via chronos' [StreamTransport](https://github.com/status-im/nim-chronos/blob/master/chronos/transports/stream.nim#L75) - bidirectional, persistent connection
+* Sockets and pipes, via chronos' [StreamTransport](https://github.com/status-im/nim-chronos/blob/master/chronos/transports/stream.nim#L75) - bidirectional, persistent connection, custom message framing
+  * `Framing.httpHeader` - `Content-Length` prefix specifying the length of the payload, compatible with [vscode-jsonrpc](https://www.npmjs.com/package/vscode-jsonrpc)
+  * `Framing.lengthHeaderBE32` - Big-endian, 32-bit binary prefix - most efficient option
+  * `Framing.newLine` - "\r\n" suffix
 * Websockets - bidirectional, persistent connection
 
 # Server
