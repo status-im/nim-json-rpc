@@ -102,18 +102,15 @@ proc recvMsgLengthHeaderBE32(
     error: ref TransportError
 
   proc predicate(data: openArray[byte]): tuple[consumed: int, done: bool] =
-    var
-      dataPos = 0
-      consumed = 0
+    var dataPos = 0
 
     if payload.len == 0:
-      let n = consumed = lenBE32.toOpenArray(pos, lenBE32.high()).copyFrom(data)
+      let n = lenBE32.toOpenArray(pos, lenBE32.high()).copyFrom(data)
       pos += n
       dataPos += n
 
       if pos < 4:
         return (dataPos, false)
-
 
       let messageSize = uint32.fromBytesBE(lenBE32)
       if uint64(messageSize) > uint64(maxMessageSize):
