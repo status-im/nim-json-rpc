@@ -102,7 +102,9 @@ proc recvMsgLengthHeaderBE32(
     error: ref TransportError
 
   proc predicate(data: openArray[byte]): tuple[consumed: int, done: bool] =
-    debugEcho data
+    if data.len == 0:
+      return (0, true)
+
     var dataPos = 0
 
     if payload.len == 0:
@@ -111,18 +113,15 @@ proc recvMsgLengthHeaderBE32(
       dataPos += n
 
       if pos < 4:
-        debugEcho (dataPos, false)
         return (dataPos, false)
 
       let messageSize = uint32.fromBytesBE(lenBE32)
       if uint64(messageSize) > uint64(maxMessageSize):
         error =
           (ref TransportLimitError)(msg: "Maximum length exceeded: " & $messageSize)
-        debugEcho (dataPos, true)
         return (dataPos, true)
 
       if messageSize == 0:
-        debugEcho (dataPos, true)
         return (dataPos, true)
 
       payload = newSeqUninit[byte](int(messageSize))
@@ -135,7 +134,6 @@ proc recvMsgLengthHeaderBE32(
     pos += n
     dataPos += n
 
-    debugEcho dataPos, pos, payload.len()
     (dataPos, pos == payload.len())
 
   await transport.readMessage(predicate)
@@ -224,7 +222,7 @@ proc processMessages*(client: RpcSocketClient) {.async: (raises: []).} =
     if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
 
   var lastError: ref JsonRpcError
-  while true:
+  while not client.transport.atEof():
     try:
       let data = await client.framing.recvMsg(client.transport, maxMessageSize)
       if data.len == 0:
