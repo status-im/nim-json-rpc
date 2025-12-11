@@ -22,4 +22,4 @@ import
   test_callsigs,
   test_client_hook,
   test_batch_call,
-  test_rpcchannels
+  testrpcchannels
