@@ -195,12 +195,10 @@ method send*(
     )
   try:
     await client.framing.sendMsg(client.transport, reqData)
-  except CancelledError as exc:
-    raise exc
   except TransportError as exc:
     raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
-method request(
+method request*(
     client: RpcSocketClient, reqData: seq[byte]
 ): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.

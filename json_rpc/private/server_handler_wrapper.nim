@@ -280,7 +280,6 @@ func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     executeParams: seq[NimNode]
 
   for paramIdent, paramStr, paramType in paramsIter(params):
-    let paramName = $paramIdent
     positional.add quote do:
       unpackPositional(`paramsIdent`,
                        `paramsObj`.`paramIdent`,

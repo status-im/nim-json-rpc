@@ -69,6 +69,9 @@ server.rpc("serializedFN") do(a{.serializedFieldName: "result".}: int) -> int:
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
     "\"" & meth & "\", \"params\": " & params & """, "id":0}"""
+func notif(meth: string, params: string): string =
+  """{"jsonrpc":"2.0", "method": """ &
+    "\"" & meth & "\", \"params\": " & params & """}"""
 
 template test_optional(meth: static[string]) =
   test meth & " B E, positional":
@@ -153,3 +156,20 @@ suite "rpc router":
     let n = req("serializedFN", """{"result": 3}""")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":3,"id":0}"""
+
+  test "Notification":
+    let n = notif("emptyParams", """{"result": 3}""")
+    let res = waitFor server.route(n)
+    check res == ""
+
+  test "Batch notification":
+    let n = "[" & notif("emptyParams", """{"result": 3}""") & "]"
+    let res = waitFor server.route(n)
+    check res == ""
+
+  test "Mixed notification/req":
+    let n =
+      "[" & notif("emptyParams", """{"result": 3}""") & "," & req("emptyParams", "[]") &
+      "]"
+    let res = waitFor server.route(n)
+    check res == """[{"jsonrpc":"2.0","result":777,"id":0}]"""

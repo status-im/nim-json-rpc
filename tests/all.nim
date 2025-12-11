@@ -10,15 +10,15 @@
 {. warning[UnusedImport]:off .}
 
 import
-  testrpcmacro,
-  testethcalls,
-  testhttp,
-  testhttps,
-  testserverclient,
-  testproxy,
-  testhook,
-  test_jrpc_sys,
-  test_router_rpc,
+  test_async_calls,
+  test_batch_call,
   test_callsigs,
   test_client_hook,
-  test_batch_call
+  test_jrpc_sys,
+  test_router_rpc,
+  testhook,
+  testhttp,
+  testhttps,
+  testproxy,
+  testrpcmacro,
+  testserverclient
