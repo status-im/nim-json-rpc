@@ -27,6 +27,7 @@ requires "nim >= 1.6.0",
          "websock >= 0.2.1 & < 0.3.0",
          "serialization >= 0.4.4",
          "json_serialization >= 0.4.2",
+         "https://github.com/status-im/nim-async-channels",
          "unittest2"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
