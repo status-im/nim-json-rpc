@@ -34,7 +34,7 @@ proc new*(
 ): T =
   let router =
     if router != nil:
-      proc(request: RequestBatchRx): Future[string] {.async: (raises: [], raw: true).} =
+      proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: [], raw: true).} =
         router[].route(request)
     else:
       nil
@@ -100,12 +100,17 @@ proc processMessages*(client: RpcWebSocketClient) {.async: (raises: []).} =
     try:
       let data = await client.transport.recvMsg(maxMessageSize)
 
-      let resp = await(client.processMessage(data)).valueOr:
+      let fallback = client.callOnProcessMessage(data).valueOr:
         lastError = (ref RequestDecodeError)(msg: error, payload: data)
         break
 
+      if not fallback:
+        continue
+
+      let resp = await client.processMessage(data)
+
       if resp.len > 0:
-        await client.transport.send(resp)
+        await client.transport.send(resp, Opcode.Binary)
     except CatchableError as exc:
       lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
       break
@@ -171,5 +176,5 @@ proc connect*(
   client.remote = uri.hostname & ":" & uri.port
   client.loop = processMessages(client)
 
-method close*(client: RpcWebSocketClient) {.async: (raises: []).} =
-  await client.loop.cancelAndWait()
+method close*(client: RpcWebSocketClient) {.async: (raises: [], raw: true).} =
+  client.loop.cancelAndWait()

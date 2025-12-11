@@ -11,6 +11,7 @@
 
 import
   std/[macros, sequtils, tables, json],
+  stew/byteutils,
   chronicles,
   chronos,
   ./private/[jrpc_sys, server_handler_wrapper],
@@ -82,9 +83,11 @@ proc lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
   else:
     ok(rpcProc)
 
-proc wrapError*(code: int, msg: string): string =
-  """{"jsonrpc":"2.0","error":{"code":""" & $code &
-    ""","message":""" & escapeJson(msg) & """},"id":null}"""
+proc wrapError*(code: int, msg: string): seq[byte] =
+  JrpcSys.withWriter(writer):
+    writer.writeValue(
+      ResponseTx(kind: rkError, error: ResponseError(code: code, message: msg))
+    )
 
 # ------------------------------------------------------------------------------
 # Public functions
@@ -128,7 +131,7 @@ proc route*(router: RpcRouter, req: RequestRx2):
     )
 
 proc route*(router: RpcRouter, request: RequestBatchRx):
-       Future[string] {.async: (raises: []).} =
+       Future[seq[byte]] {.async: (raises: []).} =
   ## Route to RPC from string data. Data is expected to be able to be
   ## converted to Json.
   ## Returns string of Json from RPC result/error node
@@ -137,9 +140,10 @@ proc route*(router: RpcRouter, request: RequestBatchRx):
   of rbkSingle:
     let response = await router.route(request.single)
     if request.single.id.isSome:
-      JrpcSys.encode(response)
+      JrpcSys.withWriter(writer):
+        writer.writeValue(response)
     else:
-      ""
+      default(seq[byte])
   of rbkMany:
     # check raising type to ensure `value` below is safe to use
     let resFut: seq[Future[ResponseTx].Raising([])] =
@@ -153,9 +157,12 @@ proc route*(router: RpcRouter, request: RequestBatchRx):
         resps.add fut.value()
 
     if resps.len > 0:
-      JrpcSys.encode(resFut.mapIt(it.value))
+      JrpcSys.withWriter(writer):
+        writer.writeArray:
+          for f in resFut:
+            writer.writeValue(f.value())
     else:
-      ""
+      default(seq[byte])
 
 proc route*(
     router: RpcRouter, data: string | seq[byte]
@@ -167,11 +174,11 @@ proc route*(
     try:
       JrpcSys.decode(data, RequestBatchRx)
     except IncompleteObjectError as err:
-      return wrapError(INVALID_REQUEST, err.msg)
+      return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
     except SerializationError as err:
-      return wrapError(JSON_PARSE_ERROR, err.msg)
+      return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg))
 
-  await router.route(request)
+  string.fromBytes(await router.route(request))
 
 macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ## Define a remote procedure call.

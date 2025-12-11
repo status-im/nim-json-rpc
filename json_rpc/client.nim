@@ -63,7 +63,7 @@ type
 
   RpcConnection* = ref object of RpcClient
     router*:
-      proc(request: RequestBatchRx): Future[string] {.async: (raises: []).}
+      proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: []).}
       ## Router used for transports that support bidirectional communication
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
@@ -117,39 +117,37 @@ proc callOnProcessMessage*(
 
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
-): Future[Result[string, string]] {.async: (raises: []).} =
-  if not ?client.callOnProcessMessage(line):
-    return ok("")
-
+): Future[seq[byte]] {.async: (raises: []).} =
   let request =
     try:
       JrpcSys.decode(line, RequestBatchRx)
     except IncompleteObjectError:
-      # Messages are assumed to arrive one by one - even if the future was cancelled,
-      # we therefore consume one message for every line we don't have to process
       if client.pendingRequests.len() == 0:
         debug "Received message even though there's nothing queued, dropping",
           id = (
             block:
               JrpcSys.decode(line, ReqRespHeader).id
           )
-        return ok("")
+        return default(seq[byte])
 
       let fut = client.pendingRequests.popFirst()
+
+      # Messages are assumed to arrive one by one - even if the future was cancelled,
+      # we therefore consume one message for every line we don't have to process
       if fut.finished(): # probably cancelled
         debug "Future already finished, dropping", state = fut.state()
-        return ok("")
+        return default(seq[byte])
 
       fut.complete(line)
 
-      return ok("")
+      return default(seq[byte])
     except SerializationError as exc:
-      return ok(wrapError(router.INVALID_REQUEST, exc.msg))
+      return wrapError(router.INVALID_REQUEST, exc.msg)
 
   if client.router != nil:
-    ok(await client.router(request))
+    await client.router(request)
   else:
-    ok("")
+    default(seq[byte])
 
 proc clearPending*(client: RpcClient, exc: ref JsonRpcError) =
   while client.pendingRequests.len > 0:

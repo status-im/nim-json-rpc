@@ -5,7 +5,7 @@
 ![Stability: experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
 ![Github action](https://github.com/status-im/nim-json-rpc/workflows/CI/badge.svg)
 
-Json-Rpc is a library designed to provide an easier interface for working with remote procedure calls.
+`json_rpc` is a library designed to provide an easy interface for working with remote procedure calls using the [JSON RPC](https://www.jsonrpc.org/specification) standard.
 
 # Usage
 
@@ -16,7 +16,7 @@ requires "json_rpc"
 
 # Introduction
 
-Json-Rpc is a library for routing JSON 2.0 format remote procedure calls over different transports.
+`json_rpc` is a library for routing JSON 2.0 format remote procedure calls over different transports.
 It is designed to automatically generate marshalling and parameter checking code based on the RPC parameter types.
 
 ## Routing
@@ -40,29 +40,33 @@ When an error occurs, the `error` is populated, otherwise `result` will be popul
 Here's a simple example:
 
 ```nim
-import
-  json_rpc/rpcserver
+import json_rpc/rpcserver
 
 var router = RpcRouter.init()
 
 router.rpc("hello") do():
-  result = %"Hello"
+  %"Hello"
 ```
 
-As no return type was specified in this example, `result` defaults to the `JsonNode` type.
-A JSON string is returned by passing a string though the `JrpcConv` converter powered by [nim-json-serialization](https://github.com/status-im/nim-json-serialization).
+As no return type was specified in this example, `result` defaults to the `JsonNode` type from `std/json`.
 
-The `body` parameters can be defined by using [do notation](https://nim-lang.org/docs/manual.html#procedures-do-notation).
-This allows full Nim types to be used as RPC parameters.
+The parameters can be defined by using [do notation](https://nim-lang.org/docs/manual.html#procedures-do-notation).
+This allows any Nim types to be used as RPC parameters.
 
-Here we pass a string to an RPC and return a string.
+Here's how to pass a `string` to an RPC and return a `string`.
 
 ```nim
+# Specify how strings are converted to JSON
+JrpcConv.automaticSerialization(string, true)
+
+# use `do` for the body of the function
 router.rpc("hello") do(input: string) -> string:
-  result = "Hello " & input
+  "Hello " & input
 ```
 
-Json-Rpc will recursively parse the Nim types in order to produce marshalling code.
+The strings are converted to JSON using the [JsonConv flavor](https://status-im.github.io/nim-json-serialization/reference.html#flavors) of [nim-json-serialization](https://github.com/status-im/nim-json-serialization) - for each type that is used in the API, a corresponding serialization declaration tells `json_rpc` how to convert it to JSON, either using the defaults or by overriding `readValue` and `writeValue`.
+
+`json_rpc` will recursively parse the Nim types in order to produce marshalling code.
 This marshalling code uses the types to check the incoming JSON fields to ensure they exist and are of the correct kind.
 
 The return type then performs the opposite process, converting Nim types to Json for transport.
@@ -279,20 +283,22 @@ echo localResult
 #   {"jsonrpc":"2.0","id":1,"result":"Hello Terry"}
 ```
 
+## Transports
+
+The following transports are available:
+
+* HTTP POST - unidirectional, one request/response pair per call
+* Sockets and pipes, via chronos' [StreamTransport](https://github.com/status-im/nim-chronos/blob/master/chronos/transports/stream.nim#L75) - bidirectional, persistent connection, custom message framing
+  * `Framing.httpHeader` - `Content-Length` prefix specifying the length of the payload, compatible with [vscode-jsonrpc](https://www.npmjs.com/package/vscode-jsonrpc)
+  * `Framing.lengthHeaderBE32` - Big-endian, 32-bit binary prefix - most efficient option
+  * `Framing.newLine` - "\r\n" suffix
+* Websockets - bidirectional, persistent connection
+
 # Server
 
 In order to make routing useful, RPCs must be invoked and transmitted over a transport.
 
 The `RpcServer` type is given as a simple inheritable wrapper/container that simplifies designing your own transport layers using the `router` field.
-
-## Server Transports
-
-Currently there are plans for the following transports to be implemented:
-
-* [x] Sockets
-* [x] HTTP
-* [ ] IPC
-* [x] Websockets
 
 Transport specific server need only call the `route` procedure using a string fetched from the transport in order to invoke the requested RPC.
 
@@ -307,6 +313,9 @@ import json_rpc/rpcserver
 # Create a socket server for transport
 var srv = newRpcSocketServer("localhost", Port(8585))
 
+# Specify how strings are converted to JSON
+JrpcConv.automaticSerialization(string, true)
+
 # srv.rpc is a shortcut for srv.router.rpc
 srv.rpc("hello") do(input: string) -> string:
   result = "Hello " & input
@@ -317,7 +326,7 @@ runForever()
 
 # Client
 
-Json-Rpc also comes with a client implementation, built to provide a framework for transports to work with.
+`json_rpc` also comes with a client implementation, built to provide a framework for transports to work with.
 
 To simplify demonstration, we will use the socket transport defined in `socketclient.nim`.
 
@@ -337,7 +346,7 @@ var
 server.start
 
 server.rpc("hello") do(input: string) -> string:
-  result = "Hello " & input
+  "Hello " & input
 
 waitFor client.connect("localhost", Port(8545))
 
@@ -349,7 +358,7 @@ echo response
 
 ### `createRpcSigs`
 
-To make things more readable and allow better static checking client side, Json-Rpc supports generating wrappers for client RPCs using `createRpcSigs`.
+To make things more readable and allow better static checking client side, `json_rpc` supports generating wrappers for client RPCs using `createRpcSigs`.
 
 This macro takes a type name and the path of a file containing forward declarations of procedures that you wish to convert to client RPCs. The transformation generates procedures that match the forward declarations provided, plus a `client` parameter in the specified type.
 

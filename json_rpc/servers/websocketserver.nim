@@ -67,7 +67,9 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
     transport: ws,
     remote: $request.uri,
     maxMessageSize: rpc.maxMessageSize,
-    router: proc(request: RequestBatchRx): Future[string] {.async: (raises: [], raw: true).} =
+    router: proc(
+        request: RequestBatchRx
+    ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
       rpc.router.route(request),
   )
   rpc.connections.incl(c)
