@@ -30,7 +30,7 @@ requires "nim >= 1.6.0",
          "unittest2"
 
 when (NimMajor, NimMinor, NimPatch) >= (2, 2, 4):
-  requires "https://github.com/status-im/nim-async-channels",
+  requires "https://github.com/status-im/nim-async-channels"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
