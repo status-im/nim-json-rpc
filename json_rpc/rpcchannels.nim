@@ -4,15 +4,11 @@
 
 {.push raises: [], gcsafe.}
 
-when (NimMajor, NimMinor) < (2, 2):
-  {.error: "RPC channels are only available with Nim 2.2+".}
+when (NimMajor, NimMinor, NimPatch) < (2, 2, 4):
+  {.error: "RPC channels are only available with Nim 2.2.4+".}
 
 import ./[client, errors, router, server], asyncchannels, ./private/jrpc_sys
 export client, errors, server
-
-# --------------------------------------------------------------------------- #
-# Types
-# --------------------------------------------------------------------------- #
 
 type
   RpcChannel* = object
@@ -36,10 +32,6 @@ type
 
   RpcChannelServer* = ref object of RpcServer
     client: RpcChannelClient
-
-# --------------------------------------------------------------------------- #
-# Public procedures
-# --------------------------------------------------------------------------- #
 
 proc open*(c: var RpcChannel): Result[RpcChannelPtrs, string] =
   ## Open the channel, returning a channel pair that can be passed to the
@@ -179,4 +171,3 @@ proc closeWait*(server: RpcChannelServer) {.async: (raises: []).} =
   ## Gracefully shut down the server.
   server.connections.excl server.client
   await server.client.close()
-

@@ -23,5 +23,5 @@ import
   test_client_hook,
   test_batch_call
 
-when (NimMajor, NimMinor) >= (2, 2):
+when (NimMajor, NimMinor, NimPatch) >= (2, 2, 4):
   import testrpcchannels
