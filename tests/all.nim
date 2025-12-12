@@ -21,5 +21,7 @@ import
   test_router_rpc,
   test_callsigs,
   test_client_hook,
-  test_batch_call,
-  testrpcchannels
+  test_batch_call
+
+when (NimMajor, NimMinor) >= (2, 2):
+  import testrpcchannels

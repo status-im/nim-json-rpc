@@ -4,6 +4,9 @@
 
 {.push raises: [], gcsafe.}
 
+when (NimMajor, NimMinor) < (2, 2):
+  {.error: "RPC channels are only available with Nim 2.2+".}
+
 import ./[client, errors, router, server], asyncchannels, ./private/jrpc_sys
 export client, errors, server
 
