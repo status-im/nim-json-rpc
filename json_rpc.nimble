@@ -41,7 +41,7 @@ let cfg =
   " --styleCheck:usages --styleCheck:error" &
   (if verbose: "" else: " --verbosity:0") &
   " --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
-  " --threads:on -d:chronicles_log_level=ERROR"
+  " --threads:on -d:chronicles_log_level=DEBUG"
 
 proc build(args, path: string) =
   exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path
