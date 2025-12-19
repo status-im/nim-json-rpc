@@ -10,7 +10,7 @@ jobs:
   build:
     uses: status-im/nimbus-common-workflow/.github/workflows/common.yml@main
     with:
-      nimble-version: 5f4d8dc925b00c69a38d39958638040f3904e707
+      nimble-version: 94179a0a46fcf2659dba34cf2384144dae65ec12
       test-command: |
         nimble setup -l
         nimble test
