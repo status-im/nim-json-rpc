@@ -123,11 +123,13 @@ proc processMessage*(
       JrpcSys.decode(line, RequestBatchRx)
     except IncompleteObjectError:
       if client.pendingRequests.len() == 0:
+        template shortLine: string =
+          if line.len > 64:
+            string.fromBytes(line.toOpenArray(0, 64)) & "..."
+          else:
+            string.fromBytes(line)
         debug "Received message even though there's nothing queued, dropping",
-          id = (
-            block:
-              JrpcSys.decode(line, ReqRespHeader).id
-          )
+          msg = shortLine()
         return default(seq[byte])
 
       let fut = client.pendingRequests.popFirst()
