@@ -20,28 +20,31 @@ from os import getCurrentDir, DirSep, AltSep
 from strutils import rsplit
 template sourceDir: string = currentSourcePath.rsplit({DirSep, AltSep}, 1)[0]
 
-var
-  server = newRpcSocketServer("127.0.0.1", Port(0))
-  client = newRpcSocketClient()
+proc makeServer(): RpcSocketServer =
+  let server = newRpcSocketServer("127.0.0.1", Port(0))
 
-## Generate Ethereum server RPCs
-server.addEthRpcs()
+  ## Generate Ethereum server RPCs
+  server.addEthRpcs()
+
+  func rpcDynamicName(name: string): string =
+    "rpc." & name
+
+  ## Create custom RPC with StUint input parameter
+  server.rpc(rpcDynamicName "uint256Param") do(i: UInt256):
+    let r = i + 1.stuint(256)
+    return %r
+
+  ## Create custom RPC with StUInt return parameter
+  server.rpc(rpcDynamicName "testReturnUint256") do() -> UInt256:
+    let r: UInt256 = "0x1234567890abcdef".parse(UInt256, 16)
+    return r
+
+  server.start()
+
+  server
 
 ## Generate client convenience marshalling wrappers from forward declarations
 createRpcSigs(RpcClient, sourceDir & "/private/ethcallsigs.nim")
-
-func rpcDynamicName(name: string): string =
-  "rpc." & name
-
-## Create custom RPC with StUint input parameter
-server.rpc(rpcDynamicName "uint256Param") do(i: UInt256):
-  let r = i + 1.stuint(256)
-  return %r
-
-## Create custom RPC with StUInt return parameter
-server.rpc(rpcDynamicName "testReturnUint256") do() -> UInt256:
-  let r: UInt256 = "0x1234567890abcdef".parse(UInt256, 16)
-  return r
 
 proc testLocalCalls(server: RpcServer): Future[seq[JsonString]] {.async.} =
   ## Call RPCs created with `rpc` locally.
@@ -80,30 +83,52 @@ proc testSigCalls(client: RpcClient): Future[seq[string]] {.async.} =
   pending.add sha3.read()
   return pending
 
-server.start()
-waitFor client.connect(server.localAddress()[0])
-
-
 suite "Local calls":
-  let localResults = testLocalCalls(server).waitFor
+  setup:
+    let server = makeServer()
+    let localResults = testLocalCalls(server).waitFor
+  teardown:
+    server.stop()
+    waitFor server.closeWait()
+
   test "UInt256 param local":
     check localResults[0] == %"0x1234567891"
   test "Return UInt256 local":
     check localResults[1] == %"0x1234567890abcdef"
 
 suite "Remote calls":
-  let remoteResults = testRemoteUInt256(client).waitFor
+  setup:
+    let
+      server = makeServer()
+      client = newRpcSocketClient()
+
+    waitFor client.connect(server.localAddress()[0])
+
+    let remoteResults = testRemoteUInt256(client).waitFor
+  teardown:
+    waitFor client.close()
+    server.stop()
+    waitFor server.closeWait()
+
   test "UInt256 param":
     check remoteResults[0] == %"0x1234567891"
   test "Return UInt256":
     check remoteResults[1] == %"0x1234567890abcdef"
 
 suite "Generated from signatures":
-  let sigResults = testSigCalls(client).waitFor
+  setup:
+    let
+      server = makeServer()
+      client = newRpcSocketClient()
+
+    waitFor client.connect(server.localAddress()[0])
+
+    let sigResults = testSigCalls(client).waitFor
+  teardown:
+    waitFor client.close()
+    server.stop()
+    waitFor server.closeWait()
   test "Version":
     check sigResults[0] == "Nimbus-RPC-Test"
   test "SHA3":
     check sigResults[1] == "0x47173285A8D7341E5E972FC677286384F802F8EF42A5EC5F03BBFA254CB01FAD"
-
-server.stop()
-waitFor server.closeWait()
