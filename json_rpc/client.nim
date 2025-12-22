@@ -139,8 +139,9 @@ proc processMessage*(
       if fut.finished(): # probably cancelled
         debug "Future already finished, dropping", state = fut.state()
         return default(seq[byte])
-
+      debugEcho "complete"
       fut.complete(line)
+      debugEcho "ret after complete"
 
       return default(seq[byte])
     except SerializationError as exc:
@@ -149,7 +150,9 @@ proc processMessage*(
 
   if client.router != nil:
     debugEcho "routing"
-    await client.router(request)
+    let res = await client.router(request)
+    debugEcho "routed"
+    res
   else:
     debugEcho "no router"
     default(seq[byte])
