@@ -118,19 +118,19 @@ proc callOnProcessMessage*(
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
 ): Future[seq[byte]] {.async: (raises: []).} =
-  debugEcho "processMessage: ", line
   let request =
     try:
       JrpcSys.decode(line, RequestBatchRx)
     except IncompleteObjectError:
       if client.pendingRequests.len() == 0:
+        template shortLine: string =
+          if line.len > 64:
+            string.fromBytes(line.toOpenArray(0, 64)) & "..."
+          else:
+            string.fromBytes(line)
         debug "Received message even though there's nothing queued, dropping",
-          id = (
-            block:
-              JrpcSys.decode(line, ReqRespHeader).id
-          )
+          msg = shortLine()
         return default(seq[byte])
-      debugEcho "finishing pending"
 
       let fut = client.pendingRequests.popFirst()
 
@@ -139,22 +139,16 @@ proc processMessage*(
       if fut.finished(): # probably cancelled
         debug "Future already finished, dropping", state = fut.state()
         return default(seq[byte])
-      debugEcho "complete"
+
       fut.complete(line)
-      debugEcho "ret after complete"
 
       return default(seq[byte])
     except SerializationError as exc:
-      debugEcho "nope"
       return wrapError(router.INVALID_REQUEST, exc.msg)
 
   if client.router != nil:
-    debugEcho "routing"
-    let res = await client.router(request)
-    debugEcho "routed"
-    res
+    await client.router(request)
   else:
-    debugEcho "no router"
     default(seq[byte])
 
 proc clearPending*(client: RpcClient, exc: ref JsonRpcError) =
