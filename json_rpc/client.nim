@@ -118,6 +118,7 @@ proc callOnProcessMessage*(
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
 ): Future[seq[byte]] {.async: (raises: []).} =
+  debugEcho "processMessage: ", line
   let request =
     try:
       JrpcSys.decode(line, RequestBatchRx)
@@ -129,6 +130,7 @@ proc processMessage*(
               JrpcSys.decode(line, ReqRespHeader).id
           )
         return default(seq[byte])
+      debugEcho "finishing pending"
 
       let fut = client.pendingRequests.popFirst()
 
@@ -142,11 +144,14 @@ proc processMessage*(
 
       return default(seq[byte])
     except SerializationError as exc:
+      debugEcho "nope"
       return wrapError(router.INVALID_REQUEST, exc.msg)
 
   if client.router != nil:
+    debugEcho "routing"
     await client.router(request)
   else:
+    debugEcho "no router"
     default(seq[byte])
 
 proc clearPending*(client: RpcClient, exc: ref JsonRpcError) =
