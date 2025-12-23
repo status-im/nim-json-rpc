@@ -19,12 +19,18 @@ import
 
 export client, errors
 
-type
-  RpcWebSocketClient* = ref object of RpcConnection
-    transport*: WSSession
-    uri*: Uri
-    loop*: Future[void]
-    getHeaders*: GetJsonRpcRequestHeaders
+type RpcWebSocketClient* = ref object of RpcConnection
+  transport: WSSession
+  loop: Future[void]
+  getHeaders*: GetJsonRpcRequestHeaders
+
+proc new*(
+    T: type RpcWebSocketClient,
+    getHeaders: GetJsonRpcRequestHeaders = nil,
+    maxMessageSize = defaultMaxMessageSize,
+    router = default(RpcRouterCallback),
+): T =
+  T(getHeaders: getHeaders, maxMessageSize: maxMessageSize, router: router)
 
 proc new*(
     T: type RpcWebSocketClient,
@@ -34,12 +40,14 @@ proc new*(
 ): T =
   let router =
     if router != nil:
-      proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: [], raw: true).} =
+      proc(
+          request: RequestBatchRx
+      ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
         router[].route(request)
     else:
       nil
 
-  T(getHeaders: getHeaders, maxMessageSize: maxMessageSize, router: router)
+  T.new(getHeaders, maxMessageSize, router)
 
 proc newRpcWebSocketClient*(
     getHeaders: GetJsonRpcRequestHeaders = nil,
@@ -89,7 +97,7 @@ method request*(
 
     await fut
 
-proc processMessages*(client: RpcWebSocketClient) {.async: (raises: []).} =
+proc processMessages(client: RpcWebSocketClient) {.async: (raises: []).} =
   # Provide backwards compat with consumers that don't set a max message size
   # for example by constructing RpcWebSocketHandler without going through init
   let maxMessageSize =
@@ -118,22 +126,23 @@ proc processMessages*(client: RpcWebSocketClient) {.async: (raises: []).} =
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
 
+  # Prevent new requests
+  let transport = move(client.transport)
   client.clearPending(lastError)
 
   try:
-    await noCancel client.transport.close()
-    client.transport = nil
+    await noCancel transport.close()
   except CatchableError as exc:
     # TODO https://github.com/status-im/nim-websock/pull/178
     raiseAssert exc.msg
 
   if not client.onDisconnect.isNil:
     client.onDisconnect()
+    client.onDisconnect = nil
 
 proc addExtraHeaders(
-    headers: var HttpTable,
-    client: RpcWebSocketClient,
-    extraHeaders: HttpTable) =
+    headers: var HttpTable, client: RpcWebSocketClient, extraHeaders: HttpTable
+) =
   # Apply client instance overrides
   if client.getHeaders != nil:
     for header in client.getHeaders():
@@ -146,35 +155,48 @@ proc addExtraHeaders(
   # Apply default origin
   discard headers.hasKeyOrPut("Origin", "http://localhost")
 
+proc attach*(
+    client: RpcWebSocketClient, session: WSSession, remote: string
+) {.async: (raises: [], raw: true).} =
+  client.transport = session
+  client.remote = remote
+  processMessages(client)
+
 proc connect*(
     client: RpcWebSocketClient,
     uri: string,
     extraHeaders: HttpTable = default(HttpTable),
     compression = false,
     hooks: seq[Hook] = @[],
-    flags: set[TLSFlags] = {}) {.async: (raises: [CancelledError, JsonRpcError]).} =
+    flags: set[TLSFlags] = {},
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
   proc headersHook(ctx: Hook, headers: var HttpTable): Result[void, string] =
     headers.addExtraHeaders(client, extraHeaders)
     ok()
-  var ext: seq[ExtFactory] = if compression: @[deflateFactory()]
-                              else: @[]
+
+  var ext: seq[ExtFactory] =
+    if compression:
+      @[deflateFactory()]
+    else:
+      @[]
   let uri = parseUri(uri)
-  let ws = try:
-    await WebSocket.connect(
-      uri=uri,
-      factories=ext,
-      hooks=hooks & Hook(append: headersHook),
-      flags=flags)
-  except CancelledError as exc:
-    raise exc
-  except CatchableError as exc:
-    # TODO https://github.com/status-im/nim-websock/pull/178
-    raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+  let ws =
+    try:
+      await WebSocket.connect(
+        uri = uri,
+        factories = ext,
+        hooks = hooks & Hook(append: headersHook),
+        flags = flags,
+      )
+    except CancelledError as exc:
+      raise exc
+    except CatchableError as exc:
+      # TODO https://github.com/status-im/nim-websock/pull/178
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
 
-  client.transport = ws
-  client.uri = uri
-  client.remote = uri.hostname & ":" & uri.port
-  client.loop = processMessages(client)
+  client.loop = client.attach(ws, uri.hostname & ":" & uri.port)
 
-method close*(client: RpcWebSocketClient) {.async: (raises: [], raw: true).} =
-  client.loop.cancelAndWait()
+method close*(client: RpcWebSocketClient) {.async: (raises: []).} =
+  if client.loop != nil:
+    let loop = move(client.loop)
+    await loop.cancelAndWait()

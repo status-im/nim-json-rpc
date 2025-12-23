@@ -37,22 +37,20 @@ proc processClient(
 
   let
     rpc = getUserData[RpcSocketServer](server)
+    router = rpc.router
     remote = transport.remoteAddress2().valueOr(default(TransportAddress))
-    c = RpcSocketClient(
-      transport: transport,
-      address: remote,
-      remote: $remote,
-      maxMessageSize: rpc.maxMessageSize,
-      framing: rpc.framing,
-      router: proc(
+    c = RpcSocketClient.new(
+      maxMessageSize = rpc.maxMessageSize,
+      framing = rpc.framing,
+      router = proc(
           request: RequestBatchRx
       ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
-        rpc.router.route(request),
+        router.route(request),
     )
 
   rpc.connections.incl(c)
 
-  await c.processMessages()
+  await c.attach(transport, $remote)
 
   rpc.connections.excl(c)
 
