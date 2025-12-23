@@ -45,9 +45,9 @@ func setupConversion(reqParams, params: NimNode): NimNode =
   result.add quote do:
     var `reqParams` = RequestParamsTx(kind: rpPositional)
 
-  for parName, parType in paramsIter(params):
+  for parIdent, _, parType in paramsIter(params):
     result.add quote do:
-      `reqParams`.positional.add encode(JrpcConv, `parName`).JsonString
+      `reqParams`.positional.add encode(JrpcConv, `parIdent`).JsonString
 
 template maybeUnwrapClientResult*(client, meth, reqParams, returnType): auto =
   ## Don't decode e.g. JsonString, return as is
