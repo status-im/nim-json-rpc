@@ -11,7 +11,8 @@ import
   unittest2,
   ../json_rpc/router,
   json_serialization/std/options,
-  json_serialization/pkg/results
+  json_serialization/pkg/results,
+  ./private/helpers
 
 var server = RpcRouter()
 
@@ -61,6 +62,9 @@ server.rpc("comboParams") do(a, b, c: int) -> int:
 
 server.rpc("returnJsonString") do(a, b, c: int) -> JsonString:
   return JsonString($(a+b+c))
+
+server.rpc("serializedFN") do(a{.serializedFieldName: "result".}: int) -> int:
+  return a
 
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
@@ -144,3 +148,8 @@ suite "rpc router":
     let n = req("returnJsonString", "[6,7,8]")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":21,"id":0}"""
+
+  test "Custom parameter field name":
+    let n = req("serializedFN", """{"result": 3}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":3,"id":0}"""

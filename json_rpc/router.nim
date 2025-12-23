@@ -17,7 +17,7 @@ import
   ./private/[jrpc_sys, server_handler_wrapper],
   ./[errors, jsonmarshal]
 
-export chronos, jsonmarshal, json
+export chronos, jsonmarshal, json, jrpc_sys
 
 logScope:
   topics = "jsonrpc router"

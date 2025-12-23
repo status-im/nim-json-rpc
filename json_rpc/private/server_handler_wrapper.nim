@@ -188,12 +188,11 @@ func makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
     pragmas = pragmas
   )
 
-func ofStmt(x, paramsObj, paramName, paramType: NimNode): NimNode =
-  let caseStr = $paramName
-  result = nnkOfBranch.newTree(
-    quote do: `caseStr`,
+func ofStmt(x, paramsObj, paramIdent, paramName, paramType: NimNode): NimNode =
+  nnkOfBranch.newTree(
+    paramName,
     quote do:
-      `paramsObj`.`paramName` = unpackArg(`x`.value, `caseStr`, `paramType`)
+      `paramsObj`.`paramIdent` = unpackArg(`x`.value, `paramName`, `paramType`)
   )
 
 func setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
@@ -203,8 +202,8 @@ func setupNamed(paramsObj, paramsIdent, params: NimNode): NimNode =
     quote do: `x`.name
   )
 
-  for paramName, paramType in paramsIter(params):
-    caseStmt.add ofStmt(x, paramsObj, paramName, paramType)
+  for paramIdent, paramStr, paramType in paramsIter(params):
+    caseStmt.add ofStmt(x, paramsObj, paramIdent, paramStr, paramType)
 
   caseStmt.add nnkElse.newTree(
     quote do: discard
@@ -280,12 +279,12 @@ func wrapServerHandler*(methName: string, params, procBody, procWrapper: NimNode
     positional = newStmtList()
     executeParams: seq[NimNode]
 
-  for paramIdent, paramType in paramsIter(params):
+  for paramIdent, paramStr, paramType in paramsIter(params):
     let paramName = $paramIdent
     positional.add quote do:
       unpackPositional(`paramsIdent`,
                        `paramsObj`.`paramIdent`,
-                       `paramName`,
+                       `paramStr`,
                        `pos`,
                        `rpcSetup`,
                        `paramType`)
