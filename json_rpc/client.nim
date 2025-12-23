@@ -61,9 +61,10 @@ type
       # Client identifier, for logging
     maxMessageSize*: int
 
+  RpcRouterCallback* =
+    proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: []).}
   RpcConnection* = ref object of RpcClient
-    router*:
-      proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: []).}
+    router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
