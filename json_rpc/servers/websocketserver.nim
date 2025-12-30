@@ -63,18 +63,18 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
     return
 
   trace "Websocket handshake completed"
-  let c = RpcWebSocketClient(
-    transport: ws,
-    remote: $request.uri,
-    maxMessageSize: rpc.maxMessageSize,
-    router: proc(
-        request: RequestBatchRx
-    ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
-      rpc.router.route(request),
-  )
+  let
+    router = rpc.router
+    c = RpcWebSocketClient.new(
+      maxMessageSize = rpc.maxMessageSize,
+      router = proc(
+          request: RequestBatchRx
+      ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
+        router.route(request),
+    )
   rpc.connections.incl(c)
 
-  await c.processMessages()
+  await c.attach(ws, $request.uri)
 
   rpc.connections.excl(c)
 

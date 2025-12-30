@@ -27,7 +27,6 @@ type
     ## StreamTransport-based bidirectional connection with pluggable framing
     ## options for delineating messages.
     transport*: StreamTransport
-    address*: TransportAddress
     loop*: Future[void]
     framing*: Framing
 
@@ -158,6 +157,14 @@ proc lengthHeaderBE32*(T: type Framing): T =
 proc new*(
     T: type RpcSocketClient,
     maxMessageSize = defaultMaxMessageSize,
+    router = default(RpcRouterCallback),
+    framing = Framing.newLine(),
+): T =
+  T(maxMessageSize: maxMessageSize, router: router, framing: framing)
+
+proc new*(
+    T: type RpcSocketClient,
+    maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
     framing = Framing.newLine(),
 ): T =
@@ -169,8 +176,7 @@ proc new*(
         router[].route(request)
     else:
       nil
-
-  T(maxMessageSize: maxMessageSize, router: router, framing: framing)
+  T.new(maxMessageSize, router, framing)
 
 proc newRpcSocketClient*(
     maxMessageSize = defaultMaxMessageSize,
@@ -215,7 +221,7 @@ method request(
 
     await fut
 
-proc processMessages*(client: RpcSocketClient) {.async: (raises: []).} =
+proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
   # Provide backwards compat with consumers that don't set a max message size
   # for example by constructing RpcWebSocketHandler without going through init
   let maxMessageSize =
@@ -246,25 +252,33 @@ proc processMessages*(client: RpcSocketClient) {.async: (raises: []).} =
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
 
+  # Prevent new requests
+  let transport = move(client.transport)
   client.clearPending(lastError)
 
-  await client.transport.closeWait()
-  client.transport = nil
+  await transport.closeWait()
+
   if not client.onDisconnect.isNil:
     client.onDisconnect()
+
+proc attach*(
+    client: RpcSocketClient, transport: StreamTransport, remote: string
+) {.async: (raises: [], raw: true).} =
+  client.transport = transport
+  client.remote = remote
+
+  processMessages(client)
 
 proc connect*(
     client: RpcSocketClient, address: TransportAddress
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
-  client.transport =
+  let transport =
     try:
       await connect(address)
     except TransportError as exc:
       raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
 
-  client.address = address
-  client.remote = $client.address
-  client.loop = processMessages(client)
+  client.loop = client.attach(transport, $address)
 
 proc connect*(
     client: RpcSocketClient, address: string, port: Port
@@ -277,5 +291,7 @@ proc connect*(
 
   await client.connect(addresses[0])
 
-method close*(client: RpcSocketClient) {.async: (raises: [], raw: true).} =
-  client.loop.cancelAndWait()
+method close*(client: RpcSocketClient) {.async: (raises: []).} =
+  if client.loop != nil:
+    let loop = move(client.loop)
+    await loop.cancelAndWait()
