@@ -17,7 +17,7 @@ license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 ### Dependencies
-requires "nim >= 1.6.0",
+requires "nim >= 2.0.14",
          "stew",
          "nimcrypto",
          "stint",
@@ -27,7 +27,8 @@ requires "nim >= 1.6.0",
          "websock >= 0.2.1 & < 0.3.0",
          "serialization >= 0.4.4",
          "json_serialization >= 0.4.2",
-         "unittest2"
+         "unittest2",
+         "asyncchannels"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)

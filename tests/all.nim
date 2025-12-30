@@ -7,7 +7,7 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-{. warning[UnusedImport]:off .}
+{.warning[UnusedImport]:off .}
 
 import
   test_async_calls,
@@ -20,5 +20,6 @@ import
   testhttp,
   testhttps,
   testproxy,
+  testrpcchannels,
   testrpcmacro,
   testserverclient
