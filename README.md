@@ -50,10 +50,9 @@ router.rpc("hello") do():
 
 As no return type was specified in this example, `result` defaults to the `JsonNode` type from `std/json`.
 
-The parameters can be defined by using [do notation](https://nim-lang.org/docs/manual.html#procedures-do-notation).
-This allows any Nim types to be used as RPC parameters.
+Parameters are defined with the [do notation](https://nim-lang.org/docs/manual.html#procedures-do-notation), allowing any Nim types to be used.
 
-Here's how to pass a `string` to an RPC and return a `string`.
+Here's how to pass a `string` to an RPC and return a `string`:
 
 ```nim
 # Specify how strings are converted to JSON
@@ -64,7 +63,7 @@ router.rpc("hello") do(input: string) -> string:
   "Hello " & input
 ```
 
-The strings are converted to JSON using the [JsonConv flavor](https://status-im.github.io/nim-json-serialization/reference.html#flavors) of [nim-json-serialization](https://github.com/status-im/nim-json-serialization) - for each type that is used in the API, a corresponding serialization declaration tells `json_rpc` how to convert it to JSON, either using the defaults or by overriding `readValue` and `writeValue`.
+The conversion to and from JSON is done using the [JsonConv flavor](https://status-im.github.io/nim-json-serialization/reference.html#flavors) of [nim-json-serialization](https://github.com/status-im/nim-json-serialization). For each type used in the API, a serialization declaration tells `json_rpc` how to convert it to JSON, either using defaults or by overriding `readValue` and `writeValue`.
 
 `json_rpc` will recursively parse the Nim types in order to produce marshalling code.
 This marshalling code uses the types to check the incoming JSON fields to ensure they exist and are of the correct kind.
@@ -97,15 +96,17 @@ Header.useDefaultSerializationIn JrpcConv
 DataBlob.useDefaultSerializationIn JrpcConv
 MyObject.useDefaultSerializationIn JrpcConv
 
-router.rpc("updateData") do(myObj: MyObject, newData: DataBlob) -> DataBlob:
+router.rpc("updateData") do(myObj: MyObject, newData {.serializedFieldName: "new".}: DataBlob) -> DataBlob:
   if myObj.name == "old":
-    result = myObj.data
+    myObj.data
   else:
-    result = newData
+    newData
 ```
 
 Behind the scenes, all RPC calls take parameters through `RequestParamsRx` structure.
 At runtime, the json is checked to ensure that it contains the correct number and type of your parameters to match the `rpc` definition.
+
+When [named parameters](https://www.jsonrpc.org/specification#parameter_structures) are used, [`serializedFieldName`](https://github.com/status-im/nim-serialization?tab=readme-ov-file#custom-serialization-of-user-defined-types) can be used to customize the name.
 
 Compiling with `-d:nimDumpRpcs` will show the output code for the RPC call. To see the output of the `async` generation, add `-d:nimDumpAsync`.
 
@@ -190,25 +191,24 @@ The router expects either a Json document with the following structure:
 
 ```json
 {
-  "id": Int or String,
   "jsonrpc": "2.0",
   "method": String,
-  "params": Array or Object
+  "params": Array or Object,
+  "id": Int or String
 }
 
 ```
 
 If params is an Array, it is a positional parameters. If it is an Object then the rpc method will be called using named parameters.
 
-
 Return values use the following node structure:
 
 ```json
 {
-  "id": Int Or String,
   "jsonrpc": "2.0",
   "result": Json document,
-  "error": Json document
+  "error": Json document,
+  "id": Int Or String
 }
 ```
 
@@ -270,17 +270,17 @@ Here's an example of how that looks by manually creating the JSON. Later we will
 
 ```nim
 let call = %*{
-  "id": %1,
   "jsonrpc": %"2.0",
   "method": %"hello",
-  "params": %["Terry"]
+  "params": %["Terry"],
+  "id": %1
   }
 # route the call we defined earlier
 let localResult = waitFor router.route(call)
 
 echo localResult
 # We should see something like this
-#   {"jsonrpc":"2.0","id":1,"result":"Hello Terry"}
+#   {"jsonrpc":"2.0","result":"Hello Terry","id":1}
 ```
 
 ## Transports

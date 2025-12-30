@@ -14,13 +14,27 @@ import
   ./jrpc_sys,
   ../jsonmarshal
 
-iterator paramsIter*(params: NimNode): tuple[name, ntype: NimNode] =
+iterator paramsIter*(params: NimNode): tuple[ident, str, ntype: NimNode] =
   ## Forward iterator of handler parameters
   for i in 1 ..< params.len:
     let arg = params[i]
     let argType = arg[^2]
     for j in 0 ..< arg.len-2:
-      yield (arg[j], argType)
+      let
+        paramIdent = arg[j].basename
+        paramStr =
+          if arg[j].kind == nnkPragmaExpr:
+            var paramStr: NimNode
+            for e in arg[j][1]:
+              if e[0].eqIdent("serializedFieldName"):
+                paramStr = e[1]
+                break
+            if paramStr == nil:
+              paramStr = newLit($paramIdent)
+            paramStr
+          else:
+            newLit($paramIdent)
+      yield (paramIdent, paramStr, argType)
 
 func ensureReturnType*(params: NimNode): NimNode =
   let retType = ident"JsonNode"
