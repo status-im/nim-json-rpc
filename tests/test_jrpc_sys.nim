@@ -162,42 +162,6 @@ suite "jrpc_sys serialization":
           rx.kind == rbkMany
           rx.many.len == tx.many.len
 
-  test "batch responses: single and many encodings":
-    const cases = [
-      (
-        """{"jsonrpc":"2.0","result":null,"id":null}""",
-        ResponseBatchRx(
-          kind: rbkSingle,
-          single: ResponseRx2(kind: rkResult, result: JsonString("null")),
-        ),
-      ),
-      (
-        """[{"jsonrpc":"2.0","result":null,"id":null},{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"},"id":null}]""",
-        ResponseBatchRx(
-          kind: rbkMany,
-          many:
-            @[
-              ResponseRx2(kind: rkResult, result: JsonString("null")),
-              ResponseRx2(
-                kind: rkError,
-                error: ResponseError(code: -32601, message: "Method not found"),
-              ),
-            ],
-        ),
-      ),
-    ]
-    for (expected, tx) in cases:
-      let rx = JrpcSys.decode(expected, ResponseBatchRx)
-      checkpoint(expected)
-      checkpoint($rx)
-      if tx.kind == rbkSingle:
-        check:
-          rx.kind == rbkSingle
-      else:
-        check:
-          rx.kind == rbkMany
-          rx.many.len == tx.many.len
-
   test "malformed JSON and top-level incorrect types are rejected":
     expect UnexpectedValueError:
       discard JrpcSys.decode("{ this is not valid json }", RequestRx2)
@@ -209,8 +173,6 @@ suite "jrpc_sys serialization":
   test "invalid constructs: empty batch and mixed-type batch entries rejected":
     expect UnexpectedValueError:
       discard JrpcSys.decode("[]", RequestBatchRx)
-    expect UnexpectedValueError:
-      discard JrpcSys.decode("[]", ResponseBatchRx)
 
     let mixed =
       """[{"jsonrpc":"2.0","method":"foo","params":[]},42,{"jsonrpc":"2.0","method":"notify_no_id","params":["a"]}]"""

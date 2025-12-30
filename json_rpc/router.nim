@@ -44,38 +44,34 @@ const
 # Private helpers
 # ------------------------------------------------------------------------------
 
-func methodNotFound(msg: sink string): ResponseError =
-  ResponseError(code: METHOD_NOT_FOUND, message: msg)
-
-func serverError(msg: sink string, data: sink JsonString): ResponseError =
-  ResponseError(code: SERVER_ERROR, message: msg, data: Opt.some(data))
-
-func applicationError(
-    code: int, msg: sink string, data: sink Opt[JsonString]
-): ResponseError =
-  ResponseError(code: code, message: msg, data: data)
-
-proc respResult(req: RequestRx2, res: sink JsonString): ResponseTx =
+func respResult(req: RequestRx2, res: sink JsonString): ResponseTx =
   if req.id.isSome():
-    ResponseTx(
-      kind: rkResult,
-      result: res,
-      id: req.id.expect("just checked"),
-    )
+    ResponseTx(kind: rkResult, result: res, id: req.id.expect("just checked"))
   else:
     default(ResponseTx)
 
-proc respError*(req: RequestRx2, error: sink ResponseError): ResponseTx =
+func respError(
+    req: RequestRx2,
+    code: int,
+    msg: sink string,
+    data: sink Opt[JsonString] = Opt.none(JsonString),
+): ResponseTx =
   if req.id.isSome():
     ResponseTx(
       kind: rkError,
-      error: error,
+      error: ResponseError(code: code, message: msg, data: data),
       id: req.id.expect("just checked"),
     )
   else:
     default(ResponseTx)
 
-proc lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
+func methodNotFound(req: RequestRx2): ResponseTx =
+  req.respError(METHOD_NOT_FOUND, "'" & req.meth & "' is not a registered RPC method")
+
+func serverError(req: RequestRx2, data: sink JsonString): ResponseTx =
+  req.respError(SERVER_ERROR, "`" & req.meth & "` raised an exception", Opt.some(data))
+
+func lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
   let rpcProc = router.procs.getOrDefault(req.meth)
 
   if rpcProc.isNil:
@@ -83,7 +79,7 @@ proc lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
   else:
     ok(rpcProc)
 
-proc wrapError*(code: int, msg: string): seq[byte] =
+func wrapError*(code: int, msg: string): seq[byte] =
   JrpcSys.withWriter(writer):
     writer.writeValue(
       ResponseTx(kind: rkError, error: ResponseError(code: code, message: msg))
@@ -108,8 +104,7 @@ proc route*(router: RpcRouter, req: RequestRx2):
              Future[ResponseTx] {.async: (raises: []).} =
   let rpcProc = router.lookup(req).valueOr:
     debug "Request for non-registered method", id = req.id, methodName = req.meth
-    return
-      req.respError(methodNotFound("'" & req.meth & "' is not a registered RPC method"))
+    return req.methodNotFound()
 
   try:
     debug "Processing JSON-RPC request", id = req.id, methodName = req.meth
@@ -118,23 +113,18 @@ proc route*(router: RpcRouter, req: RequestRx2):
     req.respResult(res)
   except ApplicationError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg, code = err.code
-    req.respError(applicationError(err.code, err.msg, err.data))
+    req.respError(err.code, err.msg, err.data)
   except CatchableError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg
 
-    # Note: Errors that are not specifically raised as `ApplicationError`s will
-    # be returned as custom server errors.
-    req.respError(
-      serverError(
-        "`" & req.meth & "` raised an exception", escapeJson(err.msg).JsonString
-      )
-    )
+    # Errors that are not specifically raised as `ApplicationError`s will be
+    # returned as custom server errors.
+    req.serverError(escapeJson(err.msg).JsonString)
 
-proc route*(router: RpcRouter, request: RequestBatchRx):
-       Future[seq[byte]] {.async: (raises: []).} =
-  ## Route to RPC from string data. Data is expected to be able to be
-  ## converted to Json.
-  ## Returns string of Json from RPC result/error node
+proc route*(
+    router: RpcRouter, request: RequestBatchRx
+): Future[seq[byte]] {.async: (raises: []).} =
+  ## Routes the request(s) requests and encodes the responses encoded as JSON
 
   case request.kind
   of rbkSingle:
@@ -146,30 +136,30 @@ proc route*(router: RpcRouter, request: RequestBatchRx):
       default(seq[byte])
   of rbkMany:
     # check raising type to ensure `value` below is safe to use
-    let resFut: seq[Future[ResponseTx].Raising([])] =
+    var responses: seq[Future[ResponseTx].Raising([])] =
       request.many.mapIt(router.route(it))
 
-    await noCancel(allFutures(resFut))
+    await noCancel(allFutures(responses))
 
-    var resps = newSeqOfCap[ResponseTx](resFut.len)
-    for i, fut in resFut:
-      if request.many[i].id.isSome():
-        resps.add fut.value()
-
-    if resps.len > 0:
+    # If all requests are notifications, we should not make a response
+    if request.many.anyIt(it.id.isSome()):
       JrpcSys.withWriter(writer):
         writer.writeArray:
-          for f in resFut:
-            writer.writeValue(f.value())
+          for i, fut in responses.mpairs():
+            if request.many[i].id.isSome():
+              writer.writeValue(responses[i].value())
+            reset(fut) # Release memory eagerly in case response is big
     else:
       default(seq[byte])
 
 proc route*(
     router: RpcRouter, data: string | seq[byte]
 ): Future[string] {.async: (raises: []).} =
-  ## Route to RPC from string data. Data is expected to be able to be
-  ## converted to Json.
-  ## Returns string of Json from RPC result/error node
+  ## Route to RPC from string data.
+  ##
+  ## `data` must be a valid JSON-RPC request or batch request.
+  ##
+  ## Returns the JSON-encoded response.
   let request =
     try:
       JrpcSys.decode(data, RequestBatchRx)

@@ -10,7 +10,8 @@
 import
   unittest2,
   ../json_rpc/rpcclient,
-  ../json_rpc/rpcserver
+  ../json_rpc/rpcserver,
+  ./private/helpers
 
 createRpcSigsFromNim(RpcClient):
   proc get_banana(id: int): bool
@@ -19,6 +20,7 @@ createRpcSigsFromNim(RpcClient):
 
 proc setupServer(server: RpcServer) =
   server.rpc("get_banana") do(id: int) -> bool:
+    await sleepAsync(10.milliseconds)
     return id == 13
 
   server.rpc("get_apple") do(id: string) -> string:

@@ -10,7 +10,8 @@
 import
   unittest2,
   ../json_rpc/rpcclient,
-  ../json_rpc/rpcserver
+  ../json_rpc/rpcserver,
+  ./private/helpers
 
 from os import getCurrentDir, DirSep, AltSep
 from strutils import rsplit

@@ -86,8 +86,7 @@ method request*(
       await transport.send(reqData, Opcode.Binary)
     except CatchableError as exc:
       # If there's an error sending, the "next messages" facility will be
-      # broken since we don't know if the server observed the message or not -
-      # the same goes for cancellation during write
+      # broken since we don't know if the server observed the message or not
       try:
         await noCancel transport.close()
       except CatchableError as exc:
@@ -138,7 +137,6 @@ proc processMessages(client: RpcWebSocketClient) {.async: (raises: []).} =
 
   if not client.onDisconnect.isNil:
     client.onDisconnect()
-    client.onDisconnect = nil
 
 proc addExtraHeaders(
     headers: var HttpTable, client: RpcWebSocketClient, extraHeaders: HttpTable
@@ -160,6 +158,7 @@ proc attach*(
 ) {.async: (raises: [], raw: true).} =
   client.transport = session
   client.remote = remote
+
   processMessages(client)
 
 proc connect*(

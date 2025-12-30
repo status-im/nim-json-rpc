@@ -18,7 +18,7 @@ when (NimMajor, NimMinor, NimPatch) < (2, 2, 6):
     discard Future[string]().value()
 
 import
-  std/[deques, hashes, json, tables, macros],
+  std/[deques, hashes, json, macros, tables],
   chronos,
   chronicles,
   stew/byteutils,
@@ -29,7 +29,7 @@ import
 from strutils import replace
 
 export
-  chronos, deques, tables, jsonmarshal, RequestParamsTx, ResponseBatchRx, RequestIdKind,
+  chronos, deques, tables, jsonmarshal, RequestParamsTx, RequestIdKind,
   RequestId, RequestTx, RequestParamKind, results
 
 logScope:
@@ -50,29 +50,30 @@ type
     error*: Opt[string]
     result*: JsonString
 
-  ResponseFut* = Future[seq[byte]].Raising([CancelledError, JsonRpcError])
   RpcClient* = ref object of RootRef
     lastId: int
     onDisconnect*: proc() {.gcsafe, raises: [].}
     onProcessMessage* {.deprecated.}: proc(client: RpcClient, line: string):
       Result[bool, string] {.gcsafe, raises: [].}
-    pendingRequests*: Deque[ResponseFut]
     remote*: string
       # Client identifier, for logging
     maxMessageSize*: int
 
   RpcRouterCallback* =
     proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: []).}
+
+  ResponseFut* = Future[seq[byte]].Raising([CancelledError, JsonRpcError])
   RpcConnection* = ref object of RpcClient
     router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
+    pendingRequests*: Deque[ResponseFut]
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
 func hash*(v: RpcClient): Hash =
   cast[Hash](addr v[])
 
-func parseResponse*(payload: openArray[byte], T: type): T {.raises: [JsonRpcError].} =
+func parseResponse(payload: openArray[byte], T: type): T {.raises: [JsonRpcError].} =
   try:
     JrpcSys.decode(payload, T)
   except SerializationError as exc:
@@ -116,41 +117,48 @@ proc callOnProcessMessage*(
   else:
     ok(true)
 
+const defaultRouter = default(RpcRouter)
+
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
-): Future[seq[byte]] {.async: (raises: []).} =
-  let request =
-    try:
-      JrpcSys.decode(line, RequestBatchRx)
-    except IncompleteObjectError:
-      if client.pendingRequests.len() == 0:
-        debug "Received message even though there's nothing queued, dropping",
-          id = (
-            block:
-              JrpcSys.decode(line, ReqRespHeader).id
-          )
-        return default(seq[byte])
+): Future[seq[byte]] {.async: (raises: [], raw: true).} =
+  template makeResponse(res: seq[byte]): untyped =
+    let ret = newFuture[seq[byte]]("processMessage")
+    ret.complete(res)
+    ret
 
+  try:
+    let request = JrpcSys.decode(line, RequestBatchRx)
+    if client.router != nil:
+      client.router(request)
+    else:
+      defaultRouter.route(request)
+  except IncompleteObjectError:
+    if client.pendingRequests.len() > 0:
+      # Each response corresponds to one request - the caller might cancel
+      # the future but we must still pop exactly one request per response since
+      # we always send the request
       let fut = client.pendingRequests.popFirst()
 
-      # Messages are assumed to arrive one by one - even if the future was cancelled,
-      # we therefore consume one message for every line we don't have to process
-      if fut.finished(): # probably cancelled
+      if not fut.finished():
+        fut.complete(line)
+      else:
         debug "Future already finished, dropping", state = fut.state()
-        return default(seq[byte])
+    else:
+      template shortLine(): string =
+        if line.len > 64:
+          string.fromBytes(line.toOpenArray(0, 64)) & "..."
+        else:
+          string.fromBytes(line)
 
-      fut.complete(line)
+      debug "Received message even though there's nothing queued, dropping",
+        msg = shortLine()
 
-      return default(seq[byte])
-    except SerializationError as exc:
-      return wrapError(router.INVALID_REQUEST, exc.msg)
+    makeResponse(default(seq[byte]))
+  except SerializationError as exc:
+    makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
 
-  if client.router != nil:
-    await client.router(request)
-  else:
-    default(seq[byte])
-
-proc clearPending*(client: RpcClient, exc: ref JsonRpcError) =
+proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
   while client.pendingRequests.len > 0:
     let fut = client.pendingRequests.popFirst()
     if not fut.finished():
