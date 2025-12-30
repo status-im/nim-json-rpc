@@ -122,9 +122,9 @@ const defaultRouter = default(RpcRouter)
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
 ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
-  template emptyResponse(): untyped =
+  template makeResponse(res: seq[byte]): untyped =
     let ret = newFuture[seq[byte]]("processMessage")
-    ret.complete(default(seq[byte]))
+    ret.complete(res)
     ret
 
   try:
@@ -135,15 +135,15 @@ proc processMessage*(
       defaultRouter.route(request)
   except IncompleteObjectError:
     if client.pendingRequests.len() > 0:
+      # Each response corresponds to one request - the caller might cancel
+      # the future but we must still pop exactly one request per response since
+      # we always send the request
       let fut = client.pendingRequests.popFirst()
 
-      # Messages are assumed to arrive one by one - even if the future was cancelled,
-      # we therefore consume one message for every line we don't have to process
-      if fut.finished(): # probably cancelled
+      if not fut.finished():
+        fut.complete(line)
+      else:
         debug "Future already finished, dropping", state = fut.state()
-        return emptyResponse()
-
-      fut.complete(line)
     else:
       template shortLine(): string =
         if line.len > 64:
@@ -154,11 +154,9 @@ proc processMessage*(
       debug "Received message even though there's nothing queued, dropping",
         msg = shortLine()
 
-    emptyResponse()
+    makeResponse(default(seq[byte]))
   except SerializationError as exc:
-    let ret = newFuture[seq[byte]]("processMessage")
-    ret.complete(wrapError(router.INVALID_REQUEST, exc.msg))
-    ret
+    makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
 
 proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
   while client.pendingRequests.len > 0:
