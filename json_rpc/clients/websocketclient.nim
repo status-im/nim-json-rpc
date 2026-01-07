@@ -20,7 +20,7 @@ import
 export client, errors
 
 type RpcWebSocketClient* = ref object of RpcConnection
-  transport: WSSession
+  transport*: WSSession
   loop: Future[void]
   getHeaders*: GetJsonRpcRequestHeaders
 
