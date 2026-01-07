@@ -170,7 +170,9 @@ proc route*(
 
   string.fromBytes(await router.route(request))
 
-macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
+macro rpc(
+    Format: type SerializationFormat, server: RpcRouter, path: static[string], body: untyped
+): untyped =
   ## Define a remote procedure call.
   ## Input and return parameters are defined using the ``do`` notation.
   ## For example:
@@ -185,12 +187,16 @@ macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
     procBody = if body.kind == nnkStmtList: body else: body.body
     procWrapper = genSym(nskProc, $path & "_rpcWrapper")
 
-  result = wrapServerHandler($path, params, procBody, procWrapper)
+  result = wrapServerHandler($path, params, procBody, procWrapper, Format)
 
   result.add quote do:
     `server`.register(`path`, `procWrapper`)
 
   when defined(nimDumpRpcs):
     echo "\n", path, ": ", result.repr
+
+# XXX remove
+template rpc*(server: RpcRouter, path: string, body: untyped): untyped =
+  rpc(JrpcConv, server, path, body)
 
 {.pop.}
