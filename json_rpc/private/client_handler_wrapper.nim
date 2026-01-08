@@ -36,7 +36,7 @@ func createBatchCallProc(procName, parameters, callBody: NimNode): NimNode =
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
 
-func setupConversion(reqParams, params: NimNode): NimNode =
+func setupConversion(reqParams, params, Format: NimNode): NimNode =
   # populate json params
   # even rpcs with no parameters have an empty json array node sent
 
@@ -47,20 +47,20 @@ func setupConversion(reqParams, params: NimNode): NimNode =
 
   for parIdent, _, parType in paramsIter(params):
     result.add quote do:
-      `reqParams`.positional.add encode(JrpcConv, `parIdent`).JsonString
+      `reqParams`.positional.add encode(`Format`, `parIdent`).JsonString
 
-template maybeUnwrapClientResult*(client, meth, reqParams, returnType): auto =
+template maybeUnwrapClientResult*(client, meth, reqParams, returnType, Format): auto =
   ## Don't decode e.g. JsonString, return as is
   when noWrap(returnType):
     client.call(meth, reqParams)
   else:
     proc complete(f: auto): Future[returnType] {.async.} =
       let res = await f
-      decode(JrpcConv, res.string, returnType)
+      decode(Format, res.string, returnType)
     let fut = client.call(meth, reqParams)
     complete(fut)
 
-func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimNode =
+func createRpcFromSig*(clientType, rpcDecl, Format: NimNode, alias = NimNode(nil)): NimNode =
   ## This procedure will generate something like this:
   ## - Currently it always send positional parameters to the server
   ##
@@ -89,7 +89,7 @@ func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
     pathStr = $rpcDecl.name
     returnType = params[0]
     reqParams = ident "reqParams"
-    setup = setupConversion(reqParams, params)
+    setup = setupConversion(reqParams, params, Format)
     clientIdent = ident"client"
     batchParams = params.copy
     batchIdent = ident "batch"
@@ -108,7 +108,7 @@ func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
   let callBody = quote do:
     # populate request params
     `setup`
-    maybeUnwrapClientResult(`clientIdent`, `pathStr`, `reqParams`, `returnType`)
+    maybeUnwrapClientResult(`clientIdent`, `pathStr`, `reqParams`, `returnType`, `Format`)
 
   # insert RpcBatchCallRef as first parameter
   batchParams.insert(1, nnkIdentDefs.newTree(
@@ -135,17 +135,17 @@ func createRpcFromSig*(clientType, rpcDecl: NimNode, alias = NimNode(nil)): NimN
   when defined(nimDumpRpcs):
     debugEcho pathStr, ":\n", result.repr
 
-func processRpcSigs*(clientType, parsedCode: NimNode): NimNode =
+func processRpcSigs*(clientType, parsedCode, Format: NimNode): NimNode =
   result = newStmtList()
 
   for line in parsedCode:
     if line.kind == nnkProcDef:
-      var procDef = createRpcFromSig(clientType, line)
+      var procDef = createRpcFromSig(clientType, line, Format)
       result.add(procDef)
 
-func cresteSignaturesFromString*(clientType: NimNode, sigStrings: string): NimNode =
+func cresteSignaturesFromString*(clientType: NimNode, sigStrings: string, Format: NimNode): NimNode =
   try:
-    result = processRpcSigs(clientType, sigStrings.parseStmt())
+    result = processRpcSigs(clientType, sigStrings.parseStmt(), Format)
   except ValueError as exc:
     doAssert(false, exc.msg)
 

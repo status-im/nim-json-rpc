@@ -195,7 +195,9 @@ macro rpc(
   when defined(nimDumpRpcs):
     echo "\n", path, ": ", result.repr
 
-# XXX remove
+template rpc*(server: RpcRouter, path: string, Format, body: untyped): untyped =
+  rpc(Format, server, path, body)
+
 template rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   rpc(JrpcConv, server, path, body)
 

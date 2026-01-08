@@ -109,6 +109,9 @@ proc start*(proxy: RpcProxy) {.async.} =
   proxy.rpcHttpServer.start()
   await proxy.connectToProxy()
 
+template rpc*(server: RpcProxy, path: string, Format, body: untyped): untyped =
+  server.rpcHttpServer.rpc(path, Format, body)
+
 template rpc*(server: RpcProxy, path: string, body: untyped): untyped =
   server.rpcHttpServer.rpc(path, body)
 

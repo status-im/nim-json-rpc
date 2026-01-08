@@ -36,6 +36,9 @@ proc new*(T: type RpcServer): T =
 # Public functions
 # ------------------------------------------------------------------------------
 
+template rpc*(server: RpcServer, path: string, Format, body: untyped): untyped =
+  server.router.rpc(path, Format, body)
+
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)
 
