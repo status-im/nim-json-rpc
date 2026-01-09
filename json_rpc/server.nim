@@ -36,6 +36,9 @@ proc new*(T: type RpcServer): T =
 # Public functions
 # ------------------------------------------------------------------------------
 
+template rpc*(server: RpcServer, path: string, flavorType, body: untyped): untyped =
+  server.router.rpc(path, flavorType, body)
+
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)
 
@@ -53,12 +56,17 @@ proc executeMethod*(server: RpcServer,
 
   processsSingleResponse(respData.toOpenArrayByte(0, respData.high()), 0)
 
-proc executeMethod*(server: RpcServer,
-                    methodName: string,
-                    args: JsonNode): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
-
-  let params = paramsTx(args)
+proc executeMethod*(
+    server: RpcServer,
+    methodName: string,
+    args: JsonNode,
+    Flavor: type SerializationFormat
+): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
+  let params = paramsTx(args, Flavor)
   server.executeMethod(methodName, params)
+
+template executeMethod*(server: RpcServer, methodName: string, args: JsonNode): untyped =
+  executeMethod(server, methodName, args, JrpcConv)
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,

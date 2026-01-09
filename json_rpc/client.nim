@@ -357,21 +357,27 @@ proc send*(
 # Signature processing
 # ------------------------------------------------------------------------------
 
-macro createRpcSigs*(clientType: untyped, filePath: static[string]): untyped =
+macro createRpcSigs*(clientType: untyped, filePath: static[string], flavorType: untyped): untyped =
   ## Takes a file of forward declarations in Nim and builds them into RPC
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's
   ## Nim type.
-  cresteSignaturesFromString(clientType, staticRead($filePath.replace('\\', '/')))
+  cresteSignaturesFromString(clientType, staticRead($filePath.replace('\\', '/')), flavorType)
 
-macro createRpcSigsFromString*(clientType: untyped, sigString: static[string]): untyped =
+template createRpcSigs*(clientType: untyped, filePath: string): untyped =
+  createRpcSigs(clientType, filePath, JrpcConv)
+
+macro createRpcSigsFromString*(clientType: untyped, sigString: static[string], flavorType: untyped): untyped =
   ## Takes a string of forward declarations in Nim and builds them into RPC
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's
   ## Nim type.
-  cresteSignaturesFromString(clientType, sigString)
+  cresteSignaturesFromString(clientType, sigString, flavorType)
 
-macro createSingleRpcSig*(clientType: untyped, alias: static[string], procDecl: untyped): untyped =
+template createRpcSigsFromString*(clientType: untyped, sigString: string): untyped =
+  createRpcSigsFromString(clientType, sigString, JrpcConv)
+
+macro createSingleRpcSig*(clientType: untyped, alias: static[string], flavorType, procDecl: untyped): untyped =
   ## Takes a single forward declarations in Nim and builds them into RPC
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's
@@ -379,13 +385,19 @@ macro createSingleRpcSig*(clientType: untyped, alias: static[string], procDecl: 
   doAssert procDecl.len == 1, "Only accept single proc definition"
   let procDecl = procDecl[0]
   procDecl.expectKind nnkProcDef
-  result = createRpcFromSig(clientType, procDecl, ident(alias))
+  result = createRpcFromSig(clientType, procDecl, flavorType, ident(alias))
 
-macro createRpcSigsFromNim*(clientType: untyped, procList: untyped): untyped =
+template createSingleRpcSig*(clientType: untyped, alias: string, procDecl: untyped): untyped =
+  createSingleRpcSig(clientType, alias, JrpcConv, procDecl)
+
+macro createRpcSigsFromNim*(clientType, flavorType, procList: untyped): untyped =
   ## Takes a list of forward declarations in Nim and builds them into RPC
   ## calls, based on their parameters.
   ## Inputs are marshalled to json, and results are put into the signature's
   ## Nim type.
-  processRpcSigs(clientType, procList)
+  processRpcSigs(clientType, procList, flavorType)
+
+template createRpcSigsFromNim*(clientType, procList: untyped): untyped =
+  createRpcSigsFromNim(clientType, JrpcConv, procList)
 
 {.pop.}
