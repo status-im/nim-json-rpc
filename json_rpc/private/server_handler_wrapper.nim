@@ -12,7 +12,7 @@
 import
   std/[macros, typetraits],
   stew/[byteutils, objects],
-  chronos,
+  chronos/futures,
   json_serialization,
   json_serialization/std/[options],
   json_serialization/pkg/results,
@@ -42,12 +42,12 @@ template rpc_isOptional[T](_: options.Option[T]): bool = true
 # Run time helpers
 # ------------------------------------------------------------------------------
 
-func unpackArg(args: JsonString, argName: string, argType: type, Format: type SerializationFormat): argType
+func unpackArg(args: JsonString, argName: string, argType: type, Flavor: type SerializationFormat): argType
                 {.gcsafe, raises: [JsonRpcError].} =
   ## This where input parameters are decoded from JSON into
   ## Nim data types
   try:
-    result = Format.decode(args.string, argType)
+    result = decode(Flavor, args.string, argType)
   except CatchableError as err:
     raise newException(RequestDecodeError,
       "Parameter [" & argName & "] of type '" &
@@ -128,7 +128,7 @@ template unpackPositional(
     pos: static[int],
     setup: static[RpcSetup],
     paramType: type,
-    Format: type SerializationFormat
+    Flavor: type SerializationFormat
 ) =
   ## Convert a positional parameter from Json into Nim
 
@@ -136,7 +136,7 @@ template unpackPositional(
     {.pragma: redefine.}
 
   template innerNode() {.redefine.} =
-    paramVar = unpackArg(params.val(pos), paramName, paramType, Format)
+    paramVar = unpackArg(params.val(pos), paramName, paramType, Flavor)
 
   # e.g. (A: int, B: Option[int], C: string, D: Option[int], E: Option[string])
   when rpc_isOptional(paramVar):
@@ -192,14 +192,14 @@ func makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
     pragmas = pragmas
   )
 
-func ofStmt(x, paramsObj, paramIdent, paramName, paramType, Format: NimNode): NimNode =
+func ofStmt(x, paramsObj, paramIdent, paramName, paramType, flavorType: NimNode): NimNode =
   nnkOfBranch.newTree(
     paramName,
     quote do:
-      `paramsObj`.`paramIdent` = unpackArg(`x`.value, `paramName`, `paramType`, `Format`)
+      `paramsObj`.`paramIdent` = unpackArg(`x`.value, `paramName`, `paramType`, `flavorType`)
   )
 
-func setupNamed(paramsObj, paramsIdent, params, Format: NimNode): NimNode =
+func setupNamed(paramsObj, paramsIdent, params, flavorType: NimNode): NimNode =
   let x = ident"x"
 
   var caseStmt = nnkCaseStmt.newTree(
@@ -207,7 +207,7 @@ func setupNamed(paramsObj, paramsIdent, params, Format: NimNode): NimNode =
   )
 
   for paramIdent, paramStr, paramType in paramsIter(params):
-    caseStmt.add ofStmt(x, paramsObj, paramIdent, paramStr, paramType, Format)
+    caseStmt.add ofStmt(x, paramsObj, paramIdent, paramStr, paramType, flavorType)
 
   caseStmt.add nnkElse.newTree(
     quote do: discard
@@ -217,17 +217,17 @@ func setupNamed(paramsObj, paramsIdent, params, Format: NimNode): NimNode =
     for `x` in `paramsIdent`.named:
       `caseStmt`
 
-template maybeWrapServerResult*(Format, resFut): auto =
+template maybeWrapServerResult*(Flavor, resFut): auto =
   ## Don't encode e.g. JsonString, return as is
   type ResType = typeof(await resFut)
   when noWrap(ResType):
     await resFut
   else:
     let res = await resFut
-    JsonString(encode(Format, res))
+    JsonString(encode(Flavor, res))
 
 func wrapServerHandler*(
-    methName: string, params, procBody, procWrapper, Format: NimNode
+    methName: string, params, procBody, procWrapper, flavorType: NimNode
 ): NimNode =
   ## This proc generate something like this:
   ##
@@ -271,7 +271,7 @@ func wrapServerHandler*(
     hasParams = params.len > 1 # not including return type
     rpcSetup = ident"rpcSetup"
     handler = makeHandler(handlerName, params, procBody, returnType)
-    named = setupNamed(paramsObj, paramsIdent, params, Format)
+    named = setupNamed(paramsObj, paramsIdent, params, flavorType)
 
   if hasParams:
     setup.add makeType(typeName, params)
@@ -294,7 +294,7 @@ func wrapServerHandler*(
         `pos`,
         `rpcSetup`,
         `paramType`,
-        `Format`
+        `flavorType`
       )
 
     executeParams.add quote do:
@@ -327,4 +327,4 @@ func wrapServerHandler*(
       # See: https://github.com/nim-lang/Nim/issues/17849
       `setup`
       let resFut = `executeCall`
-      maybeWrapServerResult(`Format`, resFut)
+      maybeWrapServerResult(`flavorType`, resFut)
