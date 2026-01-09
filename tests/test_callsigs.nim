@@ -157,20 +157,35 @@ type
 createJsonFlavor JrpcFlavor,
   automaticPrimitivesSerialization = true
 
+var registry {.threadvar.}: seq[string]
+
 proc readValue(reader: var JrpcFlavor.Reader, value: var DisString) =
   value = reader.readValue(string).DisString
+  registry.add value.string
 
 proc writeValue(writer: var JrpcFlavor.Writer, value: DisString) =
   writer.writeValue value.string
+  registry.add value.string
 
-createSingleRpcSig(RpcClient, "bottleFlavor", JrpcFlavor):
-  proc getBottleFlavor(s: DisString): DisString
+createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs_flavor.nim", JrpcFlavor)
+
+createSingleRpcSig(RpcClient, "aliasFlavor", JrpcFlavor):
+  proc getAliasFlavor(s: DisString): DisString
+
+createRpcSigsFromNim(RpcClient, JrpcFlavor):
+  proc getNimFlavor(s: DisString): DisString
 
 proc installFlavorHandlers(s: RpcServer) =
-  s.rpc("getBottleFlavor", JrpcFlavor) do(s: DisString) -> DisString:
+  s.rpc("getFileFlavor", JrpcFlavor) do(s: DisString) -> DisString:
     return DisString("ret " & s.string)
 
-suite "test callsigs":
+  s.rpc("getAliasFlavor", JrpcFlavor) do(s: DisString) -> DisString:
+    return DisString("ret " & s.string)
+
+  s.rpc("getNimFlavor", JrpcFlavor) do(s: DisString) -> DisString:
+    return DisString("ret " & s.string)
+
+suite "test callsigs with flavors":
   var server = newRpcSocketServer(["127.0.0.1:0"])
   server.installFlavorHandlers()
   var client = newRpcSocketClient()
@@ -178,9 +193,23 @@ suite "test callsigs":
   server.start()
   waitFor client.connect(server.localAddress()[0])
 
-  test "callsigs alias":
-    let res = waitFor client.bottleFlavor("foo".DisString)
-    check res.string == "ret foo"
+  setup:
+    registry.setLen 0
+
+  test "callsigs from file with flavor":
+    let res = waitFor client.getFileFlavor("file".DisString)
+    check res.string == "ret file"
+    check registry == @["file", "file", "ret file", "ret file"]
+
+  test "callsigs alias with flavor":
+    let res = waitFor client.aliasFlavor("alias".DisString)
+    check res.string == "ret alias"
+    check registry == @["alias", "alias", "ret alias", "ret alias"]
+
+  test "callsigs from nim with flavor":
+    let res = waitFor client.getNimFlavor("nim".DisString)
+    check res.string == "ret nim"
+    check registry == @["nim", "nim", "ret nim", "ret nim"]
 
   server.stop()
   waitFor server.closeWait()
