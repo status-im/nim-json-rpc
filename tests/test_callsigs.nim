@@ -150,3 +150,37 @@ suite "test callsigs":
 
   server.stop()
   waitFor server.closeWait()
+
+type
+  DisString = distinct string
+
+createJsonFlavor JrpcFlavor,
+  automaticPrimitivesSerialization = true
+
+proc readValue(reader: var JrpcFlavor.Reader, value: var DisString) =
+  value = reader.readValue(string).DisString
+
+proc writeValue(writer: var JrpcFlavor.Writer, value: DisString) =
+  writer.writeValue value.string
+
+createSingleRpcSig(RpcClient, "bottleFlavor", JrpcFlavor):
+  proc getBottleFlavor(s: DisString): DisString
+
+proc installFlavorHandlers(s: RpcServer) =
+  s.rpc("getBottleFlavor", JrpcFlavor) do(s: DisString) -> DisString:
+    return DisString("ret " & s.string)
+
+suite "test callsigs":
+  var server = newRpcSocketServer(["127.0.0.1:0"])
+  server.installFlavorHandlers()
+  var client = newRpcSocketClient()
+
+  server.start()
+  waitFor client.connect(server.localAddress()[0])
+
+  test "callsigs alias":
+    let res = waitFor client.bottleFlavor("foo".DisString)
+    check res.string == "ret foo"
+
+  server.stop()
+  waitFor server.closeWait()
