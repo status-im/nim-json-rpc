@@ -370,8 +370,8 @@ suite "Server types":
     check x == """{"color":"","wheel":77}"""
 
   test "flavor":
-    let r = waitFor s.executeMethod("rpc.flavor", %[FlavorObj.init("foobar")])
-    check r.string == """{"s":"ret foobar"}"""
+    let r = waitFor s.executeMethod("rpc.flavor", %[FlavorObj.init("foobar")], JrpcFlavor)
+    check r == """{"s":"ret foobar"}"""
 
 s.stop()
 waitFor s.closeWait()

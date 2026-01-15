@@ -10,7 +10,8 @@
 import
   chronos/unittest2/asynctests,
   ../json_rpc/[rpcclient, rpcserver],
-  ./private/helpers
+  ./private/helpers,
+  ./private/flavor
 
 # Create RPC on server
 proc setupServer*(srv: RpcServer) =
@@ -22,6 +23,9 @@ proc setupServer*(srv: RpcServer) =
 
   srv.rpc("invalidRequest") do():
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
+
+  srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
 
 template callTests(client: untyped) =
   test "Successful RPC call":
@@ -42,6 +46,10 @@ template callTests(client: untyped) =
       check false
     except CatchableError as e:
       check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
+
+  test "Successful RPC call with flavor":
+    let r = waitFor client.call("myProcFlavor", %[FlavorObj.init("foobar")], JrpcFlavor)
+    check r.string == """{"s":"ret foobar"}"""
 
 suite "Socket Server/Client RPC/newLine":
   setup:
