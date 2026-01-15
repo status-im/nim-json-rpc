@@ -77,9 +77,6 @@ func paramsTx*(params: JsonNode, Flavor: type SerializationFormat): RequestParam
       positional: @[encode(Flavor, params).JsonString],
     )
 
-func paramsTx*(params: JsonNode): RequestParamsTx =
-  paramsTx(params, JrpcConv)
-
 func requestTx*(name: string, params: sink RequestParamsTx, id: int): RequestTx =
   RequestTx(
     id: Opt.some(RequestId(kind: riNumber, num: id)),

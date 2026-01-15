@@ -57,16 +57,16 @@ proc executeMethod*(server: RpcServer,
   processsSingleResponse(respData.toOpenArrayByte(0, respData.high()), 0)
 
 proc executeMethod*(
-    server: RpcServer,
-    methodName: string,
-    args: JsonNode,
-    Flavor: type SerializationFormat
+    server: RpcServer, methodName: string, args: JsonNode, Flavor: type SerializationFormat
 ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
   let params = paramsTx(args, Flavor)
   server.executeMethod(methodName, params)
 
-template executeMethod*(server: RpcServer, methodName: string, args: JsonNode): untyped =
-  executeMethod(server, methodName, args, JrpcConv)
+proc executeMethod*(
+    server: RpcServer, methodName: string, args: JsonNode
+): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
+  let params = paramsTx(args, JrpcConv)
+  server.executeMethod(methodName, params)
 
 proc executeMethod*(server: RpcServer,
                     methodName: string,

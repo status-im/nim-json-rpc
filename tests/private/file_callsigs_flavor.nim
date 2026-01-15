@@ -7,4 +7,4 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-proc getFileFlavor(s: DisString): DisString
+proc getFileFlavor(s: FlavorObj): FlavorObj

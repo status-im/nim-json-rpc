@@ -239,9 +239,14 @@ proc call*(
   client.complete(req, id)
 
 proc call*(
+    client: RpcClient, name: string, params: JsonNode, Flavor: type SerializationFormat
+): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
+  client.call(name, paramsTx(params, Flavor))
+
+proc call*(
     client: RpcClient, name: string, params: JsonNode
 ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
-  client.call(name, params.paramsTx)
+  client.call(name, paramsTx(params, JrpcConv))
 
 proc callBatch*(
     client: RpcClient, calls: seq[RequestTx]
