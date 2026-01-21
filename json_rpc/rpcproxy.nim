@@ -115,6 +115,9 @@ template rpc*(server: RpcProxy, path: string, flavorType, body: untyped): untype
 template rpc*(server: RpcProxy, path: string, body: untyped): untyped =
   server.rpcHttpServer.rpc(path, body)
 
+template rpcContext*(server: RpcProxy, flavor: type SerializationFormat, body: untyped): untyped =
+  server.rpcHttpServer.rpcContext(flavor, body)
+
 proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) =
   try:
     proxy.rpcHttpServer.register(methodName, proxyCall(proxy.getClient(), methodName))

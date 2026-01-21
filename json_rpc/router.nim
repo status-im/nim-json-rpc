@@ -198,4 +198,10 @@ macro rpc*(
 template rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   rpc(server, path, JrpcConv, body)
 
+template rpcContext*(server: RpcRouter, flavor: type SerializationFormat, body: untyped): untyped =
+  block:
+    template rpc(path: string, body2: untyped): untyped =
+      rpc(server, path, flavor, body2)
+    body
+
 {.pop.}

@@ -34,6 +34,10 @@ template registerMethods(srv: RpcServer, proxy: RpcProxy) =
   proxy.rpc("myProc1Flavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
     return FlavorObj.init("ret " & obj.s.string)
 
+  proxy.rpcContext(JrpcFlavor):
+    rpc("myProc1FlavorCtx") do(obj: FlavorObj) -> FlavorObj:
+      return FlavorObj.init("ret " & obj.s.string)
+
 suite "Proxy RPC through http":
   var srv = newRpcHttpServer([srvAddress])
   var proxy = RpcProxy.new([proxySrvAddress], getHttpClientConfig("http://" & $srv.localAddress()[0]))
@@ -67,6 +71,10 @@ suite "Proxy RPC through http":
 
   test "Successful RPC call no proxy with flavor":
     let r = waitFor client.call("myProc1Flavor", %[FlavorObj.init("foobar")])
+    check r.string == """{"s":"ret foobar"}"""
+
+  test "Successful RPC call no proxy with flavor context":
+    let r = waitFor client.call("myProc1FlavorCtx", %[FlavorObj.init("foobar")])
     check r.string == """{"s":"ret foobar"}"""
 
   waitFor srv.stop()
