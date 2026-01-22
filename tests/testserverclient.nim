@@ -10,7 +10,8 @@
 import
   chronos/unittest2/asynctests,
   ../json_rpc/[rpcclient, rpcserver],
-  ./private/helpers
+  ./private/helpers,
+  ./private/flavor
 
 # Create RPC on server
 proc setupServer*(srv: RpcServer) =
@@ -22,6 +23,21 @@ proc setupServer*(srv: RpcServer) =
 
   srv.rpc("invalidRequest") do():
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
+
+  srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
+
+  srv.rpcContext(JrpcFlavor):
+    rpc("myProcCtx1") do(obj: FlavorObj) -> FlavorObj:
+      return FlavorObj.init("ret " & obj.s.string)
+
+    rpc("myProcCtx2") do(obj: FlavorObj) -> FlavorObj:
+      return FlavorObj.init("ret " & obj.s.string)
+
+  # A second context in same scope works
+  srv.rpcContext(JrpcFlavor):
+    rpc("myProcCtx3") do(obj: FlavorObj) -> FlavorObj:
+      return FlavorObj.init("ret " & obj.s.string)
 
 template callTests(client: untyped) =
   test "Successful RPC call":
@@ -42,6 +58,19 @@ template callTests(client: untyped) =
       check false
     except CatchableError as e:
       check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
+
+  test "Successful RPC call with flavor":
+    let r = waitFor client.call("myProcFlavor", %[FlavorObj.init("foobar")], JrpcFlavor)
+    check r.string == """{"s":"ret foobar"}"""
+
+  test "Successful RPC call with context":
+    let r1 = waitFor client.call("myProcCtx1", %[FlavorObj.init("foobar1")], JrpcFlavor)
+    let r2 = waitFor client.call("myProcCtx2", %[FlavorObj.init("foobar2")], JrpcFlavor)
+    let r3 = waitFor client.call("myProcCtx3", %[FlavorObj.init("foobar3")], JrpcFlavor)
+    check:
+      r1.string == """{"s":"ret foobar1"}"""
+      r2.string == """{"s":"ret foobar2"}"""
+      r3.string == """{"s":"ret foobar3"}"""
 
 suite "Socket Server/Client RPC/newLine":
   setup:

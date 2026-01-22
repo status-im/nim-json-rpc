@@ -12,6 +12,7 @@ import
   chronicles,
   ../json_rpc/rpcserver,
   ./private/helpers,
+  ./private/flavor,
   json_serialization/std/options
 
 type
@@ -126,6 +127,9 @@ s.rpc("rpc.optionalArg2") do(a, b: string, c, d: Option[string]) -> string:
 s.rpc("echo") do(car: MuscleCar) -> JsonString:
   return JrpcConv.encode(car).JsonString
 
+s.rpc("rpc.flavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+  return FlavorObj.init("ret " & obj.s.string)
+
 type
   OptionalFields = object
     a: int
@@ -196,6 +200,7 @@ suite "Server types":
     check s.hasMethod("rpc.optionalArgNotBuiltin")
     check s.hasMethod("rpc.optInObj")
     check s.hasMethod("rpc.optionalStringArg")
+    check s.hasMethod("rpc.flavor")
 
   test "Simple paths":
     let r = waitFor s.executeMethod("rpc.simplePath", %[])
@@ -363,6 +368,10 @@ suite "Server types":
 
     let x = waitFor s.executeMethod("echo", """{"car":{"color":null,"wheel":77}}""".JsonString)
     check x == """{"color":"","wheel":77}"""
+
+  test "flavor":
+    let r = waitFor s.executeMethod("rpc.flavor", %[FlavorObj.init("foobar")], JrpcFlavor)
+    check r == """{"s":"ret foobar"}"""
 
 s.stop()
 waitFor s.closeWait()
