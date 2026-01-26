@@ -18,7 +18,7 @@ export
 createJsonFlavor JrpcConv,
   automaticObjectSerialization = false,
   requireAllFields = false,
-  omitOptionalFields = false, # Don't skip optional fields==none in Writer
+  omitOptionalFields = true, # Skip optional fields==none in Writer
   allowUnknownFields = true,
   skipNullFields = true,      # Skip optional fields==null in Reader
   automaticPrimitivesSerialization = false
