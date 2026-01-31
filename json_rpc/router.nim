@@ -171,7 +171,7 @@ proc route*(
   string.fromBytes(await router.route(request))
 
 macro rpc*(
-    server: RpcRouter, path: static[string], flavorType, body: untyped
+    server: RpcRouter, path: static[string], formatType, body: untyped
 ): untyped =
   ## Define a remote procedure call.
   ## Input and return parameters are defined using the ``do`` notation.
@@ -187,7 +187,7 @@ macro rpc*(
     procBody = if body.kind == nnkStmtList: body else: body.body
     procWrapper = genSym(nskProc, $path & "_rpcWrapper")
 
-  result = wrapServerHandler($path, params, procBody, procWrapper, flavorType)
+  result = wrapServerHandler($path, params, procBody, procWrapper, formatType)
 
   result.add quote do:
     `server`.register(`path`, `procWrapper`)
@@ -198,10 +198,10 @@ macro rpc*(
 template rpc*(server: RpcRouter, path: string, body: untyped): untyped =
   rpc(server, path, JrpcConv, body)
 
-template rpcContext*(server: RpcRouter, Flavor: type SerializationFormat, body: untyped): untyped =
+template rpcContext*(server: RpcRouter, Format: type SerializationFormat, body: untyped): untyped =
   block:
     template rpc(path: string, body2: untyped): untyped =
-      rpc(server, path, Flavor, body2)
+      rpc(server, path, Format, body2)
     body
 
 {.pop.}

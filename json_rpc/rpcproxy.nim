@@ -109,14 +109,14 @@ proc start*(proxy: RpcProxy) {.async.} =
   proxy.rpcHttpServer.start()
   await proxy.connectToProxy()
 
-template rpc*(server: RpcProxy, path: string, flavorType, body: untyped): untyped =
-  server.rpcHttpServer.rpc(path, flavorType, body)
+template rpc*(server: RpcProxy, path: string, formatType, body: untyped): untyped =
+  server.rpcHttpServer.rpc(path, formatType, body)
 
 template rpc*(server: RpcProxy, path: string, body: untyped): untyped =
   server.rpcHttpServer.rpc(path, body)
 
-template rpcContext*(server: RpcProxy, Flavor: type SerializationFormat, body: untyped): untyped =
-  server.rpcHttpServer.rpcContext(Flavor, body)
+template rpcContext*(server: RpcProxy, Format: type SerializationFormat, body: untyped): untyped =
+  server.rpcHttpServer.rpcContext(Format, body)
 
 proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) =
   try:
