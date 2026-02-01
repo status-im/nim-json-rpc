@@ -40,6 +40,9 @@ proc setupServer*(srv: RpcServer) =
     proc my_Proc_Ctx4(obj: FlavorObj): FlavorObj =
       return FlavorObj.init("ret " & obj.s.string)
 
+    proc myProcCtx5(obj: FlavorObj) =
+      return %("ret " & obj.s.string)
+
   # A second context in same scope works
   srv.rpc(JrpcFlavor):
     proc myProcCtxOther(obj: FlavorObj): FlavorObj =
@@ -76,12 +79,14 @@ template callTests(client: untyped) =
       r2 = waitFor client.call("myProcCtx2", %[FlavorObj.init("foobar2")], JrpcFlavor)
       r3 = waitFor client.call("my.Proc.Ctx3", %[FlavorObj.init("foobar3")], JrpcFlavor)
       r4 = waitFor client.call("my_Proc_Ctx4", %[FlavorObj.init("foobar4")], JrpcFlavor)
+      r5 = waitFor client.call("myProcCtx5", %[FlavorObj.init("foobar5")], JrpcFlavor)
     check:
       r.string == """{"s":"ret foobar"}"""
       r1.string == """{"s":"ret foobar1"}"""
       r2.string == """{"s":"ret foobar2"}"""
       r3.string == """{"s":"ret foobar3"}"""
       r4.string == """{"s":"ret foobar4"}"""
+      r5.string == """"ret foobar5""""
 
 suite "Socket Server/Client RPC/newLine":
   setup:

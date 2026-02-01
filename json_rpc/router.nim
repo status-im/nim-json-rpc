@@ -210,7 +210,7 @@ macro rpc*(server: RpcRouter, formatType, procList: untyped): untyped =
         of nnkIdent, nnkAccQuoted:
           $prc[0]
         else:
-          error "Unsupported proc definition", prc
+          error "Unsupported rpc proc definition", prc
           ""  # Nim 1.6
       result.add rpcImpl(server, path, formatType, prc)
 
