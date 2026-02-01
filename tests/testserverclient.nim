@@ -27,16 +27,22 @@ proc setupServer*(srv: RpcServer) =
   srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
     return FlavorObj.init("ret " & obj.s.string)
 
-  srv.rpcContext(JrpcFlavor):
-    rpc("myProcCtx1") do(obj: FlavorObj) -> FlavorObj:
+  srv.rpc(JrpcFlavor):
+    proc myProcCtx1(obj: FlavorObj): FlavorObj =
       return FlavorObj.init("ret " & obj.s.string)
 
-    rpc("myProcCtx2") do(obj: FlavorObj) -> FlavorObj:
+    proc myProcCtx2(obj: FlavorObj): FlavorObj =
+      return FlavorObj.init("ret " & obj.s.string)
+
+    proc `my.Proc.Ctx3`(obj: FlavorObj): FlavorObj =
+      return FlavorObj.init("ret " & obj.s.string)
+
+    proc my_Proc_Ctx4(obj: FlavorObj): FlavorObj =
       return FlavorObj.init("ret " & obj.s.string)
 
   # A second context in same scope works
-  srv.rpcContext(JrpcFlavor):
-    rpc("myProcCtx3") do(obj: FlavorObj) -> FlavorObj:
+  srv.rpc(JrpcFlavor):
+    proc myProcCtxOther(obj: FlavorObj): FlavorObj =
       return FlavorObj.init("ret " & obj.s.string)
 
 template callTests(client: untyped) =
@@ -64,13 +70,18 @@ template callTests(client: untyped) =
     check r.string == """{"s":"ret foobar"}"""
 
   test "Successful RPC call with context":
-    let r1 = waitFor client.call("myProcCtx1", %[FlavorObj.init("foobar1")], JrpcFlavor)
-    let r2 = waitFor client.call("myProcCtx2", %[FlavorObj.init("foobar2")], JrpcFlavor)
-    let r3 = waitFor client.call("myProcCtx3", %[FlavorObj.init("foobar3")], JrpcFlavor)
+    let
+      r = waitFor client.call("myProcCtxOther", %[FlavorObj.init("foobar")], JrpcFlavor)
+      r1 = waitFor client.call("myProcCtx1", %[FlavorObj.init("foobar1")], JrpcFlavor)
+      r2 = waitFor client.call("myProcCtx2", %[FlavorObj.init("foobar2")], JrpcFlavor)
+      r3 = waitFor client.call("my.Proc.Ctx3", %[FlavorObj.init("foobar3")], JrpcFlavor)
+      r4 = waitFor client.call("my_Proc_Ctx4", %[FlavorObj.init("foobar4")], JrpcFlavor)
     check:
+      r.string == """{"s":"ret foobar"}"""
       r1.string == """{"s":"ret foobar1"}"""
       r2.string == """{"s":"ret foobar2"}"""
       r3.string == """{"s":"ret foobar3"}"""
+      r4.string == """{"s":"ret foobar4"}"""
 
 suite "Socket Server/Client RPC/newLine":
   setup:

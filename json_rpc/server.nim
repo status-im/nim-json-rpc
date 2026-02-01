@@ -42,8 +42,8 @@ template rpc*(server: RpcServer, path: string, formatType, body: untyped): untyp
 template rpc*(server: RpcServer, path: string, body: untyped): untyped =
   server.router.rpc(path, body)
 
-template rpcContext*(server: RpcServer, Format: type SerializationFormat, body: untyped): untyped =
-  server.router.rpcContext(Format, body)
+template rpc*(server: RpcServer, formatType, procList: untyped): untyped =
+  server.router.rpc(formatType, procList)
 
 template hasMethod*(server: RpcServer, methodName: string): bool =
   server.router.hasMethod(methodName)

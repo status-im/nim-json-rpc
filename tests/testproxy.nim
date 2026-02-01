@@ -34,8 +34,8 @@ template registerMethods(srv: RpcServer, proxy: RpcProxy) =
   proxy.rpc("myProc1Flavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
     return FlavorObj.init("ret " & obj.s.string)
 
-  proxy.rpcContext(JrpcFlavor):
-    rpc("myProc1FlavorCtx") do(obj: FlavorObj) -> FlavorObj:
+  proxy.rpc(JrpcFlavor):
+    proc myProc1FlavorCtx(obj: FlavorObj): FlavorObj =
       return FlavorObj.init("ret " & obj.s.string)
 
 suite "Proxy RPC through http":
