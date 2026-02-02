@@ -51,11 +51,11 @@ template noWrap*(returnType: type): auto =
   ## to Json
   returnType is JsonString or returnType is void
 
-func paramsTx*(params: JsonNode): RequestParamsTx =
+func paramsTx*(params: JsonNode, Format: type SerializationFormat): RequestParamsTx =
   if params.kind == JArray:
     var args: seq[JsonString]
     for x in params:
-      args.add JrpcConv.encode(x).JsonString
+      args.add encode(Format, x).JsonString
     RequestParamsTx(
       kind: rpPositional,
       positional: system.move(args),
@@ -65,7 +65,7 @@ func paramsTx*(params: JsonNode): RequestParamsTx =
     for k, v in params:
       args.add ParamDescNamed(
         name: k,
-        value: JrpcConv.encode(v).JsonString,
+        value: encode(Format, v).JsonString,
       )
     RequestParamsTx(
       kind: rpNamed,
@@ -74,7 +74,7 @@ func paramsTx*(params: JsonNode): RequestParamsTx =
   else:
     RequestParamsTx(
       kind: rpPositional,
-      positional: @[JrpcConv.encode(params).JsonString],
+      positional: @[encode(Format, params).JsonString],
     )
 
 func requestTx*(name: string, params: sink RequestParamsTx, id: int): RequestTx =

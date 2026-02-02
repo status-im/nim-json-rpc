@@ -11,7 +11,8 @@ import
   unittest2,
   ../json_rpc/rpcclient,
   ../json_rpc/rpcserver,
-  ./private/helpers
+  ./private/helpers,
+  ./private/flavor
 
 from os import getCurrentDir, DirSep, AltSep
 from strutils import rsplit
@@ -147,6 +148,47 @@ suite "test callsigs":
     let res2 = waitFor client.getRefObject(false)
     check res2.isNil.not
     check res2.name == "meow"
+
+  server.stop()
+  waitFor server.closeWait()
+
+createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs_flavor.nim", JrpcFlavor)
+
+createSingleRpcSig(RpcClient, "aliasFlavor", JrpcFlavor):
+  proc getAliasFlavor(s: FlavorObj): FlavorObj
+
+createRpcSigsFromNim(RpcClient, JrpcFlavor):
+  proc getNimFlavor(s: FlavorObj): FlavorObj
+
+proc installFlavorHandlers(s: RpcServer) =
+  s.rpc("getFileFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
+
+  s.rpc("getAliasFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
+
+  s.rpc("getNimFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
+
+suite "test callsigs with flavors":
+  var server = newRpcSocketServer(["127.0.0.1:0"])
+  server.installFlavorHandlers()
+  var client = newRpcSocketClient()
+
+  server.start()
+  waitFor client.connect(server.localAddress()[0])
+
+  test "callsigs from file with flavor":
+    let res = waitFor client.getFileFlavor(FlavorObj.init("file"))
+    check res == FlavorObj.init("ret file")
+
+  test "callsigs alias with flavor":
+    let res = waitFor client.aliasFlavor(FlavorObj.init("alias"))
+    check res == FlavorObj.init("ret alias")
+
+  test "callsigs from nim with flavor":
+    let res = waitFor client.getNimFlavor(FlavorObj.init("nim"))
+    check res == FlavorObj.init("ret nim")
 
   server.stop()
   waitFor server.closeWait()

@@ -170,7 +170,23 @@ proc route*(
 
   string.fromBytes(await router.route(request))
 
-macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
+proc rpcImpl(server: NimNode, path: string, formatType, body: NimNode): NimNode =
+  let
+    params = body.findChild(it.kind == nnkFormalParams)
+    procBody = if body.kind == nnkStmtList: body else: body.body
+    procWrapper = genSym(nskProc, path & "_rpcWrapper")
+
+  result = wrapServerHandler(path, params, procBody, procWrapper, formatType)
+
+  result.add quote do:
+    `server`.register(`path`, `procWrapper`)
+
+  when defined(nimDumpRpcs):
+    echo "\n", path, ": ", result.repr
+
+macro rpc*(
+    server: RpcRouter, path: static[string], formatType, body: untyped
+): untyped =
   ## Define a remote procedure call.
   ## Input and return parameters are defined using the ``do`` notation.
   ## For example:
@@ -180,17 +196,24 @@ macro rpc*(server: RpcRouter, path: static[string], body: untyped): untyped =
   ##    ```
   ## Input parameters are automatically marshalled from json to Nim types,
   ## and output parameters are automatically marshalled to json for transport.
-  let
-    params = body.findChild(it.kind == nnkFormalParams)
-    procBody = if body.kind == nnkStmtList: body else: body.body
-    procWrapper = genSym(nskProc, $path & "_rpcWrapper")
+  rpcImpl(server, path, formatType, body)
 
-  result = wrapServerHandler($path, params, procBody, procWrapper)
+template rpc*(server: RpcRouter, path: string, body: untyped): untyped =
+  rpc(server, path, JrpcConv, body)
 
-  result.add quote do:
-    `server`.register(`path`, `procWrapper`)
-
-  when defined(nimDumpRpcs):
-    echo "\n", path, ": ", result.repr
+macro rpc*(server: RpcRouter, formatType, procList: untyped): untyped =
+  result = newStmtList()
+  for prc in procList:
+    if prc.kind == nnkProcDef:
+      let path =
+        case prc[0].kind
+        of nnkIdent, nnkAccQuoted:
+          $prc[0]
+        else:
+          error "Unsupported rpc proc definition", prc
+          ""  # Nim 1.6
+      result.add rpcImpl(server, path, formatType, prc)
+    else:
+      error "Only proc definitions are allowed within an rpc context", prc
 
 {.pop.}

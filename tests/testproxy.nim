@@ -9,7 +9,9 @@
 
 import
   unittest2, chronicles,
-  ../json_rpc/[rpcclient, rpcserver, rpcproxy]
+  ../json_rpc/[rpcclient, rpcserver, rpcproxy],
+  ./private/helpers,
+  ./private/flavor
 
 let srvAddress = initTAddress("127.0.0.1", Port(0))
 let proxySrvAddress = "127.0.0.1:0"
@@ -23,6 +25,18 @@ template registerMethods(srv: RpcServer, proxy: RpcProxy) =
   # Create standard handler on server
   proxy.rpc("myProc1") do(input: string, data: array[0..3, int]):
     return %("Hello " & input & " data: " & $data)
+
+  srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
+
+  proxy.registerProxyMethod("myProcFlavor")
+
+  proxy.rpc("myProc1Flavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
+    return FlavorObj.init("ret " & obj.s.string)
+
+  proxy.rpc(JrpcFlavor):
+    proc myProc1FlavorCtx(obj: FlavorObj): FlavorObj =
+      return FlavorObj.init("ret " & obj.s.string)
 
 suite "Proxy RPC through http":
   var srv = newRpcHttpServer([srvAddress])
@@ -38,15 +52,30 @@ suite "Proxy RPC through http":
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+
   test "Successful RPC call no proxy":
     let r = waitFor client.call("myProc1", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+
   test "Missing params":
     expect(CatchableError):
       discard waitFor client.call("myProc", %[%"abc"])
+
   test "Method missing on server and proxy server":
     expect(CatchableError):
       discard waitFor client.call("missingMethod", %[%"abc"])
+
+  test "Successful RPC call thorugh proxy with flavor":
+    let r = waitFor client.call("myProcFlavor", %[FlavorObj.init("foobar")])
+    check r.string == """{"s":"ret foobar"}"""
+
+  test "Successful RPC call no proxy with flavor":
+    let r = waitFor client.call("myProc1Flavor", %[FlavorObj.init("foobar")])
+    check r.string == """{"s":"ret foobar"}"""
+
+  test "Successful RPC call no proxy with flavor context":
+    let r = waitFor client.call("myProc1FlavorCtx", %[FlavorObj.init("foobar")])
+    check r.string == """{"s":"ret foobar"}"""
 
   waitFor srv.stop()
   waitFor srv.closeWait()
@@ -67,12 +96,15 @@ suite "Proxy RPC through websockets":
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+
   test "Successful RPC call no proxy":
     let r = waitFor client.call("myProc1", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+
   test "Missing params":
     expect(CatchableError):
       discard waitFor client.call("myProc", %[%"abc"])
+
   test "Method missing on server and proxy server":
     expect(CatchableError):
       discard waitFor client.call("missingMethod", %[%"abc"])
