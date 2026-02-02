@@ -29,6 +29,9 @@ requires "nim >= 1.6.0",
          "json_serialization >= 0.4.2",
          "unittest2"
 
+when (NimMajor, NimMinor, NimPatch) >= (2, 2, 4):
+  requires "https://github.com/status-im/nim-async-channels"
+
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
 let flags = getEnv("NIMFLAGS", "") # Extra flags for the compiler
@@ -38,7 +41,7 @@ let cfg =
   " --styleCheck:usages --styleCheck:error" &
   (if verbose: "" else: " --verbosity:0") &
   " --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
-  " --threads:on -d:chronicles_log_level=ERROR"
+  " --threads:on -d:chronicles_log_level=DEBUG"
 
 proc build(args, path: string) =
   exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path

@@ -22,3 +22,6 @@ import
   testproxy,
   testrpcmacro,
   testserverclient
+
+when (NimMajor, NimMinor, NimPatch) >= (2, 2, 4):
+  import testrpcchannels
