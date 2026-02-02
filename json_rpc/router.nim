@@ -213,5 +213,7 @@ macro rpc*(server: RpcRouter, formatType, procList: untyped): untyped =
           error "Unsupported rpc proc definition", prc
           ""  # Nim 1.6
       result.add rpcImpl(server, path, formatType, prc)
+    else:
+      error "Only proc definitions are allowed within an rpc context", prc
 
 {.pop.}
