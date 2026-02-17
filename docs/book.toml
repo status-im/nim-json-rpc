@@ -1,0 +1,26 @@
+[book]
+authors = ["Esteban C Borsani"]
+language = "en"
+multilingual = false
+src = "src"
+title = "json_rpc"
+
+[preprocessor.toc]
+command = "mdbook-toc"
+renderer = ["html"]
+max-level = 3
+
+[preprocessor.open-on-gh]
+command = "mdbook-open-on-gh"
+renderer = ["html"]
+
+[preprocessor.admonish]
+command = "mdbook-admonish"
+assets_version = "3.1.0" # do not edit: managed by `mdbook-admonish install`
+
+[preprocessor.shiftinclude]
+
+[output.html]
+git-repository-url = "https://github.com/status-im/nim-json-rpc"
+git-branch = "master"
+additional-css = ["open-in.css", "./mdbook-admonish.css"]
