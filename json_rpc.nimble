@@ -59,3 +59,12 @@ task test, "run tests":
   when not defined(windows):
     # on windows, socker server build failed
     buildOnly "-d:chronicles_log_level=TRACE -d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
+
+task docs, "Generate API documentation":
+  exec "mdbook build docs"
+  for file in ["rpcclient.nim", "rpcserver.nim", "rpcproxy.nim"]:
+    exec nimc & " doc " &
+      "--git.url:https://github.com/status-im/nim-json-rpc --git.commit:master --outdir:docs/book/api --project json_rpc/" & file
+
+task mdbook, "Install mdbook (requires cargo)":
+  exec "cargo install --force mdbook@0.4.52 mdbook-toc@0.14.2 mdbook-open-on-gh@2.4.3 mdbook-admonish@1.20.0 mdbook-shiftinclude@0.1.0"
