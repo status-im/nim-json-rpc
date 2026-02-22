@@ -60,6 +60,12 @@ task test, "run tests":
     # on windows, socker server build failed
     buildOnly "-d:chronicles_log_level=TRACE -d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
 
+task examples, "Run examples":
+  # Run book examples
+  for file in listFiles("docs/examples"):
+    if file.endsWith(".nim"):
+      run "--threads:on", file
+
 task docs, "Generate API documentation":
   exec "mdbook build docs"
   for file in ["rpcclient.nim", "rpcserver.nim", "rpcproxy.nim"]:
