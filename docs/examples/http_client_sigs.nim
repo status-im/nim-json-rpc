@@ -6,7 +6,7 @@ import json_rpc/rpcclient
 import ./[rpc_format, http_server]
 
 # ANCHOR: ClientFileSigs
-const sigsFilePath = currentSourcePath().parentDir / "client_sigs.nim"
+const sigsFilePath = currentSourcePath().parentDir / "client_sigs.nim1"
 createRpcSigs(RpcClient, sigsFilePath, RpcConv)
 # ANCHOR_END: ClientFileSigs
 
