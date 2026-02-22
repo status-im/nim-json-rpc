@@ -13,3 +13,4 @@ jobs:
       test-command: |
         nimble setup -l
         nimble test
+        nimble examples
