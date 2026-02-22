@@ -60,7 +60,6 @@ proc main() {.async.} =
   let resp6 = await client.`🙂`("Daisy")
   doAssert resp6 == "🙂 Daisy"
 
-
   # ANCHOR: ClientBatch
   let batch = client.prepareBatch()
   batch.hello("Daisy")
