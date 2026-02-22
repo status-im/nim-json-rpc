@@ -1,5 +1,7 @@
 # Establishing a JSON-RPC connection
 
+## Transports
+
 A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets and pipes, and Websockets:
 
 - HTTP POST: unidirectional, one request/response pair per call.
