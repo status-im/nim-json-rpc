@@ -12,7 +12,7 @@ createRpcSigs(RpcClient, sigsFilePath, RpcConv)
 
 # ANCHOR: ClientSingleSig
 createSingleRpcSig(RpcClient, "sayBye", RpcConv):
-  proc bye(name: string): string
+  proc bye(input: string): string
 # ANCHOR_END: ClientSingleSig
 
 proc main() {.async.} =
