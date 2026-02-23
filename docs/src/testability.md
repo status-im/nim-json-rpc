@@ -1,5 +1,7 @@
 # Testability
 
-Testing can be done without any transport through the `RpcRouter` directly. However, testing with a server instance is fine.
+A server can be tested directly without starting it:
 
-XXX router example
+```nim
+{{#shiftinclude auto:../examples/test_server.nim:TestExecute}}
+```

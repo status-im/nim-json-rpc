@@ -31,7 +31,7 @@ Wrapping the method name in backticks allows any character:
 When the procedure return type is not specified, `JsonNode` is implicitly used. To avoid returning a result, `void` can be used instead:
 
 ```nim
-{{#shiftinclude auto:../examples/http_server.nim:RpcNotify}}
+{{#shiftinclude auto:../examples/http_server.nim:RpcEmpty}}
 ```
 
 Compiling with `-d:nimDumpRpcs` will show the output code for the RPC call. To see the output of the `async` generation, add `-d:nimDumpAsync`.

@@ -25,10 +25,10 @@ proc setupServer(srv: RpcServer) =
       "🙂 " & input
     # ANCHOR_END: RpcSmile
 
-    # ANCHOR: RpcNotify
-    proc notif(): void =
-      echo "notified"
-    # ANCHOR_END: RpcNotify
+    # ANCHOR: RpcEmpty
+    proc empty(): void =
+      echo "nothing"
+    # ANCHOR_END: RpcEmpty
 
     proc justHello(): string =
       "Hello"
