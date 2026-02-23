@@ -6,7 +6,7 @@ When a request is received, the router matches it to a server method that was pr
 
 When an RPC-invoked server method throws an exception, the server will handle the exception and (when applicable) send an error response to the client with a description of the failure.
 
-JSON-RPC is an inherently asynchronous protocol. Multiple concurrent requests are allowed. Methods are invoked as the requests are processed, even while prior requests are still running. Hence, responses may end up being sent unordered.
+JSON-RPC is an inherently asynchronous protocol. Multiple concurrent requests are allowed. Methods are invoked as the requests are processed, even while prior requests are still running.
 
 ## Registering methods
 
@@ -28,7 +28,7 @@ Wrapping the method name in backticks allows any character:
 {{#shiftinclude auto:../examples/http_server.nim:RpcSmile}}
 ```
 
-When the procedure return type is not specified, `JsonNode` is implicitly used. To avoid returning a response, `void` can be used instead:
+When the procedure return type is not specified, `JsonNode` is implicitly used. To avoid returning a result, `void` can be used instead:
 
 ```nim
 {{#shiftinclude auto:../examples/http_server.nim:RpcNotify}}

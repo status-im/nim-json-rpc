@@ -16,7 +16,7 @@ proc setupServer(srv: RpcServer) =
   # ANCHOR_END: RpcHello
 
     # ANCHOR: RpcBye
-    proc bye(input {.serializedFieldName: "name".}: string): string =
+    proc bye(input {.serializedFieldName: "user-name".}: string): string =
       "Bye " & input
     # ANCHOR_END: RpcBye
 

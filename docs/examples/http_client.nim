@@ -10,7 +10,7 @@ import ./[rpc_format, http_server]
 createRpcSigsFromNim(RpcClient, RpcConv):
   proc hello(input: string): string
   # ANCHOR_END: RpcHello
-  proc bye(name: string): string
+  proc bye(input: string): string
   # ANCHOR: RpcSmile
   proc `🙂`(input: string): string
   # ANCHOR_END: RpcSmile
@@ -57,8 +57,11 @@ proc main() {.async.} =
   let resp5 = await client.bye("Daisy")
   doAssert resp5 == "Bye Daisy"
 
-  let resp6 = await client.`🙂`("Daisy")
-  doAssert resp6 == "🙂 Daisy"
+  let resp6 = await client.call("bye", %* {"user-name": "Daisy"}, RpcConv)
+  doAssert RpcConv.decode(resp6, string) == "Bye Daisy"
+
+  let resp7 = await client.`🙂`("Daisy")
+  doAssert resp7 == "🙂 Daisy"
 
   # ANCHOR: ClientBatch
   let batch = client.prepareBatch()

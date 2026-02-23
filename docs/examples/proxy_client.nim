@@ -8,7 +8,7 @@ import ./[rpc_format, http_server, proxy_server]
 
 createRpcSigsFromNim(RpcClient, RpcConv):
   proc hello(input: string): string
-  proc bye(name: string): string
+  proc bye(input: string): string
 
 proc main() {.async.} =
   let srv = startServer()
