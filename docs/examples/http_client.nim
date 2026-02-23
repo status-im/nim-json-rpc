@@ -14,7 +14,7 @@ createRpcSigsFromNim(RpcClient, RpcConv):
   # ANCHOR: RpcSmile
   proc `🙂`(input: string): string
   # ANCHOR_END: RpcSmile
-  proc notif()
+  proc empty()
   proc justHello(): string
   proc teaPot()
 
@@ -78,7 +78,7 @@ proc main() {.async.} =
   # ANCHOR_END: ClientBatchResult
 
   # ANCHOR: ClientNotification
-  await client.notify("notif", RequestParamsTx())
+  await client.notify("empty", RequestParamsTx())
   # ANCHOR_END: ClientNotification
 
   # ANCHOR: ClientTeaPot

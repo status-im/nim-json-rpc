@@ -6,7 +6,7 @@ JSON-RPC is a two-party, peer-to-peer based protocol by which one party can requ
 
 Either peer may send RPC requests to the other peer. Both acting as server and client at the same time.
 
-A common pattern is that one party tends to issue most of the RPC requests, while the other party may occasionally transmit requests as a "call back" to the client for raising notifications. This is merely an artifact of architectural expediency for many applications and not due to any design of the JSON-RPC protocol, or this library's particular implementation of it.
+A common pattern is that one peer sends most of the RPC requests, while the other peer only occasionally sends requests back to the client to deliver notifications. This pattern is common in many applications because of how they are structured, not because of the JSON-RPC protocol itself or because of how this library implements it.
 
 ## json_rpc's role
 

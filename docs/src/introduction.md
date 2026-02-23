@@ -1,6 +1,6 @@
 # Introduction
 
-`json_rpc` is a library for routing JSON 2.0 format remote procedure calls over different transports, implementing the [JSON-RPC](https://www.jsonrpc.org/specification) standard. It is designed to automatically generate marshalling and parameter checking code based on the RPC parameter types.
+{{#include ../../README.md:Introduction}}
 
 ## Installation
 
