@@ -396,6 +396,13 @@ template decode*(format: RpcFormat, data, T: untyped): untyped =
   of RpcFormat.Cbor:
     CrpcSys.decode(data, T)
 
+template encode*(format: RpcFormat, data: untyped): untyped =
+  case format
+  of RpcFormat.Json:
+    JrpcSys.encode(data)
+  of RpcFormat.Cbor:
+    string.fromBytes CrpcSys.encode(data)
+
 template withWriter*(format: RpcFormat, writer, body: untyped): untyped =
   case format
   of RpcFormat.Json:

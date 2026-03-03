@@ -83,7 +83,7 @@ func parseResponse(format: RpcFormat, payload: openArray[byte], T: type): T {.ra
     )
 
 proc processsSingleResponse(
-    response: sink ResponseRx2, id: int
+    format: RpcFormat, response: sink ResponseRx2, id: int
 ): JsonString {.raises: [JsonRpcError].} =
   if response.id.kind != RequestIdKind.riNumber or response.id.num != id:
     raise
@@ -91,15 +91,16 @@ proc processsSingleResponse(
 
   case response.kind
   of ResponseKind.rkError:
-    raise (ref JsonRpcError)(msg: JrpcSys.encode(response.error))
+    raise (ref JsonRpcError)(msg: format.encode(response.error))
   of ResponseKind.rkResult:
     move(response.result)
 
 proc processsSingleResponse*(
     format: RpcFormat, body: openArray[byte], id: int
 ): JsonString {.raises: [JsonRpcError].} =
-  processsSingleResponse(parseResponse(format, body, ResponseRx2), id)
+  processsSingleResponse(format, parseResponse(format, body, ResponseRx2), id)
 
+# XXX remove
 proc processsSingleResponse*(
     body: openArray[byte], id: int
 ): JsonString {.raises: [JsonRpcError].} =
@@ -348,7 +349,7 @@ proc send*(
 
       case response.kind
       of ResponseKind.rkError:
-        responses[index] = RpcBatchResponse(error: Opt.some(JrpcSys.encode(response.error)))
+        responses[index] = RpcBatchResponse(error: Opt.some(client.format.encode(response.error)))
       of ResponseKind.rkResult:
         responses[index] = RpcBatchResponse(result: move(response.result))
 
@@ -356,7 +357,7 @@ proc send*(
     # missing requests
     for _, index in map:
       responses[index] = RpcBatchResponse(
-        error: Opt.some(JrpcSys.encode(ResponseError(code: INTERNAL_ERROR, message: "Missing response from server")))
+        error: Opt.some(client.format.encode(ResponseError(code: INTERNAL_ERROR, message: "Missing response from server")))
       )
 
     ok(responses)

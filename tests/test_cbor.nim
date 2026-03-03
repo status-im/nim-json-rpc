@@ -10,7 +10,8 @@
 import ../json_rpc/rpcclient
 import ../json_rpc/rpcserver
 import
-  chronos/unittest2/asynctests
+  chronos/unittest2/asynctests,
+  stew/byteutils
 
 createCborFlavor CborFlavor,
   automaticObjectSerialization = false,
@@ -24,13 +25,44 @@ proc setupServer*(srv: RpcServer) =
       #doAssert false
       return s
 
+    proc serverErr(): string =
+      raise (ref ValueError)(msg: "the error message")
+
+    proc teaPot(): string =
+      raise (ref ApplicationError)(
+        code: 418, data: Opt.none(JsonString), msg: "I'm a teapot"
+      )
+
 createRpcSigsFromNim(RpcClient, CborFlavor):
   proc myProcCtx1(s: string): string
+  proc serverErr(): string
+  proc teaPot(): string
 
 template callTests(client: untyped) =
   test "Successful RPC call":
     let r = waitFor client.myProcCtx1("abc")
     check r.string == "abc"
+
+  test "Server Error RPC call":
+    try:
+      discard waitFor client.serverErr()
+      fail()
+    except JsonRpcError as err:
+      let data = string.fromBytes CrpcSys.encode("the error message")
+      check CrpcSys.decode(err.msg, ResponseError) ==
+        ResponseError(
+          code: -32000,
+          message: "`serverErr` raised an exception",
+          data: Opt.some(data.JsonString)
+        )
+
+  test "Application Error RPC call":
+    try:
+      discard waitFor client.teaPot()
+      fail()
+    except JsonRpcError as err:
+      check CrpcSys.decode(err.msg, ResponseError) ==
+        ResponseError(code: 418, message: "I'm a teapot")
 
 suite "Socket Server/Client RPC/lengthHeaderBE32":
   setup:
