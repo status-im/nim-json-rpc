@@ -199,7 +199,7 @@ method send*(
     raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
 method request*(
-    client: RpcSocketClient, reqData: seq[byte]
+    client: RpcSocketClient, reqData: seq[byte], id: int
 ): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
   let transport = client.transport
@@ -208,7 +208,7 @@ method request*(
       RpcTransportError, "Transport is not initialised (missing a call to connect?)"
     )
 
-  client.withPendingFut(fut):
+  client.withPendingFut(fut, id):
     try:
       await client.framing.sendMsg(client.transport, reqData)
     except CatchableError as exc:
@@ -239,7 +239,12 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
       if not fallback:
         continue
 
-      let resp = await client.processMessage(data)
+      let resp = try:
+        await client.processMessage(data)
+      except JsonRpcError as exc:
+        # XXX this seems bad but it was v0.5.4 behavior
+        client.clearPending(exc)
+        continue
 
       if resp.len > 0:
         await client.framing.sendMsg(client.transport, resp)

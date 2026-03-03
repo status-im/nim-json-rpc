@@ -138,6 +138,13 @@ type
     of rbkSingle:
       single*: RequestRx2
 
+  ResponseBatchRx* = object
+    case kind*: ReBatchKind
+    of rbkMany:
+      many*  : seq[ResponseRx2]
+    of rbkSingle:
+      single*: ResponseRx2
+
 # don't mix the json-rpc system encoding with the
 # actual response/params encoding
 createJsonFlavor JrpcSys,
@@ -186,6 +193,9 @@ func `==`*(a, b: RequestId): bool =
 
 func meth*(rx: RequestRx | RequestRx2): string =
   rx.`method`
+
+func toRequestId*(id: int): RequestId =
+  RequestId(kind: riNumber, num: id)
 
 template shouldWriteObjectField*(field: RequestParamsTx): bool =
   case field.kind
@@ -333,6 +343,21 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
     r.readValue(val.single)
   else:
     r.raiseUnexpectedValue("RequestBatch must be either array or object, got=" & $tok)
+
+proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  let tok = r.tokKind
+  case tok
+  of JsonValueKind.Array:
+    val = ResponseBatchRx(kind: rbkMany)
+    r.readValue(val.many)
+    if val.many.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
+  of JsonValueKind.Object:
+    val = ResponseBatchRx(kind: rbkSingle)
+    r.readValue(val.single)
+  else:
+    r.raiseUnexpectedValue("ResponseBatch must be either array or object, got=" & $tok)
 
 func toTx*(params: RequestParamsRx): RequestParamsTx =
   case params.kind:

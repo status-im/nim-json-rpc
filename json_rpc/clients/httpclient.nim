@@ -80,7 +80,7 @@ method send(
     await res.closeWait()
 
 method request(
-    client: RpcHttpClient, reqData: seq[byte]
+    client: RpcHttpClient, reqData: seq[byte], id: int
 ): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
   doAssert reqData.len > 0, "request must not be empty"
   if client.httpSession.isNil:

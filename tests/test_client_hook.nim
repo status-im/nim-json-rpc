@@ -62,9 +62,9 @@ suite "test client features":
     server.start()
     waitFor client.connect("ws://" & $server.localAddress())
   teardown:
+    waitFor client.close()
     server.stop()
     waitFor server.closeWait()
-    waitFor client.close()
 
   test "hook success":
     let res = waitFor client.get_Banana(99)
@@ -141,6 +141,7 @@ suite "test rpc socket client":
       let res = waitFor client.get_Banana(11)
       discard res
 
+  waitFor client.close()
   server.stop()
   waitFor server.closeWait()
 
@@ -221,6 +222,7 @@ suite "test rpc http client":
       let res = waitFor client.get_Banana(11)
       discard res
 
+  waitFor client.close()
   waitFor server.stop()
   waitFor server.closeWait()
 
@@ -302,5 +304,8 @@ suite "test ws http client":
       let res = waitFor client.get_Banana(11)
       discard res
 
+  # XXX client.close() causes a "Incomplete data sent or received"
+  #     it's the same in HEAD and v0.5.4
+  waitFor client.close()
   server.stop()
   waitFor server.closeWait()

@@ -18,7 +18,7 @@ when (NimMajor, NimMinor, NimPatch) < (2, 2, 6):
     discard Future[string]().value()
 
 import
-  std/[deques, hashes, json, macros, tables],
+  std/[hashes, json, macros, tables],
   chronos,
   chronicles,
   stew/byteutils,
@@ -66,7 +66,7 @@ type
   RpcConnection* = ref object of RpcClient
     router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
-    pendingRequests*: Deque[ResponseFut]
+    pendingRequests*: Table[RequestId, ResponseFut]
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
@@ -99,9 +99,11 @@ proc processsSingleResponse*(
 ): JsonString {.raises: [JsonRpcError].} =
   processsSingleResponse(parseResponse(body, ResponseRx2), id)
 
-template withPendingFut*(client, fut, body: untyped): untyped =
+template withPendingFut*(client, fut, id, body: untyped): untyped =
+  let rid = id.toRequestId()
+  doAssert id.toRequestId() notin client.pendingRequests
   let fut = ResponseFut.init("jsonrpc.client.pending")
-  client.pendingRequests.addLast fut
+  client.pendingRequests[rid] = fut
   body
 
 method send(
@@ -119,11 +121,35 @@ proc callOnProcessMessage*(
 
 const defaultRouter = default(RpcRouter)
 
+proc processMessageResponse(
+    client: RpcConnection, line: seq[byte]
+) {.raises: [SerializationError, JsonRpcError].} =
+  let batch = JrpcSys.decode(line, ResponseBatchRx)
+  let id = case batch.kind
+  of rbkMany:
+    var curr = RequestId(kind: riNumber, num: int.low)
+    for i in 0 ..< batch.many.len:
+      let id = batch.many[i].id
+      if id.kind == riNumber and id.num >= curr.num:
+        curr = id
+    curr
+  of rbkSingle:
+    batch.single.id
+  var fut: ResponseFut
+  if not client.pendingRequests.pop(id, fut):
+    raise (ref JsonRpcError)(msg: "Cannot find message id \"" & $id & "\"")
+  if not fut.finished():
+    fut.complete(line)
+  else:
+    debug "Future already finished, dropping", state = fut.state()
+
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
-): Future[seq[byte]] {.async: (raises: [], raw: true).} =
+): Future[seq[byte]].Raising([]) {.raises: [JsonRpcError].} =
   template makeResponse(res: seq[byte]): untyped =
-    let ret = newFuture[seq[byte]]("processMessage")
+    let ret = Future[seq[byte]].Raising([]).init(
+      "processMessage", {FutureFlag.OwnCancelSchedule}
+    )
     ret.complete(res)
     ret
 
@@ -133,36 +159,21 @@ proc processMessage*(
       client.router(request)
     else:
       defaultRouter.route(request)
-  except IncompleteObjectError:
-    if client.pendingRequests.len() > 0:
-      # Each response corresponds to one request - the caller might cancel
-      # the future but we must still pop exactly one request per response since
-      # we always send the request
-      let fut = client.pendingRequests.popFirst()
-
-      if not fut.finished():
-        fut.complete(line)
-      else:
-        debug "Future already finished, dropping", state = fut.state()
-    else:
-      template shortLine(): string =
-        if line.len > 64:
-          string.fromBytes(line.toOpenArray(0, 64)) & "..."
-        else:
-          string.fromBytes(line)
-
-      debug "Received message even though there's nothing queued, dropping",
-        msg = shortLine()
-
+  except IncompleteObjectError as exc:
+    try:
+      processMessageResponse(client, line)
+    except SerializationError as exc:
+      raise (ref JsonRpcError)(msg: exc.msg, parent: exc)
     makeResponse(default(seq[byte]))
   except SerializationError as exc:
+    # XXX is line really a request?
     makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
 
 proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
-  while client.pendingRequests.len > 0:
-    let fut = client.pendingRequests.popFirst()
+  for fut in client.pendingRequests.values:
     if not fut.finished():
       fut.fail(exc)
+  client.pendingRequests.clear()
 
 # ------------------------------------------------------------------------------
 # Public functions
@@ -173,7 +184,7 @@ proc getNextId(client: RpcClient): int =
   client.lastId
 
 method request(
-    client: RpcClient, reqData: seq[byte]
+    client: RpcClient, reqData: seq[byte], id: int
 ): Future[seq[byte]] {.base, async: (raises: [CancelledError, JsonRpcError]).} =
   raiseAssert("`RpcClient.request` not implemented")
 
@@ -210,8 +221,6 @@ proc call*(
 ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
   ## Perform an RPC call returning the `result` of the call
   let
-    # We don't really need an id since exchanges happen in order but using one
-    # helps debugging, if nothing else
     id = client.getNextId()
     requestData = JrpcSys.withWriter(writer):
       writer.writeRequest(name, params, id)
@@ -235,7 +244,7 @@ proc call*(
       debug "JSON-RPC request failed", err = exc.msg, id, remote = client.remote
       raise exc
 
-  let req = client.request(requestData)
+  let req = client.request(requestData, id)
   client.complete(req, id)
 
 proc call*(
@@ -279,7 +288,10 @@ proc callBatch*(
       debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
       raise exc
 
-  let req = client.request(requestData)
+  let id = calls[^1].id.valueOr:
+    raiseAssert "missing id"
+  doAssert id.kind == riNumber
+  let req = client.request(requestData, id.num)
   client.complete(req)
 
 proc prepareBatch*(client: RpcClient): RpcBatchCallRef =
@@ -355,7 +367,7 @@ proc send*(
       )
 
     ok(responses)
-  let req = batch.client.request(requestData)
+  let req = batch.client.request(requestData, lastId)
   batch.client.complete(req, map, lastId)
 
 # ------------------------------------------------------------------------------
