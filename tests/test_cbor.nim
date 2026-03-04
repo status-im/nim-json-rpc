@@ -13,15 +13,15 @@ import
   chronos/unittest2/asynctests,
   stew/byteutils
 
-createCborFlavor CborFlavor,
+createCborFlavor MyCbor,
   automaticObjectSerialization = false,
   automaticPrimitivesSerialization = false
 
-CborFlavor.defaultSerialization string
+MyCbor.defaultSerialization string
 
 proc setupServer*(srv: RpcServer) =
-  srv.rpc(CborFlavor):
-    proc myProcCtx1(s: string): string =
+  srv.rpc(MyCbor):
+    proc textEcho(s: string): string =
       #doAssert false
       return s
 
@@ -33,14 +33,14 @@ proc setupServer*(srv: RpcServer) =
         code: 418, data: Opt.none(JsonString), msg: "I'm a teapot"
       )
 
-createRpcSigsFromNim(RpcClient, CborFlavor):
-  proc myProcCtx1(s: string): string
+createRpcSigsFromNim(RpcClient, MyCbor):
+  proc textEcho(s: string): string
   proc serverErr(): string
   proc teaPot(): string
 
 template callTests(client: untyped) =
   test "Successful RPC call":
-    let r = waitFor client.myProcCtx1("abc")
+    let r = waitFor client.textEcho("abc")
     check r.string == "abc"
 
   test "Server Error RPC call":
@@ -63,6 +63,29 @@ template callTests(client: untyped) =
     except JsonRpcError as err:
       check CrpcSys.decode(err.msg, ResponseError) ==
         ResponseError(code: 418, message: "I'm a teapot")
+
+  test "Batch call basic":
+    let batch = client.prepareBatch()
+    batch.textEcho("foo")
+    batch.textEcho("bar")
+    batch.teaPot()
+    let res = waitFor batch.send()
+    check res.isOk
+    if res.isErr:
+      checkpoint res.error
+      fail()
+    else:
+      let r = res.get
+      check r[0].error.isNone
+      check r[0].result == JsonString string.fromBytes Cbor.encode("foo")
+
+      check r[1].error.isNone
+      check r[1].result == JsonString string.fromBytes Cbor.encode("bar")
+
+      let err = ResponseError(code: 418, message: "I'm a teapot")
+      check r[2].error.isSome
+      check r[2].error.get == string.fromBytes Cbor.encode(err)
+      check r[2].result == JsonString("")
 
 suite "Socket Server/Client RPC/lengthHeaderBE32":
   setup:
