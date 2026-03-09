@@ -40,7 +40,7 @@ createRpcSigsFromNim(RpcClient, MyCbor):
 template callTests(client: untyped) =
   test "Successful RPC call":
     let r = waitFor client.textEcho("abc")
-    check r.string == "abc"
+    check r == "abc"
 
   test "Server Error RPC call":
     try:
@@ -119,6 +119,25 @@ suite "Websocket Server/Client RPC":
   teardown:
     waitFor client.close()
     srv.stop()
+    waitFor srv.closeWait()
+
+  callTests(client)
+
+suite "HTTP Server/Client RPC":
+  setup:
+    const format = RpcFormat.Cbor
+    var srv = newRpcHttpServer(["127.0.0.1:0"], format = format)
+    var client = newRpcHttpClient(format = format)
+    doAssert client.format == RpcFormat.Cbor
+
+    srv.setupServer()
+    srv.setMaxChunkSize(8192)
+    srv.start()
+    waitFor client.connect("http://" & $srv.localAddress()[0])
+
+  teardown:
+    waitFor client.close()
+    waitFor srv.stop()
     waitFor srv.closeWait()
 
   callTests(client)

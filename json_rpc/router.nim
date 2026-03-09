@@ -172,7 +172,6 @@ proc route*(
     else:
       default(seq[byte])
 
-# XXX format
 proc route*(
     router: RpcRouter, data: string | seq[byte]
 ): Future[string] {.async: (raises: []).} =
@@ -183,13 +182,13 @@ proc route*(
   ## Returns the JSON-encoded response.
   let request =
     try:
-      JrpcSys.decode(data, RequestBatchRx)
+      router.format.decode(data, RequestBatchRx)
     except IncompleteObjectError as err:
       return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
-    #except CborIncompleteObjectError as err:
-    #  return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
+    except CborIncompleteObjectError as err:
+      return string.fromBytes(wrapError(INVALID_REQUEST, err.msg, router.format))
     except SerializationError as err:
-      return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg))
+      return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg, router.format))
 
   string.fromBytes(await router.route(request))
 

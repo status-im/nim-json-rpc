@@ -64,7 +64,8 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
           HttpResponseStreamType.Chunked
       response = request.getResponse()
 
-    response.addHeader("Content-Type", "application/json")
+    response.addHeader("Content-Type", "application/cbor")
+    #response.addHeader("Content-Type", "application/json")
 
     await response.prepare(streamType)
     let maxLen = data.len
@@ -220,26 +221,30 @@ proc addSecureHttpServer*(server: RpcHttpServer,
                           tlsCertificate: TLSCertificate) {.raises: [JsonRpcError].} =
   addSecureHttpServers(server, toSeq(resolveIP(address, port)), tlsPrivateKey, tlsCertificate)
 
-proc new*(T: type RpcHttpServer, authHooks: seq[HttpAuthHook] = @[]): T =
-  T(router: RpcRouter.init(), httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
+proc new*(T: type RpcHttpServer, authHooks: seq[HttpAuthHook] = @[], format = RpcFormat.Json): T =
+  T(router: RpcRouter.init(format = format), httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
 
 proc new*(T: type RpcHttpServer, router: RpcRouter, authHooks: seq[HttpAuthHook] = @[]): T =
   T(router: router, httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
 
-proc newRpcHttpServer*(authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer =
-  RpcHttpServer.new(authHooks)
+proc newRpcHttpServer*(authHooks: seq[HttpAuthHook] = @[], format = RpcFormat.Json): RpcHttpServer =
+  RpcHttpServer.new(authHooks, format)
 
 proc newRpcHttpServer*(router: RpcRouter, authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer =
   RpcHttpServer.new(router, authHooks)
 
-proc newRpcHttpServer*(addresses: openArray[TransportAddress], authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer {.raises: [JsonRpcError].} =
+proc newRpcHttpServer*(
+    addresses: openArray[TransportAddress], authHooks: seq[HttpAuthHook] = @[], format = RpcFormat.Json
+): RpcHttpServer {.raises: [JsonRpcError].} =
   ## Create new server and assign it to addresses ``addresses``.
-  result = newRpcHttpServer(authHooks)
+  result = newRpcHttpServer(authHooks, format)
   result.addHttpServers(addresses)
 
-proc newRpcHttpServer*(addresses: openArray[string], authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer {.raises: [JsonRpcError].} =
+proc newRpcHttpServer*(
+    addresses: openArray[string], authHooks: seq[HttpAuthHook] = @[], format = RpcFormat.Json
+): RpcHttpServer {.raises: [JsonRpcError].} =
   ## Create new server and assign it to addresses ``addresses``.
-  result = newRpcHttpServer(authHooks)
+  result = newRpcHttpServer(authHooks, format)
   result.addHttpServers(addresses)
 
 proc newRpcHttpServer*(addresses: openArray[string], router: RpcRouter, authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer {.raises: [JsonRpcError].} =

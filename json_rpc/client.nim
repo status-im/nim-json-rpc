@@ -30,7 +30,7 @@ from strutils import replace
 
 export
   chronos, deques, tables, jsonmarshal, RequestParamsTx, RequestIdKind,
-  RequestId, RequestTx, RequestParamKind, results, cbor_serialization
+  RequestId, RequestTx, RequestParamKind, results, cbor_serialization, RpcFormat
 
 logScope:
   topics = "jsonrpc client"

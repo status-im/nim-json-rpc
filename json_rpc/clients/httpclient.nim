@@ -29,21 +29,23 @@ proc new*(
     getHeaders: GetJsonRpcRequestHeaders = nil,
     flags: HttpClientFlags = {},
     maxMessageSize = defaultMaxMessageSize,
+    format = RpcFormat.Json,
 ): T =
   var moreFlags: HttpClientFlags
   if secure:
     moreFlags.incl HttpClientFlag.NoVerifyHost
     moreFlags.incl HttpClientFlag.NoVerifyServerName
 
-  T(maxMessageSize: maxMessageSize, getHeaders: getHeaders, flags: flags + moreFlags)
+  T(maxMessageSize: maxMessageSize, getHeaders: getHeaders, flags: flags + moreFlags, format: format)
 
 proc newRpcHttpClient*(
     maxBodySize = defaultMaxMessageSize,
     secure = false,
     getHeaders: GetJsonRpcRequestHeaders = nil,
     flags: HttpClientFlags = {},
+    format = RpcFormat.Json,
 ): RpcHttpClient =
-  RpcHttpClient.new(secure, getHeaders, flags, maxBodySize)
+  RpcHttpClient.new(secure, getHeaders, flags, maxBodySize, format)
 
 method send(
     client: RpcHttpClient, reqData: seq[byte]
@@ -56,7 +58,9 @@ method send(
       client.getHeaders()
     else:
       @[]
-  headers.add(("Content-Type", "application/json"))
+
+  headers.add(("Content-Type", "application/cbor"))
+  #headers.add(("Content-Type", "application/json"))
 
   let
     req = HttpClientRequestRef.post(
@@ -91,7 +95,8 @@ method request(
       client.getHeaders()
     else:
       @[]
-  headers.add(("Content-Type", "application/json"))
+  headers.add(("Content-Type", "application/cbor"))
+  #headers.add(("Content-Type", "application/json"))
 
   let
     req = HttpClientRequestRef.post(
