@@ -171,7 +171,7 @@ proc new*(
     format = RpcFormat.Json,
 ): T =
   if router != nil:
-    router.format = format  # XXX validate instead of set
+    doAssert router.format == format, "Client and router format must be the same"
   let router =
     if router != nil:
       proc(

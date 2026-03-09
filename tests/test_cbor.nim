@@ -7,8 +7,7 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-import ../json_rpc/rpcclient
-import ../json_rpc/rpcserver
+import ../json_rpc/[rpcclient, rpcserver]
 import
   chronos/unittest2/asynctests,
   stew/byteutils
@@ -98,6 +97,24 @@ suite "Socket Server/Client RPC/lengthHeaderBE32":
     srv.setupServer()
     srv.start()
     waitFor client.connect(srv.localAddress()[0])
+
+  teardown:
+    waitFor client.close()
+    srv.stop()
+    waitFor srv.closeWait()
+
+  callTests(client)
+
+suite "Websocket Server/Client RPC":
+  setup:
+    const format = RpcFormat.Cbor
+    var srv = newRpcWebSocketServer("127.0.0.1", Port(0), format = format)
+    var client = newRpcWebSocketClient(format = format)
+    doAssert client.format == RpcFormat.Cbor
+
+    srv.setupServer()
+    srv.start()
+    waitFor client.connect("ws://" & $srv.localAddress())
 
   teardown:
     waitFor client.close()
