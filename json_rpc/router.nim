@@ -183,9 +183,8 @@ proc route*(
   let request =
     try:
       router.format.decode(data, RequestBatchRx)
-    except IncompleteObjectError as err:
-      return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
-    except CborIncompleteObjectError as err:
+    except IncompleteObjectError, CborIncompleteObjectError:
+      let err = getCurrentException()
       return string.fromBytes(wrapError(INVALID_REQUEST, err.msg, router.format))
     except SerializationError as err:
       return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg, router.format))

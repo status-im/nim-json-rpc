@@ -7,7 +7,7 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-import ../json_rpc/[rpcclient, rpcserver]
+import ../json_rpc/[rpcclient, rpcserver, rpcproxy]
 import
   chronos/unittest2/asynctests,
   stew/byteutils
@@ -18,7 +18,7 @@ createCborFlavor MyCbor,
 
 MyCbor.defaultSerialization string
 
-proc setupServer*(srv: RpcServer) =
+proc setupServer(srv: RpcServer) =
   srv.rpc(MyCbor):
     proc textEcho(s: string): string =
       #doAssert false
@@ -36,6 +36,8 @@ createRpcSigsFromNim(RpcClient, MyCbor):
   proc textEcho(s: string): string
   proc serverErr(): string
   proc teaPot(): string
+  proc missing(): string
+  proc textEchoProxy(s: string): string
 
 template callTests(client: untyped) =
   test "Successful RPC call":
@@ -50,7 +52,7 @@ template callTests(client: untyped) =
       let data = string.fromBytes CrpcSys.encode("the error message")
       check CrpcSys.decode(err.msg, ResponseError) ==
         ResponseError(
-          code: -32000,
+          code: SERVER_ERROR,
           message: "`serverErr` raised an exception",
           data: Opt.some(data.JsonString)
         )
@@ -62,6 +64,14 @@ template callTests(client: untyped) =
     except JsonRpcError as err:
       check CrpcSys.decode(err.msg, ResponseError) ==
         ResponseError(code: 418, message: "I'm a teapot")
+
+  test "Missing method RPC call":
+    try:
+      discard waitFor client.missing()
+      fail()
+    except JsonRpcError as err:
+      check CrpcSys.decode(err.msg, ResponseError) ==
+        ResponseError(code: METHOD_NOT_FOUND, message: "'missing' is not a registered RPC method")
 
   test "Batch call basic":
     let batch = client.prepareBatch()
@@ -141,3 +151,46 @@ suite "HTTP Server/Client RPC":
     waitFor srv.closeWait()
 
   callTests(client)
+
+proc setupProxy(proxy: var RpcProxy) =
+  proxy.registerProxyMethod("textEcho")
+  proxy.registerProxyMethod("serverErr")
+  proxy.registerProxyMethod("teaPot")
+
+  proxy.rpc(MyCbor):
+    proc textEchoProxy(s: string): string =
+      s
+
+suite "HTTP Proxy Server/Client RPC":
+  setup:
+    const format = RpcFormat.Cbor
+    var srv = newRpcHttpServer(["127.0.0.1:0"], format = format)
+    var srvUrl = "http://" & $srv.localAddress()[0]
+    var proxy = RpcProxy.new(["127.0.0.1:0"], getHttpClientConfig(srvUrl), format = format)
+    var client = newRpcHttpClient(format = format)
+    doAssert client.format == RpcFormat.Cbor
+
+    srv.setupServer()
+    srv.setMaxChunkSize(8192)
+    srv.start()
+    proxy.setupProxy()
+    waitFor proxy.start()
+    waitFor client.connect("http://" & $proxy.localAddress()[0])
+
+  teardown:
+    waitFor client.close()
+    waitFor srv.stop()
+    waitFor srv.closeWait()
+    waitFor proxy.stop()
+    waitFor proxy.closeWait()
+
+  test "Proxy RPC call":
+    let r = waitFor client.textEchoProxy("abc")
+    check r == "abc"
+
+  test "Successful RPC call":
+    let r = waitFor client.textEcho("abc")
+    check r == "abc"
+
+  # XXX proxy must propagate the original error
+  # callTests(client)
