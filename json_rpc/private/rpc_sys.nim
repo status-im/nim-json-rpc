@@ -412,4 +412,11 @@ template withWriter*(format: RpcFormat, writer, body: untyped): untyped =
     withWriter(CrpcSys, writer):
       body
 
+template mimeType*(format: RpcFormat): string =
+  case format
+  of RpcFormat.Json:
+    JrpcSys.mimeType()
+  of RpcFormat.Cbor:
+    CrpcSys.mimeType()
+
 {.pop.}

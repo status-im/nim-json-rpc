@@ -9,7 +9,7 @@
 
 {.push raises: [], gcsafe.}
 
-import std/uri, chronos/apps/http/httpclient, httputils, ../[client, errors]
+import std/uri, chronos/apps/http/httpclient, httputils, ../[client, errors], ../private/rpc_sys
 
 export client, errors, HttpClientFlag, HttpClientFlags
 
@@ -59,8 +59,7 @@ method send(
     else:
       @[]
 
-  headers.add(("Content-Type", "application/cbor"))
-  #headers.add(("Content-Type", "application/json"))
+  headers.add(("Content-Type", client.format.mimeType()))
 
   let
     req = HttpClientRequestRef.post(
@@ -95,8 +94,8 @@ method request(
       client.getHeaders()
     else:
       @[]
-  headers.add(("Content-Type", "application/cbor"))
-  #headers.add(("Content-Type", "application/json"))
+
+  headers.add(("Content-Type", client.format.mimeType()))
 
   let
     req = HttpClientRequestRef.post(

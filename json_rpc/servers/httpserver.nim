@@ -64,8 +64,7 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
           HttpResponseStreamType.Chunked
       response = request.getResponse()
 
-    response.addHeader("Content-Type", "application/cbor")
-    #response.addHeader("Content-Type", "application/json")
+    response.addHeader("Content-Type", rpcServer.router.format.mimeType())
 
     await response.prepare(streamType)
     let maxLen = data.len
