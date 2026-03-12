@@ -14,10 +14,10 @@ import
   stew/byteutils,
   chronicles,
   chronos,
-  ./private/[jrpc_sys, server_handler_wrapper],
+  ./private/[rpc_sys, server_handler_wrapper],
   ./[errors, jsonmarshal]
 
-export chronos, jsonmarshal, json, jrpc_sys
+export chronos, jsonmarshal, json, rpc_sys
 
 logScope:
   topics = "jsonrpc router"
@@ -29,6 +29,7 @@ type
 
   RpcRouter* = object
     procs*: Table[string, RpcProc]
+    format*: RpcFormat  # XXX RpcRouter[Format] ?
 
 const
   # https://www.jsonrpc.org/specification#error_object
@@ -79,17 +80,32 @@ func lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
   else:
     ok(rpcProc)
 
-func wrapError*(code: int, msg: string): seq[byte] =
-  JrpcSys.withWriter(writer):
-    writer.writeValue(
-      ResponseTx(kind: rkError, error: ResponseError(code: code, message: msg))
+func wrapError*(code: int, msg: string, format: RpcFormat): seq[byte] =
+  format.withWriter(writer):
+    writeValue(
+      writer, ResponseTx(kind: rkError, error: ResponseError(code: code, message: msg))
     )
+
+func wrapError*(code: int, msg: string): seq[byte] =
+  wrapError(code, msg, RpcFormat.Json)
+
+func validate*(format: RpcFormat, conv: type SerializationFormat) =
+  case format
+  of RpcFormat.Json:
+    when conv.Reader isnot JsonReader or conv.Writer isnot JsonWriter:
+      raiseAssert "Expected Json format, but found: " & $conv
+  of RpcFormat.Cbor:
+    when conv.Reader isnot CborReader or conv.Writer isnot CborWriter:
+      raiseAssert "Expected Cbor format, but found: " & $conv
 
 # ------------------------------------------------------------------------------
 # Public functions
 # ------------------------------------------------------------------------------
 
 proc init*(T: type RpcRouter): T = discard
+
+proc init*(T: type RpcRouter, format: RpcFormat): T =
+  T(format: format)
 
 proc register*(router: var RpcRouter, path: string, call: RpcProc) =
   router.procs[path] = call
@@ -119,7 +135,11 @@ proc route*(router: RpcRouter, req: RequestRx2):
 
     # Errors that are not specifically raised as `ApplicationError`s will be
     # returned as custom server errors.
-    req.serverError(escapeJson(err.msg).JsonString)
+    case router.format
+    of RpcFormat.Json:
+      req.serverError(escapeJson(err.msg).JsonString)
+    of RpcFormat.Cbor:
+      req.serverError(string.fromBytes(CrpcSys.encode(err.msg)).JsonString)
 
 proc route*(
     router: RpcRouter, request: RequestBatchRx
@@ -130,7 +150,7 @@ proc route*(
   of rbkSingle:
     let response = await router.route(request.single)
     if request.single.id.isSome:
-      JrpcSys.withWriter(writer):
+      router.format.withWriter(writer):
         writer.writeValue(response)
     else:
       default(seq[byte])
@@ -143,7 +163,7 @@ proc route*(
 
     # If all requests are notifications, we should not make a response
     if request.many.anyIt(it.id.isSome()):
-      JrpcSys.withWriter(writer):
+      router.format.withWriter(writer):
         writer.writeArray:
           for i, fut in responses.mpairs():
             if request.many[i].id.isSome():
@@ -162,11 +182,12 @@ proc route*(
   ## Returns the JSON-encoded response.
   let request =
     try:
-      JrpcSys.decode(data, RequestBatchRx)
-    except IncompleteObjectError as err:
-      return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
+      router.format.decode(data, RequestBatchRx)
+    except IncompleteObjectError, CborIncompleteObjectError:
+      let err = getCurrentException()
+      return string.fromBytes(wrapError(INVALID_REQUEST, err.msg, router.format))
     except SerializationError as err:
-      return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg))
+      return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg, router.format))
 
   string.fromBytes(await router.route(request))
 
@@ -179,6 +200,7 @@ proc rpcImpl(server: NimNode, path: string, formatType, body: NimNode): NimNode 
   result = wrapServerHandler(path, params, procBody, procWrapper, formatType)
 
   result.add quote do:
+    `server`.format.validate(`formatType`)
     `server`.register(`path`, `procWrapper`)
 
   when defined(nimDumpRpcs):

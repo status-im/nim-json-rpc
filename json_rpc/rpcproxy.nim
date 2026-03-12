@@ -13,7 +13,7 @@ import
    pkg/websock/websock,
   ./servers/[httpserver],
   ./clients/[httpclient, websocketclient],
-  ./private/jrpc_sys
+  ./private/rpc_sys
 
 type
   ClientKind* = enum
@@ -64,13 +64,13 @@ proc getClient*(proxy: RpcProxy): RpcClient =
   of WebSocket:
     proxy.webSocketClient
 
-proc new*(T: type RpcProxy, server: RpcHttpServer, cfg: ClientConfig): T =
+proc new*(T: type RpcProxy, server: RpcHttpServer, cfg: ClientConfig, format = RpcFormat.Json): T =
   case cfg.kind
   of Http:
-    let client = newRpcHttpClient()
+    let client = newRpcHttpClient(format = format)
     return T(rpcHttpServer: server, kind: Http, httpUri: cfg.httpUri, httpClient: client)
   of WebSocket:
-    let client = newRpcWebSocketClient()
+    let client = newRpcWebSocketClient(format = format)
     return T(
               rpcHttpServer: server,
               kind: WebSocket,
@@ -84,16 +84,18 @@ proc new*(
     T: type RpcProxy,
     listenAddresses: openArray[TransportAddress],
     cfg: ClientConfig,
-    authHooks: seq[HttpAuthHook] = @[]
+    authHooks: seq[HttpAuthHook] = @[],
+    format = RpcFormat.Json
 ): T {.raises: [CatchableError].} =
-  RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(), authHooks), cfg)
+  RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(format = format), authHooks), cfg, format)
 
 proc new*(
     T: type RpcProxy,
     listenAddresses: openArray[string],
     cfg: ClientConfig,
-    authHooks: seq[HttpAuthHook] = @[]): T {.raises: [CatchableError].} =
-  RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(), authHooks), cfg)
+    authHooks: seq[HttpAuthHook] = @[],
+    format = RpcFormat.Json): T {.raises: [CatchableError].} =
+  RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(format = format), authHooks), cfg, format)
 
 proc connectToProxy(proxy: RpcProxy): Future[void] =
   case proxy.kind

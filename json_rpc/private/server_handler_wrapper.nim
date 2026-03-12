@@ -16,8 +16,11 @@ import
   json_serialization,
   json_serialization/std/[options],
   json_serialization/pkg/results,
+  cbor_serialization,
+  cbor_serialization/std/[options],
+  cbor_serialization/pkg/results,
   ../errors,
-  ./jrpc_sys,
+  ./rpc_sys,
   ./shared_wrapper,
   ../jsonmarshal
 
@@ -224,7 +227,10 @@ template maybeWrapServerResult*(Format, resFut): auto =
     await resFut
   else:
     let res = await resFut
-    JsonString(encode(Format, res))
+    when typeof(encode(Format, res)) is seq[byte]:
+      JsonString(string.fromBytes(encode(Format, res)))
+    else:
+      JsonString(encode(Format, res))
 
 func wrapServerHandler*(
     methName: string, params, procBody, procWrapper, formatType: NimNode

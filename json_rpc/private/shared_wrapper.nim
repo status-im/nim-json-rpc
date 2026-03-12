@@ -11,7 +11,7 @@
 
 import
   std/[json, macros],
-  ./jrpc_sys,
+  ./rpc_sys,
   ../jsonmarshal
 
 iterator paramsIter*(params: NimNode): tuple[ident, str, ntype: NimNode] =

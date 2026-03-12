@@ -5,7 +5,7 @@
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
 # at your option.
 
-import unittest2, ../json_rpc/private/jrpc_sys
+import unittest2, ../json_rpc/private/rpc_sys
 
 suite "jrpc_sys serialization":
   test "request: id":

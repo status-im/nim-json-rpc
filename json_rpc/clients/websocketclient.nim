@@ -15,7 +15,7 @@ import
   websock/[websock, extensions/compression/deflate],
   chronos/apps/http/httptable,
   ../[client, errors, router],
-  ../private/jrpc_sys
+  ../private/rpc_sys
 
 export client, errors
 
@@ -29,15 +29,19 @@ proc new*(
     getHeaders: GetJsonRpcRequestHeaders = nil,
     maxMessageSize = defaultMaxMessageSize,
     router = default(RpcRouterCallback),
+    format = RpcFormat.Json,
 ): T =
-  T(getHeaders: getHeaders, maxMessageSize: maxMessageSize, router: router)
+  T(getHeaders: getHeaders, maxMessageSize: maxMessageSize, router: router, format: format)
 
 proc new*(
     T: type RpcWebSocketClient,
     getHeaders: GetJsonRpcRequestHeaders = nil,
     maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
+    format = RpcFormat.Json,
 ): T =
+  if router != nil:
+    doAssert router.format == format, "Client and router format must be the same"
   let router =
     if router != nil:
       proc(
@@ -47,15 +51,16 @@ proc new*(
     else:
       nil
 
-  T.new(getHeaders, maxMessageSize, router)
+  T.new(getHeaders, maxMessageSize, router, format)
 
 proc newRpcWebSocketClient*(
     getHeaders: GetJsonRpcRequestHeaders = nil,
     maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
+    format = RpcFormat.Json,
 ): RpcWebSocketClient =
   ## Creates a new client instance.
-  RpcWebSocketClient.new(getHeaders, maxMessageSize, router)
+  RpcWebSocketClient.new(getHeaders, maxMessageSize, router, format)
 
 method send*(
     client: RpcWebSocketClient, reqData: seq[byte]

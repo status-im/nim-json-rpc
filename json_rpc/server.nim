@@ -13,10 +13,10 @@ import
   std/[json, sequtils, sets],
   chronos,
   ./[client, errors, jsonmarshal, router],
-  ./private/jrpc_sys,
+  ./private/rpc_sys,
   ./private/shared_wrapper
 
-export chronos, client, jsonmarshal, router, sets
+export chronos, client, jsonmarshal, router, sets, cbor_serialization
 
 type
   RpcServer* = ref object of RootRef
@@ -29,8 +29,11 @@ type
 # Constructors
 # ------------------------------------------------------------------------------
 
+proc new*(T: type RpcServer, format: RpcFormat): T =
+  T(router: RpcRouter.init(format = format))
+
 proc new*(T: type RpcServer): T =
-  T(router: RpcRouter.init())
+  T(router: RpcRouter.init(format = RpcFormat.Json))
 
 # ------------------------------------------------------------------------------
 # Public functions
@@ -62,12 +65,14 @@ proc executeMethod*(server: RpcServer,
 proc executeMethod*(
     server: RpcServer, methodName: string, args: JsonNode, Format: type SerializationFormat
 ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
+  server.router.format.validate(Format)
   let params = paramsTx(args, Format)
   server.executeMethod(methodName, params)
 
 proc executeMethod*(
     server: RpcServer, methodName: string, args: JsonNode
 ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
+  server.router.format.validate(JrpcConv)
   let params = paramsTx(args, JrpcConv)
   server.executeMethod(methodName, params)
 

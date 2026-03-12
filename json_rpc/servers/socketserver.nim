@@ -16,7 +16,7 @@ import
   json_serialization/std/net as jsnet,
   ../private/utils,
   ../[errors, server],
-  ../private/jrpc_sys,
+  ../private/rpc_sys,
   ../clients/socketclient
 
 export errors, server, jsnet
@@ -42,10 +42,11 @@ proc processClient(
     c = RpcSocketClient.new(
       maxMessageSize = rpc.maxMessageSize,
       framing = rpc.framing,
+      format = router.format,
       router = proc(
           request: RequestBatchRx
       ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
-        router.route(request),
+        router.route(request)
     )
 
   rpc.connections.incl(c)
@@ -99,9 +100,10 @@ proc new(
     T: type RpcSocketServer,
     maxMessageSize = defaultMaxMessageSize,
     framing = Framing.newLine(),
+    format = RpcFormat.Json
 ): T =
   T(
-    router: RpcRouter.init(),
+    router: RpcRouter.init(format = format),
     servers: @[],
     maxMessageSize: maxMessageSize,
     processClientHook: processClient,
@@ -109,36 +111,36 @@ proc new(
   )
 
 proc newRpcSocketServer*(
-    maxMessageSize = defaultMaxMessageSize, framing = Framing.newLine()
+    maxMessageSize = defaultMaxMessageSize, framing = Framing.newLine(), format = RpcFormat.Json
 ): RpcSocketServer =
-  RpcSocketServer.new(maxMessageSize, framing)
+  RpcSocketServer.new(maxMessageSize, framing, format)
 
 proc newRpcSocketServer*(
-    addresses: openArray[TransportAddress], framing = Framing.newLine()
+    addresses: openArray[TransportAddress], framing = Framing.newLine(), format = RpcFormat.Json
 ): RpcSocketServer {.raises: [JsonRpcError].} =
   ## Create new server and assign it to addresses ``addresses``.
-  result = RpcSocketServer.new(framing = framing)
+  result = RpcSocketServer.new(framing = framing, format = format)
   result.addStreamServers(addresses)
 
 proc newRpcSocketServer*(
-    addresses: openArray[string], framing = Framing.newLine()
+    addresses: openArray[string], framing = Framing.newLine(), format = RpcFormat.Json
 ): RpcSocketServer {.raises: [JsonRpcError].} =
   ## Create new server and assign it to addresses ``addresses``.
-  result = RpcSocketServer.new(framing = framing)
+  result = RpcSocketServer.new(framing = framing, format = format)
   result.addStreamServers(addresses)
 
 proc newRpcSocketServer*(
-    address: string, port: Port = Port(8545), framing = Framing.newLine()
+    address: string, port: Port = Port(8545), framing = Framing.newLine(), format = RpcFormat.Json
 ): RpcSocketServer {.raises: [JsonRpcError].} =
   # Create server on specified port
-  result = RpcSocketServer.new(framing = framing)
+  result = RpcSocketServer.new(framing = framing, format = format)
   result.addStreamServer(address, port)
 
 proc newRpcSocketServer*(
-    processClientHook: StreamCallback2, framing = Framing.newLine()
+    processClientHook: StreamCallback2, framing = Framing.newLine(), format = RpcFormat.Json
 ): RpcSocketServer =
   ## Create new server with custom processClientHook.
-  result = RpcSocketServer.new(framing = framing)
+  result = RpcSocketServer.new(framing = framing, format = format)
   result.processClientHook = processClientHook
 
 proc start*(server: RpcSocketServer) {.raises: [JsonRpcError].} =

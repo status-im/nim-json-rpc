@@ -11,8 +11,9 @@
 
 import
   macros,
+  stew/byteutils,
   ./shared_wrapper,
-  ./jrpc_sys
+  ./rpc_sys
 
 func createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   # parameters come as a tree
@@ -47,7 +48,10 @@ func setupConversion(reqParams, params, formatType: NimNode): NimNode =
 
   for parIdent, _, parType in paramsIter(params):
     result.add quote do:
-      `reqParams`.positional.add encode(`formatType`, `parIdent`).JsonString
+      when typeof(encode(`formatType`, `parIdent`)) is seq[byte]:
+        `reqParams`.positional.add string.fromBytes(encode(`formatType`, `parIdent`)).JsonString
+      else:
+        `reqParams`.positional.add encode(`formatType`, `parIdent`).JsonString
 
 template maybeUnwrapClientResult*(client, meth, reqParams, returnType, formatType): auto =
   ## Don't decode e.g. JsonString, return as is
@@ -106,6 +110,7 @@ func createRpcFromSig*(clientType, rpcDecl, formatType: NimNode, alias = NimNode
 
   # perform rpc call
   let callBody = quote do:
+    `clientIdent`.format.validate(`formatType`)
     # populate request params
     `setup`
     maybeUnwrapClientResult(`clientIdent`, `pathStr`, `reqParams`, `returnType`, `formatType`)

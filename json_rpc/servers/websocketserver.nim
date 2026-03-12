@@ -16,7 +16,7 @@ import
   websock/extensions/compression/deflate,
   json_serialization/std/net as jsnet,
   ../[errors, server],
-  ../private/jrpc_sys,
+  ../private/rpc_sys,
   ../clients/websocketclient
 
 export errors, server, jsnet
@@ -71,6 +71,7 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
           request: RequestBatchRx
       ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
         router.route(request),
+      format = rpc.router.format,
     )
   rpc.connections.incl(c)
 
@@ -122,8 +123,12 @@ proc newRpcWebSocketServer*(
     authHooks: seq[WsAuthHook] = @[],
     rng = HmacDrbgContext.new(),
     maxMessageSize = defaultMaxMessageSize,
+    format = RpcFormat.Json,
 ): RpcWebSocketServer {.raises: [JsonRpcError].} =
-  var server = RpcWebSocketServer(maxMessageSize: maxMessageSize)
+  var server = RpcWebSocketServer(
+    router: RpcRouter.init(format = format),
+    maxMessageSize: maxMessageSize
+  )
 
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
@@ -148,6 +153,7 @@ proc newRpcWebSocketServer*(
     authHooks: seq[WsAuthHook] = @[],
     rng = HmacDrbgContext.new(),
     maxMessageSize = defaultMaxMessageSize,
+    format = RpcFormat.Json,
 ): RpcWebSocketServer {.raises: [JsonRpcError].} =
   try:
     newRpcWebSocketServer(
@@ -157,6 +163,7 @@ proc newRpcWebSocketServer*(
       authHooks,
       rng,
       maxMessageSize,
+      format,
     )
   except TransportError as exc:
     raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
@@ -174,9 +181,13 @@ proc newRpcWebSocketServer*(
   authHooks: seq[WsAuthHook] = @[],
   rng = HmacDrbgContext.new(),
   maxMessageSize = defaultMaxMessageSize,
+  format = RpcFormat.Json,
   ): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
-  var server = RpcWebSocketServer(maxMessageSize: maxMessageSize)
+  var server = RpcWebSocketServer(
+    router: RpcRouter.init(format = format),
+    maxMessageSize: maxMessageSize
+  )
   proc processCallback(request: HttpRequest): Future[void] =
     handleRequest(server, request)
 
@@ -209,7 +220,8 @@ proc newRpcWebSocketServer*(
   tlsMinVersion = TLSVersion.TLS12,
   tlsMaxVersion = TLSVersion.TLS12,
   authHooks: seq[WsAuthHook] = @[],
-  rng = HmacDrbgContext.new()): RpcWebSocketServer {.raises: [JsonRpcError].} =
+  rng = HmacDrbgContext.new(),
+  format = RpcFormat.Json): RpcWebSocketServer {.raises: [JsonRpcError].} =
 
   try:
     newRpcWebSocketServer(
@@ -222,7 +234,8 @@ proc newRpcWebSocketServer*(
       tlsMinVersion,
       tlsMaxVersion,
       authHooks,
-      rng
+      rng,
+      format = format
     )
   except TransportError as exc:
     raise (ref RpcBindError)(msg: "Unable to create server: " & exc.msg, parent: exc)
