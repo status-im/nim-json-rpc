@@ -49,8 +49,9 @@ func unpackArg(args: JsonString, argName: string, argType: type, Format: type Se
   try:
     result = decode(Format, args.string, argType)
   except CatchableError as err:
-    raise newException(RequestDecodeError,
-      "Parameter [" & argName & "] of type '" &
+    raise (ref ApplicationError)(
+      code: -32602,
+      msg: "Parameter [" & argName & "] of type '" &
       $argType & "' could not be decoded: " & err.msg)
 
 # ------------------------------------------------------------------------------
@@ -85,8 +86,9 @@ template expectOptionalParamsLen(params: RequestParamsRx,
       $maxLength & " Json parameter(s) but got "
 
   if params.positional.len < minLength:
-    raise newException(RequestDecodeError,
-      expected & $params.positional.len)
+    raise (ref ApplicationError)(
+        code: -32602,
+        msg: expected & $params.positional.len)
 
 template expectParamsLen(params: RequestParamsRx, length: static[int]) =
   ## Make sure positional params meets the handler expectation
@@ -102,8 +104,9 @@ template expectParamsLen(params: RequestParamsRx, length: static[int]) =
     expected = "Expected " & $nonConstLength & " JSON parameter(s) but got "
 
   if params.positional.len != length:
-    raise newException(RequestDecodeError,
-      expected & $params.positional.len)
+    raise (ref ApplicationError)(
+      code: -32602,
+      msg: expected & $params.positional.len)
 
 template setupPositional(setup: static[RpcSetup], params: RequestParamsRx) =
   ## Generate code to check positional params length
