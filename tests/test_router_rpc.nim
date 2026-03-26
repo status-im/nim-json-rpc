@@ -93,13 +93,13 @@ template test_optional(meth: static[string]) =
     let n = req(meth, "[44, 567, \"apple\", \"banana\"]")
     let res = waitFor server.route(n)
     when meth == "std_option":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`std_option` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
     elif meth == "results_opt":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`results_opt` raised an exception","data":"Parameter [D] of type 'Opt[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Opt[system.int]' could not be decoded: number expected"},"id":0}"""
     elif meth == "mixed_opt":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`mixed_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
     else:
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`alias_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
 
   test meth & " D extra, positional":
     let n = req(meth, "[44, 567, \"apple\", 999, \"banana\", true]")
@@ -130,7 +130,7 @@ suite "rpc router":
   test "no params with params":
     let n = req("noParams", "[123]")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`noParams` raised an exception","data":"Expected 0 JSON parameter(s) but got 1"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Expected 0 JSON parameter(s) but got 1"},"id":0}"""
 
   test_optional("std_option")
   test_optional("results_opt")
