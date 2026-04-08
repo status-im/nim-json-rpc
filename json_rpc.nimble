@@ -10,14 +10,14 @@
 mode = ScriptMode.Verbose
 
 packageName   = "json_rpc"
-version       = "0.5.4"
+version       = "0.6.0"
 author        = "Status Research & Development GmbH"
 description   = "Ethereum remote procedure calls"
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 ### Dependencies
-requires "nim >= 1.6.0",
+requires "nim >= 2.0.8",
          "stew",
          "nimcrypto",
          "stint",
@@ -45,13 +45,11 @@ proc build(args, path: string) =
 
 proc run(args, path: string) =
   build args & " --mm:refc -r", path
-  if (NimMajor, NimMinor) > (1, 6):
-    build args & " --mm:orc -r", path
+  build args & " --mm:orc -r", path
 
 proc buildOnly(args, path: string) =
   build args & " --mm:refc", path
-  if (NimMajor, NimMinor) > (1, 6):
-    build args & " --mm:orc", path
+  build args & " --mm:orc", path
 
 task test, "run tests":
   run "", "tests/all"
