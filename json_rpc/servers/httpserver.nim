@@ -63,8 +63,8 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
 
     await response.prepare(HttpResponseStreamType.Plain)
 
-    if len > 0:
-      await response.send(addr data[0], data.len)
+    if data.len() > 0:
+      await response.send(addr data[0], data.len))
 
     await response.finish()
     response
