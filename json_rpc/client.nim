@@ -122,9 +122,8 @@ proc callOnProcessMessage*(
 const defaultRouter = default(RpcRouter)
 
 proc processMessageResponse(
-    client: RpcConnection, line: seq[byte]
-) {.raises: [SerializationError, JsonRpcError].} =
-  let batch = JrpcSys.decode(line, ResponseBatchRx)
+    client: RpcConnection, line: seq[byte], batch: ResponseBatchRx
+) {.raises: [JsonRpcError].} =
   let id = case batch.kind
   of rbkMany:
     var curr = RequestId(kind: riNumber, num: int.low)
@@ -153,21 +152,27 @@ proc processMessage*(
     ret.complete(res)
     ret
 
-  try:
-    let request = JrpcSys.decode(line, RequestBatchRx)
-    if client.router != nil:
-      client.router(request)
-    else:
-      defaultRouter.route(request)
-  except IncompleteObjectError as exc:
-    try:
-      processMessageResponse(client, line)
-    except SerializationError as exc:
-      raise (ref JsonRpcError)(msg: exc.msg, parent: exc)
-    makeResponse(default(seq[byte]))
+  let bm = try:
+    JrpcSys.decode(line, BidiMessage)
+  except BidiMessageResponseError as exc:
+    raise (ref JsonRpcError)(msg: exc.msg)
+  except BidiMessageRequestError as exc:
+    return makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
   except SerializationError as exc:
-    # XXX is line really a request?
-    makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
+    # XXX ambiguous or unknown error; terminate the connection
+    return makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
+
+  case bm.kind
+  of BidiMessageKind.bmRequest:
+    if client.router != nil:
+      client.router(bm.request)
+    else:
+      defaultRouter.route(bm.request)
+  of BidiMessageKind.bmResponse:
+    # XXX remove line param
+    # XXX ResponseFut* = Future[ResponseBatchRx] instead fo seq[byte]
+    processMessageResponse(client, line, bm.response)
+    makeResponse(default(seq[byte]))
 
 proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
   for fut in client.pendingRequests.values:
