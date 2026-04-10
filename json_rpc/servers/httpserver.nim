@@ -40,7 +40,7 @@ type
   # This inheritance arrangement is useful for
   # e.g. combo HTTP server
   RpcHttpHandler* = ref object of RpcServer
-    maxChunkSize*: int
+    maxChunkSize* {.deprecated.}: int
 
   RpcHttpServer* = ref object of RpcHttpHandler
     httpServers: seq[HttpServerRef]
@@ -56,26 +56,15 @@ proc serveHTTP*(rpcServer: RpcHttpHandler, request: HttpRequestRef):
 
     let
       data = await rpcServer.route(req)
-      chunkSize = rpcServer.maxChunkSize
-      streamType =
-        if data.len <= chunkSize:
-          HttpResponseStreamType.Plain
-        else:
-          HttpResponseStreamType.Chunked
       response = request.getResponse()
 
     response.addHeader("Content-Type", "application/json")
+    response.addHeader("Content-Length", $data.len)
 
-    await response.prepare(streamType)
-    let maxLen = data.len
-
-    var len = data.len
-    while len > chunkSize:
-      await response.send(data[maxLen - len].unsafeAddr, chunkSize)
-      len -= chunkSize
+    await response.prepare(HttpResponseStreamType.Plain)
 
     if len > 0:
-      await response.send(data[maxLen - len].unsafeAddr, len)
+      await response.send(addr data[0], data.len)
 
     await response.finish()
     response
@@ -221,10 +210,10 @@ proc addSecureHttpServer*(server: RpcHttpServer,
   addSecureHttpServers(server, toSeq(resolveIP(address, port)), tlsPrivateKey, tlsCertificate)
 
 proc new*(T: type RpcHttpServer, authHooks: seq[HttpAuthHook] = @[]): T =
-  T(router: RpcRouter.init(), httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
+  T(router: RpcRouter.init(), httpServers: @[], authHooks: authHooks)
 
 proc new*(T: type RpcHttpServer, router: RpcRouter, authHooks: seq[HttpAuthHook] = @[]): T =
-  T(router: router, httpServers: @[], authHooks: authHooks, maxChunkSize: 8192)
+  T(router: router, httpServers: @[], authHooks: authHooks)
 
 proc newRpcHttpServer*(authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer =
   RpcHttpServer.new(authHooks)
@@ -273,5 +262,5 @@ proc localAddress*(server: RpcHttpServer): seq[TransportAddress] =
   for item in server.httpServers:
     result.add item.instance.localAddress()
 
-proc setMaxChunkSize*(server: RpcHttpServer, maxChunkSize: int) =
+proc setMaxChunkSize*(server: RpcHttpServer, maxChunkSize: int) {.deprecated: "unused".} =
   server.maxChunkSize = maxChunkSize
