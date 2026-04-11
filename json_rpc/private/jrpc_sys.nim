@@ -153,13 +153,6 @@ type
     error   : results.Opt[ResponseError]
     id      : results.Opt[RequestId]
 
-  BidiMessageBatchIx = object
-    case kind: ReBatchKind
-    of rbkMany:
-      many  : seq[BidiMessageIx]
-    of rbkSingle:
-      single: BidiMessageIx
-
   BidiMessageKind* = enum
     bmResponse
     bmRequest
@@ -376,6 +369,10 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
 
 proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageIx)
        {.gcsafe, raises: [IOError, SerializationError].} =
+  # Validation must be done at a later point because
+  # this could be a batch message; if all fields are missing
+  # we can still know whether it's a request or response based on
+  # the other messages.
   r.parseObjectWithoutSkip(key):
     case key
     of "jsonrpc": r.readValue(val.jsonrpc)
@@ -385,25 +382,6 @@ proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageIx)
     of "method" : r.readValue(val.`method`)
     of "params" : r.readValue(val.params)
     else: discard
-
-proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageBatchIx)
-       {.gcsafe, raises: [IOError, SerializationError].} =
-  let tok = r.tokKind
-  case tok
-  of JsonValueKind.Array:
-    val = BidiMessageBatchIx(kind: rbkMany)
-    r.readValue(val.many)
-    if val.many.len == 0:
-      r.raiseUnexpectedValue("Batch must contain at least one message")
-  of JsonValueKind.Object:
-    val = BidiMessageBatchIx(kind: rbkSingle)
-    r.readValue(val.single)
-  else:
-    r.raiseUnexpectedValue("BidiMessageBatchIx must be either array or object, got=" & $tok)
-
-proc validate(val: BidiMessageIx) {.gcsafe, raises: [BidiMessageAmbiguousError].} =
-  if val.`method`.isNone and val.result.isNone and val.error.isNone:
-    raise (ref BidiMessageAmbiguousError)(msg: "Missing multiple fields")
 
 proc validateRequest(val: BidiMessageIx) {.gcsafe, raises: [BidiMessageRequestError].} =
   if val.jsonrpc.isNone:
@@ -423,46 +401,60 @@ proc validateResponse(val: BidiMessageIx) {.gcsafe, raises: [BidiMessageResponse
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
        {.gcsafe, raises: [IOError, SerializationError].} =
-  var bmsg = r.readValue(BidiMessageBatchIx)
-  val = case bmsg.kind
-  of rbkMany:
-    var reqCount = 0
-    for m in bmsg.many:
-      validate(m)
-      reqCount += int(m.`method`.isSome)
-    if reqCount == 0:
-      var resps = newSeq[ResponseRx2](bmsg.many.len)
-      for i, m in mpairs bmsg.many:
-        validateResponse(m)
-        resps[i] = if m.result.isSome:
-          ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: m.id.get())
-        else:
-          ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: m.id.get())
-      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkMany, many: move(resps)))
-    else:
-      var reqs = newSeq[RequestRx2](bmsg.many.len)
-      for i, m in mpairs bmsg.many:
+  let tok = r.tokKind
+  case tok
+  of JsonValueKind.Array:
+    var ambiguous = 0
+    var reqs = newSeq[RequestRx2]()
+    var resps = newSeq[ResponseRx2]()
+    r.parseArray:
+      var m: BidiMessageIx
+      r.readValue(m)
+      if m.`method`.isSome:
         validateRequest(m)
-        reqs[i] = RequestRx2(
+        reqs.add RequestRx2(
           jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: m.id
         )
-      BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkMany, many: move(reqs)))
-  of rbkSingle:
-    var m = move(bmsg.single)
-    validate(m)
-    if m.`method`.isNone:
-      validateResponse(m)
-      var resp = if m.result.isSome:
-        ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: m.id.get())
+      elif m.result.isSome:
+        validateResponse(m)
+        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: m.id.get())
+      elif m.error.isSome:
+        validateResponse(m)
+        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: m.id.get())
       else:
-        ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: m.id.get())
-      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
+        inc ambiguous
+    if ambiguous > 0:
+      r.raiseUnexpectedValue("Multiple missing fields")
+    if reqs.len > 0 and resps.len > 0:
+      r.raiseUnexpectedValue("Mixed responses and requests batch")
+    if reqs.len == 0 and resps.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
+    val = if reqs.len > 0:
+      BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkMany, many: move(reqs)))
     else:
+      doAssert resps.len > 0
+      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkMany, many: move(resps)))
+  of JsonValueKind.Object:
+    var m: BidiMessageIx
+    r.readValue(m)
+    val = if m.`method`.isSome:
       validateRequest(m)
       var req = RequestRx2(
         jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: m.id
       )
       BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkSingle, single: move(req)))
+    elif m.result.isSome:
+      validateResponse(m)
+      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: m.id.get())
+      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
+    elif m.error.isSome:
+      validateResponse(m)
+      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: m.id.get())
+      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
+    else:
+      r.raiseUnexpectedValue("Multiple missing fields")
+  else:
+    r.raiseUnexpectedValue("BidiMessage must be either array or object, got=" & $tok)
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
