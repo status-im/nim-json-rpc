@@ -413,14 +413,14 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
       if m.`method`.isSome:
         validateRequest(m)
         reqs.add RequestRx2(
-          jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: m.id
+          jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: move(m.id)
         )
       elif m.result.isSome:
         validateResponse(m)
-        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: m.id.get())
+        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: move(m.id[]))
       elif m.error.isSome:
         validateResponse(m)
-        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: m.id.get())
+        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: move(m.id[]))
       else:
         inc ambiguous
     if ambiguous > 0:
@@ -440,16 +440,16 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
     val = if m.`method`.isSome:
       validateRequest(m)
       var req = RequestRx2(
-        jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: m.id
+        jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: move(m.id)
       )
       BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkSingle, single: move(req)))
     elif m.result.isSome:
       validateResponse(m)
-      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: m.id.get())
+      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: move(m.id[]))
       BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
     elif m.error.isSome:
       validateResponse(m)
-      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: m.id.get())
+      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: move(m.id[]))
       BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
     else:
       r.raiseUnexpectedValue("Multiple missing fields")
