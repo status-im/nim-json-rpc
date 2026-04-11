@@ -137,9 +137,7 @@ suite "test rpc socket client":
   waitFor client.connect(server.localAddress()[0])
 
   test "missing id in server response":
-    expect JsonRpcError:
-      let res = waitFor client.get_Banana(11)
-      discard res
+    check not waitFor client.get_Banana(11).withTimeout(1.seconds)
 
   waitFor client.close()
   server.stop()
@@ -300,9 +298,7 @@ suite "test ws http client":
   waitFor client.connect("ws://" & $server.localAddress())
 
   test "missing id in server response":
-    expect JsonRpcError:
-      let res = waitFor client.get_Banana(11)
-      discard res
+    check not waitFor client.get_Banana(11).withTimeout(1.seconds)
 
   # XXX client.close() causes a "Incomplete data sent or received"
   #     it's the same in HEAD and v0.5.4

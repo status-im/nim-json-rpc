@@ -123,7 +123,7 @@ const defaultRouter = default(RpcRouter)
 
 proc processMessageResponse(
     client: RpcConnection, line: seq[byte], batch: ResponseBatchRx
-) {.raises: [JsonRpcError].} =
+) =
   let id = case batch.kind
   of rbkMany:
     var curr = RequestId(kind: riNumber, num: int.low)
@@ -135,12 +135,13 @@ proc processMessageResponse(
   of rbkSingle:
     batch.single.id
   var fut: ResponseFut
-  if not client.pendingRequests.pop(id, fut):
-    raise (ref JsonRpcError)(msg: "Cannot find message id \"" & $id & "\"")
-  if not fut.finished():
-    fut.complete(line)
+  if client.pendingRequests.pop(id, fut):
+    if not fut.finished():
+      fut.complete(line)
+    else:
+      debug "Future already finished, dropping", state = fut.state()
   else:
-    debug "Future already finished, dropping", state = fut.state()
+    debug "Pending request id not found", id = id.num
 
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
@@ -155,10 +156,13 @@ proc processMessage*(
   let bm = try:
     JrpcSys.decode(line, BidiMessage)
   except BidiMessageResponseError as exc:
-    raise (ref JsonRpcError)(msg: exc.msg)
+    debug "Failed to parse response", err = exc.msg, remote = client.remote
+    return makeResponse(default(seq[byte]))
   except BidiMessageRequestError as exc:
+    debug "Failed to parse request", err = exc.msg, remote = client.remote
     return makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
   except SerializationError as exc:
+    debug "Failed to parse message", err = exc.msg, remote = client.remote
     # XXX ambiguous or unknown error; terminate the connection
     return makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
 
