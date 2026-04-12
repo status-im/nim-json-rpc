@@ -101,7 +101,8 @@ proc processsSingleResponse*(
 
 template withPendingFut*(client, fut, id, body: untyped): untyped =
   let rid = id.toRequestId()
-  doAssert id.toRequestId() notin client.pendingRequests
+  doAssert rid notin client.pendingRequests,
+    "a request with this id is pending; retries must use a new id; id=" & $rid
   let fut = ResponseFut.init("jsonrpc.client.pending")
   client.pendingRequests[rid] = fut
   body
