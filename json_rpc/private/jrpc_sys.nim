@@ -216,9 +216,6 @@ func `==`*(a, b: RequestId): bool =
 func meth*(rx: RequestRx | RequestRx2): string =
   rx.`method`
 
-func toRequestId*(id: int): RequestId =
-  RequestId(kind: riNumber, num: id)
-
 template shouldWriteObjectField*(field: RequestParamsTx): bool =
   case field.kind
   of rpPositional:

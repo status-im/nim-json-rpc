@@ -9,12 +9,7 @@
 
 {.push raises: [], gcsafe.}
 
-import
-  std/uri,
-  chronos/apps/http/httpclient,
-  httputils,
-  ../[client, errors],
-  ../private/jrpc_sys
+import std/uri, chronos/apps/http/httpclient, httputils, ../[client, errors], ../private/jrpc_sys
 
 export client, errors, HttpClientFlag, HttpClientFlags
 

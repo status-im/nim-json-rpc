@@ -66,7 +66,7 @@ type
   RpcConnection* = ref object of RpcClient
     router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
-    pendingRequests*: Table[RequestId, ResponseFut]
+    pendingRequests*: Table[int, ResponseFut]
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
@@ -109,15 +109,14 @@ proc processsSingleResponse(
     raise (ref InvalidResponse)(msg: "Received batch but single response was expected")
 
 template withPendingFut*(client, fut, id, body: untyped): untyped =
-  let rid = id.toRequestId()
-  doAssert rid notin client.pendingRequests,
-    "a request with this id is pending; retries must use a new id; id=" & $rid
+  doAssert id notin client.pendingRequests,
+    "a request with this id is pending; retries must use a new id; id=" & $id
   let fut = ResponseFut.init("jsonrpc.client.pending")
-  client.pendingRequests[rid] = fut
+  client.pendingRequests[id] = fut
   try:
     body
   finally:
-    client.pendingRequests.del(rid)
+    client.pendingRequests.del(id)
 
 method send(
     client: RpcClient, data: seq[byte]
@@ -139,14 +138,17 @@ proc processMessageResponse(
 ) =
   let id = case batch.kind
   of rbkMany:
-    var curr = RequestId(kind: riNumber, num: int.low)
+    var curr = int.low
     for i in 0 ..< batch.many.len:
       let id = batch.many[i].id
-      if id.kind == riNumber and id.num >= curr.num:
-        curr = id
+      if id.kind == riNumber and id.num >= curr:
+        curr = id.num
     curr
   of rbkSingle:
-    batch.single.id
+    if batch.single.id.kind == riNumber:
+      batch.single.id.num
+    else:
+      int.low
   var fut: ResponseFut
   if client.pendingRequests.pop(id, fut):
     if not fut.finished():
@@ -154,7 +156,7 @@ proc processMessageResponse(
     else:
       debug "Future already finished, dropping", state = fut.state()
   else:
-    debug "Pending request id not found", id = id.num
+    debug "Pending request id not found", id = id
 
 proc processMessage*(
     client: RpcConnection, line: seq[byte]
