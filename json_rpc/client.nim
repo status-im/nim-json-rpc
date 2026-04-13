@@ -102,10 +102,11 @@ proc processsSingleResponse*(
 proc processsSingleResponse(
     resp: sink ResponseBatchRx, id: int
 ): JsonString {.raises: [JsonRpcError].} =
-  if resp.kind == rbkSingle:
+  case resp.kind
+  of rbkSingle:
     processsSingleResponse(resp.single, id)
-  else:
-    raise (ref JsonRpcError)(msg: "Received batch response but single response was expected")
+  of rbkMany:
+    raise (ref InvalidResponse)(msg: "Received batch but single response was expected")
 
 template withPendingFut*(client, fut, id, body: untyped): untyped =
   let rid = id.toRequestId()
@@ -113,7 +114,10 @@ template withPendingFut*(client, fut, id, body: untyped): untyped =
     "a request with this id is pending; retries must use a new id; id=" & $rid
   let fut = ResponseFut.init("jsonrpc.client.pending")
   client.pendingRequests[rid] = fut
-  body
+  try:
+    body
+  finally:
+    client.pendingRequests.del(rid)
 
 method send(
     client: RpcClient, data: seq[byte]
@@ -251,9 +255,7 @@ proc call*(
   ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError]).} =
     try:
       let resData = await request
-
-      #debug "Processing JSON-RPC response",
-      #  len = resData.len, id, remote = client.remote
+      debug "Processing JSON-RPC response", id, remote = client.remote
       processsSingleResponse(resData, id)
     except JsonRpcError as exc:
       debug "JSON-RPC request failed", err = exc.msg, id, remote = client.remote
@@ -295,14 +297,13 @@ proc callBatch*(
       client: RpcClient, request: auto
   ): Future[seq[ResponseRx2]] {.async: (raises: [CancelledError, JsonRpcError]).} =
     try:
-      let resData = await request
-      #debug "Processing JSON-RPC batch response",
-      #  len = resData.len, remote = client.remote
-      #parseResponse(resData, seq[ResponseRx2])
-      if resData.kind == rbkMany:
-        resData.many
+      let resp = await request
+      debug "Processing JSON-RPC batch response", remote = client.remote
+      case resp.kind
+      of rbkMany:
+        resp.many
       else:
-        raise (ref JsonRpcError)(msg: "Received single response but expected a batch")
+        raise (ref InvalidResponse)(msg: "Received single response but expected a batch")
     except JsonRpcError as exc:
       debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
       raise exc
@@ -350,14 +351,13 @@ proc send*(
       map = move(map) # 2.0 compat
       res =
         try:
-          let resData = await request
-          #debug "Processing JSON-RPC batch response",
-          #  len = resData.len, lastId, remote = client.remote
-
-          if resData.kind == rbkMany:
-            resData.many
+          let resp = await request
+          debug "Processing JSON-RPC batch response", lastId, remote = client.remote
+          case resp.kind
+          of rbkMany:
+            resp.many
           else:
-            raise (ref JsonRpcError)(msg: "Received single response but expected a batch")
+            raise (ref InvalidResponse)(msg: "Received single response but expected a batch")
         except JsonRpcError as exc:
           debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
 
