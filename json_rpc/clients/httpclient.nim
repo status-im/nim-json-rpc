@@ -115,8 +115,8 @@ method request(
     if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
       raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
-    let resData = await res.getBodyBytes(client.maxMessageSize)
-    parseResponse(resData, ResponseBatchRx)
+    let respData = await res.getBodyBytes(client.maxMessageSize)
+    parseResponse(respData, ResponseBatchRx)
   except HttpError as exc:
     raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
   finally:

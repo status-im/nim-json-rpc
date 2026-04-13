@@ -239,7 +239,11 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
       if not fallback:
         continue
 
-      let resp = await client.processMessage(data)
+      let resp = try:
+        await client.processMessage(data)
+      except JsonRpcError as exc:
+        await client.framing.sendMsg(client.transport, wrapError(router.INVALID_REQUEST, exc.msg))
+        raise exc
 
       if resp.len > 0:
         await client.framing.sendMsg(client.transport, resp)

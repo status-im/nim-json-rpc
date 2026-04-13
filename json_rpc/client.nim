@@ -172,8 +172,7 @@ proc processMessage*(
     return makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
   except SerializationError as exc:
     debug "Failed to parse message", err = exc.msg, remote = client.remote
-    # XXX ambiguous or unknown error; terminate the connection
-    return makeResponse(wrapError(router.INVALID_REQUEST, exc.msg))
+    raise (ref JsonRpcError)(msg: exc.msg, parent: exc)
 
   case bm.kind
   of BidiMessageKind.bmRequest:
