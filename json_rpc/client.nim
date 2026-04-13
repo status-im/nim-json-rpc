@@ -30,7 +30,7 @@ from strutils import replace
 
 export
   chronos, deques, tables, jsonmarshal, RequestParamsTx, RequestIdKind,
-  RequestId, RequestTx, RequestParamKind, results
+  RequestId, RequestTx, RequestParamKind, ResponseBatchRx, results
 
 logScope:
   topics = "jsonrpc client"
@@ -62,7 +62,7 @@ type
   RpcRouterCallback* =
     proc(request: RequestBatchRx): Future[seq[byte]] {.async: (raises: []).}
 
-  ResponseFut* = Future[seq[byte]].Raising([CancelledError, JsonRpcError])
+  ResponseFut* = Future[ResponseBatchRx].Raising([CancelledError, JsonRpcError])
   RpcConnection* = ref object of RpcClient
     router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
@@ -73,7 +73,7 @@ type
 func hash*(v: RpcClient): Hash =
   cast[Hash](addr v[])
 
-func parseResponse(payload: openArray[byte], T: type): T {.raises: [JsonRpcError].} =
+func parseResponse*(payload: openArray[byte], T: type): T {.raises: [JsonRpcError].} =
   try:
     JrpcSys.decode(payload, T)
   except SerializationError as exc:
@@ -99,6 +99,14 @@ proc processsSingleResponse*(
 ): JsonString {.raises: [JsonRpcError].} =
   processsSingleResponse(parseResponse(body, ResponseRx2), id)
 
+proc processsSingleResponse(
+    resp: sink ResponseBatchRx, id: int
+): JsonString {.raises: [JsonRpcError].} =
+  if resp.kind == rbkSingle:
+    processsSingleResponse(resp.single, id)
+  else:
+    raise (ref JsonRpcError)(msg: "Received batch response but single response was expected")
+
 template withPendingFut*(client, fut, id, body: untyped): untyped =
   let rid = id.toRequestId()
   doAssert rid notin client.pendingRequests,
@@ -123,7 +131,7 @@ proc callOnProcessMessage*(
 const defaultRouter = default(RpcRouter)
 
 proc processMessageResponse(
-    client: RpcConnection, line: seq[byte], batch: ResponseBatchRx
+    client: RpcConnection, batch: ResponseBatchRx
 ) =
   let id = case batch.kind
   of rbkMany:
@@ -138,7 +146,7 @@ proc processMessageResponse(
   var fut: ResponseFut
   if client.pendingRequests.pop(id, fut):
     if not fut.finished():
-      fut.complete(line)
+      fut.complete(batch)
     else:
       debug "Future already finished, dropping", state = fut.state()
   else:
@@ -174,9 +182,7 @@ proc processMessage*(
     else:
       defaultRouter.route(bm.request)
   of BidiMessageKind.bmResponse:
-    # XXX remove line param
-    # XXX ResponseFut* = Future[ResponseBatchRx] instead fo seq[byte]
-    processMessageResponse(client, line, bm.response)
+    processMessageResponse(client, bm.response)
     makeResponse(default(seq[byte]))
 
 proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
@@ -195,7 +201,7 @@ proc getNextId(client: RpcClient): int =
 
 method request(
     client: RpcClient, reqData: seq[byte], id: int
-): Future[seq[byte]] {.base, async: (raises: [CancelledError, JsonRpcError]).} =
+): Future[ResponseBatchRx] {.base, async: (raises: [CancelledError, JsonRpcError]).} =
   raiseAssert("`RpcClient.request` not implemented")
 
 method close*(client: RpcClient): Future[void] {.base, async: (raises: []).} =
@@ -247,8 +253,8 @@ proc call*(
     try:
       let resData = await request
 
-      debug "Processing JSON-RPC response",
-        len = resData.len, id, remote = client.remote
+      #debug "Processing JSON-RPC response",
+      #  len = resData.len, id, remote = client.remote
       processsSingleResponse(resData, id)
     except JsonRpcError as exc:
       debug "JSON-RPC request failed", err = exc.msg, id, remote = client.remote
@@ -291,9 +297,13 @@ proc callBatch*(
   ): Future[seq[ResponseRx2]] {.async: (raises: [CancelledError, JsonRpcError]).} =
     try:
       let resData = await request
-      debug "Processing JSON-RPC batch response",
-        len = resData.len, remote = client.remote
-      parseResponse(resData, seq[ResponseRx2])
+      #debug "Processing JSON-RPC batch response",
+      #  len = resData.len, remote = client.remote
+      #parseResponse(resData, seq[ResponseRx2])
+      if resData.kind == rbkMany:
+        resData.many
+      else:
+        raise (ref JsonRpcError)(msg: "Received single response but expected a batch")
     except JsonRpcError as exc:
       debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
       raise exc
@@ -342,10 +352,13 @@ proc send*(
       res =
         try:
           let resData = await request
-          debug "Processing JSON-RPC batch response",
-            len = resData.len, lastId, remote = client.remote
+          #debug "Processing JSON-RPC batch response",
+          #  len = resData.len, lastId, remote = client.remote
 
-          parseResponse(resData, seq[ResponseRx2])
+          if resData.kind == rbkMany:
+            resData.many
+          else:
+            raise (ref JsonRpcError)(msg: "Received single response but expected a batch")
         except JsonRpcError as exc:
           debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
 

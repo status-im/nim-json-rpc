@@ -455,6 +455,21 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
   else:
     r.raiseUnexpectedValue("BidiMessage must be either array or object, got=" & $tok)
 
+proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  let tok = r.tokKind
+  case tok
+  of JsonValueKind.Array:
+    val = ResponseBatchRx(kind: rbkMany)
+    r.readValue(val.many)
+    if val.many.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
+  of JsonValueKind.Object:
+    val = ResponseBatchRx(kind: rbkSingle)
+    r.readValue(val.single)
+  else:
+    r.raiseUnexpectedValue("ResponseBatch must be either array or object, got=" & $tok)
+
 func toTx*(params: RequestParamsRx): RequestParamsTx =
   case params.kind:
   of rpPositional:

@@ -71,9 +71,9 @@ method send*(
   except CatchableError as exc:
     raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
-method request*(
+method request(
     client: RpcWebSocketClient, reqData: seq[byte], id: int
-): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
+): Future[ResponseBatchRx] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
   let transport = client.transport
   if transport.isNil:

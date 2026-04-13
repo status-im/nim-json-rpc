@@ -9,7 +9,12 @@
 
 {.push raises: [], gcsafe.}
 
-import std/uri, chronos/apps/http/httpclient, httputils, ../[client, errors]
+import
+  std/uri,
+  chronos/apps/http/httpclient,
+  httputils,
+  ../[client, errors],
+  ../private/jrpc_sys
 
 export client, errors, HttpClientFlag, HttpClientFlags
 
@@ -81,7 +86,7 @@ method send(
 
 method request(
     client: RpcHttpClient, reqData: seq[byte], id: int
-): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
+): Future[ResponseBatchRx] {.async: (raises: [CancelledError, JsonRpcError]).} =
   doAssert reqData.len > 0, "request must not be empty"
   if client.httpSession.isNil:
     raise newException(RpcTransportError, "Not connected")
@@ -110,7 +115,8 @@ method request(
     if res.status < 200 or res.status >= 300: # res.status is not 2xx (success)
       raise (ref ErrorResponse)(status: res.status, msg: res.reason)
 
-    await res.getBodyBytes(client.maxMessageSize)
+    let resData = await res.getBodyBytes(client.maxMessageSize)
+    parseResponse(resData, ResponseBatchRx)
   except HttpError as exc:
     raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
   finally:
