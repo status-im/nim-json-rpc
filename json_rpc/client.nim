@@ -133,6 +133,20 @@ proc callOnProcessMessage*(
 
 const defaultRouter = default(RpcRouter)
 
+proc singleResponseId(resp: ResponseRx2): int {.raises: [JsonRpcError].} =
+  case resp.id.kind
+  of riNumber:
+    resp.id.num
+  of riString:
+    int.low
+  of riNull:
+    case resp.kind
+    of rkResult:
+      int.low
+    of rkError:
+      # likely an invalid request error
+      raise (ref JsonRpcError)(msg: JrpcSys.encode(resp.error))
+
 proc processMessageResponse(
     client: RpcConnection, batch: ResponseBatchRx
 ) {.raises: [JsonRpcError].} =
@@ -140,32 +154,10 @@ proc processMessageResponse(
   of rbkMany:
     var curr = int.low
     for resp in batch.many:
-      let id = case resp.id.kind
-      of riNumber:
-        resp.id.num
-      of riString:
-        int.low
-      of riNull:
-        case resp.kind
-        of rkResult:
-          int.low
-        of rkError:
-          raise (ref JsonRpcError)(msg: JrpcSys.encode(resp.error))
-      curr = max(curr, id)
+      curr = max(curr, singleResponseId(resp))
     curr
   of rbkSingle:
-    case batch.single.id.kind
-    of riNumber:
-      batch.single.id.num
-    of riString:
-      int.low
-    of riNull:
-      case batch.single.kind
-      of rkResult:
-        int.low
-      of rkError:
-        # likely an invalid request error
-        raise (ref JsonRpcError)(msg: JrpcSys.encode(batch.single.error))
+    singleResponseId(batch.single)
   var fut: ResponseFut
   if client.pendingRequests.pop(id, fut):
     if not fut.finished():
