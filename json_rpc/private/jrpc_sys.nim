@@ -365,10 +365,6 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
 
 proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageIx)
        {.gcsafe, raises: [IOError, SerializationError].} =
-  # Validation must be done at a later point because
-  # this could be a batch message; if all fields are missing
-  # we can still know whether it's a request or response based on
-  # the other messages.
   r.parseObjectWithoutSkip(key):
     case key
     of "jsonrpc": r.readValue(val.jsonrpc)

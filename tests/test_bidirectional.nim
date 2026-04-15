@@ -26,7 +26,7 @@ createRpcSigsFromNim(RpcClient, JrpcFlavor):
   proc rets(s: string): string
   proc invalid(s: int): string
 
-suite "Socket Server/Client":
+suite "Test bidirectional socket server/client":
   setup:
     const framing = Framing.newLine()
     var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
@@ -44,6 +44,7 @@ suite "Socket Server/Client":
   test "Successful RPC call":
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
+    check client.pendingRequests.len == 0
 
   test "Successful RPC batch call":
     let batch = client.prepareBatch()
@@ -72,6 +73,22 @@ suite "Socket Server/Client":
       res.get()[0].error.isSome
       res.get()[1].error.isNone
       res.get()[2].error.isSome
+
+  test "Request with null id terminates the connection":
+    # the response will contain a null id
+    var disconnFut = newFuture[void]()
+    client.onDisconnect = proc () {.gcsafe, raises: [].} =
+      disconnFut.complete()
+    let fut1 = client.send("""{"jsonrpc": "2.0", "method": "foobar", "id": null}""".toBytes)
+    let fut2 = client.rets("foobar")
+    waitFor fut1
+    waitFor disconnFut
+    try:
+      discard waitFor fut2
+      doAssert false
+    except RpcTransportError as err:
+      # check it fails with method not found; id=null response
+      check err.parent.msg == """{"code":-32601,"message":"'foobar' is not a registered RPC method"}"""
 
   test "Sending an ambiguous message terminates the connection":
     var disconnFut = newFuture[void]()
