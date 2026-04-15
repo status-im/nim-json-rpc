@@ -12,7 +12,7 @@
 import
   test_async_calls,
   test_batch_call,
-  test_bidi_message,
+  test_bidirectional,
   test_callsigs,
   test_client_hook,
   test_jrpc_sys,
