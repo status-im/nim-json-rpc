@@ -138,6 +138,7 @@ suite "test rpc socket client":
 
   test "missing id in server response":
     check not waitFor client.get_Banana(11).withTimeout(1.seconds)
+    check client.pendingRequests.len == 0
 
   waitFor client.close()
   server.stop()
@@ -299,6 +300,7 @@ suite "test ws http client":
 
   test "missing id in server response":
     check not waitFor client.get_Banana(11).withTimeout(1.seconds)
+    check client.pendingRequests.len == 0
 
   # XXX client.close() causes a "Incomplete data sent or received"
   #     it's the same in HEAD and v0.5.4
