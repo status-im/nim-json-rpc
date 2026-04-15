@@ -94,10 +94,16 @@ suite "Test bidirectional socket server/client":
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    waitFor client.send("""{"foo": "boo"}""".toBytes)
+    let fut1 = client.send("""{"foo": "boo"}""".toBytes)
+    let fut2 = client.rets("foobar")
+    waitFor fut1
     waitFor disconnFut
-    expect(RpcTransportError):
-      discard waitFor client.rets("foobar")
+    try:
+      discard waitFor fut2
+      doAssert false
+    except RpcTransportError as err:
+      # check it fails with parse error; id=null response
+      check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
     # check the server is still running
     var client2 = newRpcSocketClient(framing = framing)
     waitFor client2.connect(srv.localAddress()[0])
@@ -109,10 +115,16 @@ suite "Test bidirectional socket server/client":
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    waitFor client.send("""[{"foo": "boo"}]""".toBytes)
+    let fut1 = client.send("""[{"foo": "boo"}]""".toBytes)
+    let fut2 = client.rets("foobar")
+    waitFor fut1
     waitFor disconnFut
-    expect(RpcTransportError):
-      discard waitFor client.rets("foobar")
+    try:
+      discard waitFor fut2
+      doAssert false
+    except RpcTransportError as err:
+      # check it fails with parse error; id=null response
+      check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
     # check the server is still running
     var client2 = newRpcSocketClient(framing = framing)
     waitFor client2.connect(srv.localAddress()[0])
