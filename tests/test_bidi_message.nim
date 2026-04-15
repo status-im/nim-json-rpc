@@ -72,36 +72,77 @@ suite "Socket Server/Client":
       res.get()[0].error.isSome
       res.get()[1].error.isNone
       res.get()[2].error.isSome
+
+  test "Sending an ambiguous message terminates the connection":
+    var disconnFut = newFuture[void]()
+    client.onDisconnect = proc () {.gcsafe, raises: [].} =
+      disconnFut.complete()
+    waitFor client.send("""{"foo": "boo"}""".toBytes)
+    waitFor disconnFut
+    expect(RpcTransportError):
+      discard waitFor client.rets("foobar")
+    # check the server is still running
+    var client2 = newRpcSocketClient(framing = framing)
+    waitFor client2.connect(srv.localAddress()[0])
+    let r1 = waitFor client2.rets("foobar")
+    check r1 == "ret foobar"
+    waitFor client2.close()
+
+  test "Sending an ambiguous batch message terminates the connection":
+    var disconnFut = newFuture[void]()
+    client.onDisconnect = proc () {.gcsafe, raises: [].} =
+      disconnFut.complete()
+    waitFor client.send("""[{"foo": "boo"}]""".toBytes)
+    waitFor disconnFut
+    expect(RpcTransportError):
+      discard waitFor client.rets("foobar")
+    # check the server is still running
+    var client2 = newRpcSocketClient(framing = framing)
+    waitFor client2.connect(srv.localAddress()[0])
+    let r1 = waitFor client2.rets("foobar")
+    check r1 == "ret foobar"
+    waitFor client2.close()
+
+  test "Sending a response with id null terminates the connection":
+    var disconnFut = newFuture[void]()
+    client.onDisconnect = proc () {.gcsafe, raises: [].} =
+      disconnFut.complete()
+    const resp = """{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}"""
+    waitFor client.send(resp.toBytes)
+    waitFor disconnFut
+
+  test "Sending a batch response with id null terminates the connection":
+    var disconnFut = newFuture[void]()
+    client.onDisconnect = proc () {.gcsafe, raises: [].} =
+      disconnFut.complete()
+    const resp = """[{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}]"""
+    waitFor client.send(resp.toBytes)
+    waitFor disconnFut
+
+  test "Sending an unknown id is ignored":
+    const resp = """{"jsonrpc": "2.0", "result": 7, "id": 123123}"""
+    waitFor client.send(resp.toBytes)
     # following requests still work
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
 
-  test "Sending an ambiguous message kills the conn":
-    var fut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      fut.complete()
-    waitFor client.send("""{"foo": "boo"}""".toBytes)
-    waitFor fut
-    expect(RpcTransportError):
-      discard waitFor client.rets("foobar")
-    # check the server is still running
-    var client2 = newRpcSocketClient(framing = framing)
-    waitFor client2.connect(srv.localAddress()[0])
-    let r1 = waitFor client2.rets("foobar")
+  test "Sending a batch with an unknown id is ignored":
+    const resp = """[{"jsonrpc": "2.0", "result": 7, "id": 123123}]"""
+    waitFor client.send(resp.toBytes)
+    # following requests still work
+    let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
-    waitFor client2.close()
 
-  test "Sending an ambiguous batch message kills the conn":
-    var fut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      fut.complete()
-    waitFor client.send("""[{"foo": "boo"}]""".toBytes)
-    waitFor fut
-    expect(RpcTransportError):
-      discard waitFor client.rets("foobar")
-    # check the server is still running
-    var client2 = newRpcSocketClient(framing = framing)
-    waitFor client2.connect(srv.localAddress()[0])
-    let r1 = waitFor client2.rets("foobar")
+  test "Sending a string id is ignored":
+    const resp = """{"jsonrpc": "2.0", "result": 7, "id": "123123"}"""
+    waitFor client.send(resp.toBytes)
+    # following requests still work
+    let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
-    waitFor client2.close()
+
+  test "Sending a batch with a string id is ignored":
+    const resp = """[{"jsonrpc": "2.0", "result": 7, "id": "123123"}]"""
+    waitFor client.send(resp.toBytes)
+    # following requests still work
+    let r1 = waitFor client.rets("foobar")
+    check r1 == "ret foobar"
