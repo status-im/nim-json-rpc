@@ -26,7 +26,7 @@ createRpcSigsFromNim(RpcClient, JrpcFlavor):
   proc rets(s: string): string
   proc invalid(s: int): string
 
-template allTests(client, srv: untyped) =
+template allTests(client: untyped) =
   test "Successful RPC call":
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
@@ -165,7 +165,7 @@ suite "Test bidirectional socket server/client":
     srv.stop()
     waitFor srv.closeWait()
 
-  allTests(client, srv)
+  allTests(client)
 
 suite "Test bidirectional websocket server/client":
   setup:
@@ -181,4 +181,4 @@ suite "Test bidirectional websocket server/client":
     srv.stop()
     waitFor srv.closeWait()
 
-  allTests(client, srv)
+  allTests(client)
