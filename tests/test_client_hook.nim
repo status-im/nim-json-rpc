@@ -310,6 +310,7 @@ suite "test ws http client":
     check client.pendingRequests.len == 0
 
   test "unordered responses":
+    # Ref: https://github.com/status-im/nim-json-rpc/issues/261
     const resps = [
       """{"jsonrpc": "2.0", "result": 19, "id": 2}""",
       """{"jsonrpc": "2.0", "result": 7, "id": 1}""",
