@@ -85,13 +85,6 @@ method request(
     try:
       await transport.send(reqData, Opcode.Binary)
     except CatchableError as exc:
-      # If there's an error sending, the "next messages" facility will be
-      # broken since we don't know if the server observed the message or not
-      try:
-        await noCancel transport.close()
-      except CatchableError as exc:
-        # TODO https://github.com/status-im/nim-websock/pull/178
-        raiseAssert exc.msg
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut

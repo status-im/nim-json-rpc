@@ -212,9 +212,6 @@ method request(
     try:
       await client.framing.sendMsg(client.transport, reqData)
     except CatchableError as exc:
-      # If there's an error sending, the "next messages" facility will be
-      # broken since we don't know if the server observed the message or not
-      transport.close()
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut
