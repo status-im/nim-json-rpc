@@ -26,21 +26,7 @@ createRpcSigsFromNim(RpcClient, JrpcFlavor):
   proc rets(s: string): string
   proc invalid(s: int): string
 
-suite "Test bidirectional socket server/client":
-  setup:
-    const framing = Framing.newLine()
-    var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
-    var client = newRpcSocketClient(framing = framing)
-
-    srv.setupServer()
-    srv.start()
-    waitFor client.connect(srv.localAddress()[0])
-
-  teardown:
-    waitFor client.close()
-    srv.stop()
-    waitFor srv.closeWait()
-
+template allTests(client, srv: untyped) =
   test "Successful RPC call":
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
@@ -104,12 +90,6 @@ suite "Test bidirectional socket server/client":
     except RpcTransportError as err:
       # check it fails with parse error; id=null response
       check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
-    # check the server is still running
-    var client2 = newRpcSocketClient(framing = framing)
-    waitFor client2.connect(srv.localAddress()[0])
-    let r1 = waitFor client2.rets("foobar")
-    check r1 == "ret foobar"
-    waitFor client2.close()
 
   test "Sending an ambiguous batch message terminates the connection":
     var disconnFut = newFuture[void]()
@@ -125,12 +105,6 @@ suite "Test bidirectional socket server/client":
     except RpcTransportError as err:
       # check it fails with parse error; id=null response
       check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
-    # check the server is still running
-    var client2 = newRpcSocketClient(framing = framing)
-    waitFor client2.connect(srv.localAddress()[0])
-    let r1 = waitFor client2.rets("foobar")
-    check r1 == "ret foobar"
-    waitFor client2.close()
 
   test "Sending a response with id null terminates the connection":
     var disconnFut = newFuture[void]()
@@ -175,3 +149,36 @@ suite "Test bidirectional socket server/client":
     # following requests still work
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
+
+suite "Test bidirectional socket server/client":
+  setup:
+    const framing = Framing.lengthHeaderBE32()
+    var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
+    var client = newRpcSocketClient(framing = framing)
+
+    srv.setupServer()
+    srv.start()
+    waitFor client.connect(srv.localAddress()[0])
+
+  teardown:
+    waitFor client.close()
+    srv.stop()
+    waitFor srv.closeWait()
+
+  allTests(client, srv)
+
+suite "Test bidirectional websocket server/client":
+  setup:
+    var srv = newRpcWebSocketServer("127.0.0.1", Port(0))
+    var client = newRpcWebSocketClient()
+
+    srv.setupServer()
+    srv.start()
+    waitFor client.connect("ws://" & $srv.localAddress())
+
+  teardown:
+    waitFor client.close()
+    srv.stop()
+    waitFor srv.closeWait()
+
+  allTests(client, srv)
