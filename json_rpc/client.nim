@@ -104,7 +104,7 @@ proc processsSingleResponse(
 ): JsonString {.raises: [JsonRpcError].} =
   case resp.kind
   of rbkSingle:
-    processsSingleResponse(resp.single, id)
+    processsSingleResponse(move(resp.single), id)
   of rbkMany:
     raise (ref InvalidResponse)(msg: "Received batch but single response was expected")
 
@@ -284,46 +284,6 @@ proc call*(
     client: RpcClient, name: string, params: JsonNode
 ): Future[JsonString] {.async: (raises: [CancelledError, JsonRpcError], raw: true).} =
   client.call(name, paramsTx(params, JrpcConv))
-
-proc callBatch*(
-    client: RpcClient, calls: seq[RequestTx]
-): Future[seq[ResponseRx2]] {.
-    async: (raises: [CancelledError, JsonRpcError], raw: true)
-.} =
-  if calls.len == 0:
-    let res = Future[seq[ResponseRx2]].Raising([CancelledError, JsonRpcError]).init(
-        "empty batch"
-      )
-    res.complete(default(seq[ResponseRx2]))
-    return res
-
-  let requestData = JrpcSys.withWriter(writer):
-    writer.writeArray:
-      for call in calls:
-        writer.writeValue(call)
-
-  debug "Sending JSON-RPC batch", len = requestData.len, remote = client.remote
-
-  proc complete(
-      client: RpcClient, request: auto
-  ): Future[seq[ResponseRx2]] {.async: (raises: [CancelledError, JsonRpcError]).} =
-    try:
-      let resp = await request
-      debug "Processing JSON-RPC batch response", remote = client.remote
-      case resp.kind
-      of rbkMany:
-        resp.many
-      else:
-        raise (ref InvalidResponse)(msg: "Received single response but expected a batch")
-    except JsonRpcError as exc:
-      debug "JSON-RPC batch request failed", err = exc.msg, remote = client.remote
-      raise exc
-
-  let id = calls[^1].id.valueOr:
-    raiseAssert "missing id"
-  doAssert id.kind == riNumber
-  let req = client.request(requestData, id.num)
-  client.complete(req)
 
 proc prepareBatch*(client: RpcClient): RpcBatchCallRef =
   RpcBatchCallRef(client: client)
