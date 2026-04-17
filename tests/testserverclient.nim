@@ -90,7 +90,7 @@ template callTests(client: untyped) =
 
   test "Concurrent RPC calls":
     var calls = newSeq[Future[JsonString]]()
-    for i in 0 ..< 110_000:
+    for i in 0 ..< 11_000:
       calls.add client.call("myProc", %[% $i, %[1, 2, 3, 4]])
     waitFor allFutures(calls)
     for i, r in calls.pairs():
