@@ -65,12 +65,12 @@ template allTests(client: untyped) =
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    let req1 = ResponseFut.init("test_bidirectional")
-    client.pendingRequests[123] = req1
-    waitFor client.send("""{"jsonrpc": "2.0", "method": "foobar", "id": null}""".toBytes)
+    let fut1 = client.send("""{"jsonrpc": "2.0", "method": "foobar", "id": null}""".toBytes)
+    let fut2 = client.rets("foobar")
+    waitFor fut1
     waitFor disconnFut
     try:
-      discard waitFor req1
+      discard waitFor fut2
       doAssert false
     except RpcTransportError as err:
       # check it fails with method not found; id=null response
@@ -83,12 +83,12 @@ template allTests(client: untyped) =
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    let req1 = ResponseFut.init("test_bidirectional")
-    client.pendingRequests[123] = req1
-    waitFor client.send("""{"foo": "boo"}""".toBytes)
+    let fut1 = client.send("""{"foo": "boo"}""".toBytes)
+    let fut2 = client.rets("foobar")
+    waitFor fut1
     waitFor disconnFut
     try:
-      discard waitFor req1
+      discard waitFor fut2
       doAssert false
     except RpcTransportError as err:
       # check it fails with parse error; id=null response
@@ -101,12 +101,12 @@ template allTests(client: untyped) =
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    let req1 = ResponseFut.init("test_bidirectional")
-    client.pendingRequests[123] = req1
-    waitFor client.send("""[{"foo": "boo"}]""".toBytes)
+    let fut1 = client.send("""[{"foo": "boo"}]""".toBytes)
+    let fut2 = client.rets("foobar")
+    waitFor fut1
     waitFor disconnFut
     try:
-      discard waitFor req1
+      discard waitFor fut2
       doAssert false
     except RpcTransportError as err:
       # check it fails with parse error; id=null response
