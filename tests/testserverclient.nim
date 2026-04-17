@@ -93,12 +93,10 @@ template callTests(client: untyped) =
     for i in 0 ..< 50_000:
       calls.add client.call("myProc", %[% $i, %[1, 2, 3, 4]])
     waitFor allFutures(calls)
+    var checked = 0
     for i, r in calls.pairs():
-      let got = r.read().string
-      let expected = "\"Hello " & $i & " data: [1, 2, 3, 4]\""
-      check got == expected
-      if got != expected:
-        break  # one failure is enough
+      checked += int(r.read().string == "\"Hello " & $i & " data: [1, 2, 3, 4]\"")
+    check calls.len == checked
 
 suite "Socket Server/Client RPC/newLine":
   setup:
