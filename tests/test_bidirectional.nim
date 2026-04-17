@@ -161,7 +161,7 @@ template allTests(client: untyped) =
 
 suite "Test bidirectional socket server/client":
   setup:
-    const framing = Framing.newLine()
+    const framing = Framing.lengthHeaderBE32()
     var srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
     var client = newRpcSocketClient(framing = framing)
 
