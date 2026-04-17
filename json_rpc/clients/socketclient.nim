@@ -146,8 +146,7 @@ proc sendMsgLengthHeaderBE32(
     transport: StreamTransport, msg: seq[byte]
 ) {.async: (raises: [CancelledError, TransportError]).} =
   var header = msg.len.uint32.toBytesBE()
-  discard await transport.write(addr header[0], header.len)
-  discard await transport.write(msg)
+  discard await transport.write(@header & msg)
 
 proc lengthHeaderBE32*(T: type Framing): T =
   ## Framing using a HTTP-like `Content-Length` header followed by two newlines
