@@ -89,13 +89,12 @@ template callTests(client: untyped) =
       r5.string == """"ret foobar5""""
 
   test "Concurrent RPC calls":
-    let params = %[%"abc", %[1, 2, 3, 4]]
     var calls = newSeq[Future[JsonString]]()
-    for _ in 0 ..< 100:
-      calls.add client.call("myProc", params)
+    for i in 0 ..< 110_000:
+      calls.add client.call("myProc", %[% $i, %[1, 2, 3, 4]])
     waitFor allFutures(calls)
-    for r in calls:
-      check r.read().string == "\"Hello abc data: [1, 2, 3, 4]\""
+    for i, r in calls.pairs():
+      check r.read().string == "\"Hello " & $i & " data: [1, 2, 3, 4]\""
 
 suite "Socket Server/Client RPC/newLine":
   setup:
