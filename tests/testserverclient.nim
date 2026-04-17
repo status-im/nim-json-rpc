@@ -90,11 +90,15 @@ template callTests(client: untyped) =
 
   test "Concurrent RPC calls":
     var calls = newSeq[Future[JsonString]]()
-    for i in 0 ..< 11_000:
+    for i in 0 ..< 50_000:
       calls.add client.call("myProc", %[% $i, %[1, 2, 3, 4]])
     waitFor allFutures(calls)
     for i, r in calls.pairs():
-      check r.read().string == "\"Hello " & $i & " data: [1, 2, 3, 4]\""
+      let got = r.read().string
+      let expected = "\"Hello " & $i & " data: [1, 2, 3, 4]\""
+      check got == expected
+      if got != expected:
+        break  # one failure is enough
 
 suite "Socket Server/Client RPC/newLine":
   setup:
