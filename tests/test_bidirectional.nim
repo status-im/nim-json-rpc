@@ -65,46 +65,55 @@ template allTests(client: untyped) =
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    let fut1 = client.send("""{"jsonrpc": "2.0", "method": "foobar", "id": null}""".toBytes)
-    let fut2 = client.rets("foobar")
-    waitFor fut1
+    let req1 = ResponseFut.init("test_bidirectional")
+    client.pendingRequests[123] = req1
+    waitFor client.send("""{"jsonrpc": "2.0", "method": "foobar", "id": null}""".toBytes)
     waitFor disconnFut
     try:
-      discard waitFor fut2
+      discard waitFor req1
       doAssert false
     except RpcTransportError as err:
       # check it fails with method not found; id=null response
       check err.parent.msg == """{"code":-32601,"message":"'foobar' is not a registered RPC method"}"""
+    # following requests won't work
+    expect RpcTransportError:
+      discard waitFor client.rets("foobar")
 
   test "Sending an ambiguous message terminates the connection":
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    let fut1 = client.send("""{"foo": "boo"}""".toBytes)
-    let fut2 = client.rets("foobar")
-    waitFor fut1
+    let req1 = ResponseFut.init("test_bidirectional")
+    client.pendingRequests[123] = req1
+    waitFor client.send("""{"foo": "boo"}""".toBytes)
     waitFor disconnFut
     try:
-      discard waitFor fut2
+      discard waitFor req1
       doAssert false
     except RpcTransportError as err:
       # check it fails with parse error; id=null response
       check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
+    # following requests won't work
+    expect RpcTransportError:
+      discard waitFor client.rets("foobar")
 
   test "Sending an ambiguous batch message terminates the connection":
     var disconnFut = newFuture[void]()
     client.onDisconnect = proc () {.gcsafe, raises: [].} =
       disconnFut.complete()
-    let fut1 = client.send("""[{"foo": "boo"}]""".toBytes)
-    let fut2 = client.rets("foobar")
-    waitFor fut1
+    let req1 = ResponseFut.init("test_bidirectional")
+    client.pendingRequests[123] = req1
+    waitFor client.send("""[{"foo": "boo"}]""".toBytes)
     waitFor disconnFut
     try:
-      discard waitFor fut2
+      discard waitFor req1
       doAssert false
     except RpcTransportError as err:
       # check it fails with parse error; id=null response
       check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
+    # following requests won't work
+    expect RpcTransportError:
+      discard waitFor client.rets("foobar")
 
   test "Sending a response with id null terminates the connection":
     var disconnFut = newFuture[void]()
