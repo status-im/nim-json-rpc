@@ -178,12 +178,32 @@ func makeParams(retType: NimNode, params: NimNode): seq[NimNode] =
     for i in 1..<params.len:
       result.add params[i]
 
-func makeHandler(procName, params, procBody, returnInner: NimNode): NimNode =
+proc hasPragma(pragmas: NimNode, pragma: string): bool =
+  for p in pragmas:
+    if p.kind in {nnkSym, nnkIdent, nnkOpenSymChoice, nnkClosedSymChoice} and eqIdent(p, pragma):
+      return true
+    if p.kind in {nnkExprColonExpr, nnkCall, nnkCallStrLit} and p.len > 0 and eqIdent(p[0], pragma):
+      return true
+  false
+
+func makePragmas(pragmas: NimNode): NimNode =
+  if pragmas == nil:
+    quote do: {.async.}
+  else:
+    pragmas
+
+func makeReturnType(returnInner, pragmas: NimNode): NimNode =
+  if pragmas.hasPragma("async"):
+    quote do: Future[`returnInner`]
+  else:
+    returnInner
+
+func makeHandler(procName, params, procPragmas, procBody, returnInner: NimNode): NimNode =
   ## Generate rpc handler proc
   let
-    returnType = quote do: Future[`returnInner`]
+    pragmas = makePragmas(procPragmas)
+    returnType = makeReturnType(returnInner, pragmas)
     paramList = makeParams(returnType, params)
-    pragmas = quote do: {.async.}
 
   result = newProc(
     name = procName,
@@ -217,17 +237,24 @@ func setupNamed(paramsObj, paramsIdent, params, formatType: NimNode): NimNode =
     for `x` in `paramsIdent`.named:
       `caseStmt`
 
-template maybeWrapServerResult*(Format, resFut): auto =
+template maybeWrapServerResult*(Format, handlerRes): auto =
   ## Don't encode e.g. JsonString, return as is
-  type ResType = typeof(await resFut)
-  when noWrap(ResType):
-    await resFut
+  when typeof(handlerRes) is FutureBase:
+    type ResType = typeof(await handlerRes)
+    when noWrap(ResType):
+      await handlerRes
+    else:
+      let res = await handlerRes
+      JsonString(encode(Format, res))
   else:
-    let res = await resFut
-    JsonString(encode(Format, res))
+    type ResType = typeof(handlerRes)
+    when noWrap(ResType):
+      handlerRes
+    else:
+      JsonString(encode(Format, handlerRes))
 
 func wrapServerHandler*(
-    methName: string, params, procBody, procWrapper, formatType: NimNode
+    methName: string, params, procBody, procWrapper, procPragmas, formatType: NimNode
 ): NimNode =
   ## This proc generate something like this:
   ##
@@ -270,7 +297,7 @@ func wrapServerHandler*(
     returnType = params[0]
     hasParams = params.len > 1 # not including return type
     rpcSetup = ident"rpcSetup"
-    handler = makeHandler(handlerName, params, procBody, returnType)
+    handler = makeHandler(handlerName, params, procPragmas, procBody, returnType)
     named = setupNamed(paramsObj, paramsIdent, params, formatType)
 
   if hasParams:
@@ -326,5 +353,5 @@ func wrapServerHandler*(
       # Avoid 'yield in expr not lowered' with an intermediate variable.
       # See: https://github.com/nim-lang/Nim/issues/17849
       `setup`
-      let resFut = `executeCall`
-      maybeWrapServerResult(`formatType`, resFut)
+      let handlerRes = `executeCall`
+      maybeWrapServerResult(`formatType`, handlerRes)

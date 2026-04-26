@@ -175,8 +175,9 @@ proc rpcImpl(server: NimNode, path: string, formatType, body: NimNode): NimNode 
     params = body.findChild(it.kind == nnkFormalParams)
     procBody = if body.kind == nnkStmtList: body else: body.body
     procWrapper = genSym(nskProc, path & "_rpcWrapper")
+    procPragmas = if body.kind == nnkProcDef: body.pragma else: nil
 
-  result = wrapServerHandler(path, params, procBody, procWrapper, formatType)
+  result = wrapServerHandler(path, params, procBody, procWrapper, procPragmas, formatType)
 
   result.add quote do:
     `server`.register(`path`, `procWrapper`)

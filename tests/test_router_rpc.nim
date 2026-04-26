@@ -66,6 +66,27 @@ server.rpc("returnJsonString") do(a, b, c: int) -> JsonString:
 server.rpc("serializedFN") do(a{.serializedFieldName: "result".}: int) -> int:
   return a
 
+server.rpc(JrpcConv):
+  proc rpcCtxAsync(s: string): string {.async.} =
+    await noCancel sleepAsync(0)
+    return "ret1 " & s
+
+  proc rpcCtxAsyncNoRaises(s: string): string {.async: (raises: []).} =
+    await noCancel sleepAsync(0)
+    return "ret2 " & s
+
+  proc rpcCtxAsyncWithRaises(s: string): string {.async: (raises: [ValueError]).} =
+    raise (ref ValueError)(msg: "err")
+
+  proc rpcCtxSync(s: string): string =
+    return "ret3 " & s
+
+  proc rpcCtxSyncNoRaises(s: string): string {.raises: [].} =
+    return "ret4 " & s
+
+  proc rpcCtxSyncWithRaises(s: string): string {.raises: [ValueError].} =
+    raise (ref ValueError)(msg: "err")
+
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
     "\"" & meth & "\", \"params\": " & params & """, "id":0}"""
@@ -173,3 +194,59 @@ suite "rpc router":
       "]"
     let res = waitFor server.route(n)
     check res == """[{"jsonrpc":"2.0","result":777,"id":0}]"""
+
+suite "rpc context":
+  test "Rpc method async":
+    let n = req("rpcCtxAsync", """{"s": "foo"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret1 foo","id":0}"""
+
+  test "Rpc method async with no raises":
+    let n = req("rpcCtxAsyncNoRaises", """{"s": "bar"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret2 bar","id":0}"""
+
+  test "Rpc async raises listed exception":
+    let n = req("rpcCtxAsyncWithRaises", """{"s": "err"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`rpcCtxAsyncWithRaises` raised an exception","data":"err"},"id":0}"""
+
+  test "Rpc method sync":
+    let n = req("rpcCtxSync", """{"s": "baz"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret3 baz","id":0}"""
+
+  test "Rpc method sync with no raises":
+    let n = req("rpcCtxSyncNoRaises", """{"s": "quz"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret4 quz","id":0}"""
+
+  test "Rpc sync raises listed exception":
+    let n = req("rpcCtxSyncWithRaises", """{"s": "err"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`rpcCtxSyncWithRaises` raised an exception","data":"err"},"id":0}"""
+
+  test "Rpc async raises unlisted exception should not compile":
+    template ctxWithRaises(): untyped =
+      server.rpc(JrpcConv):
+        proc rpcCtxWithRaises(s: string): string {.async: (raises: []).} =
+          raise (ref ValueError)(msg: "err")
+
+    check not compiles(ctxWithRaises())
+
+  test "Rpc sync raises unlisted exception should not compile":
+    template ctxWithRaises(): untyped =
+      server.rpc(JrpcConv):
+        proc rpcCtxWithRaises(s: string): string {.raises: [].} =
+          raise (ref ValueError)(msg: "err")
+
+    check not compiles(ctxWithRaises())
+
+  test "Rpc sync with inner await should not compile":
+    template ctxWithAwait(): untyped =
+      server.rpc(JrpcConv):
+        proc rpcCtxSyncAwait(s: string): string =
+          await noCancel sleepAsync(0)
+          return "ret1 " & s
+
+    check not compiles(ctxWithAwait())
