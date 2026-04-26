@@ -77,8 +77,9 @@ proc recvMsgHttpHeader(
 proc sendMsgHttpHeader(
     transport: StreamTransport, msg: seq[byte]
 ) {.async: (raises: [CancelledError, TransportError]).} =
-  discard await transport.write("Content-Length: " & $msg.len & "\r\n\r\n")
-  discard await transport.write(msg)
+  const field = toBytes("Content-Length: ")
+  const separator = toBytes("\r\n\r\n")
+  discard await transport.write(field & toBytes($msg.len) & separator & msg)
 
 proc httpHeader*(T: type Framing): T =
   ## Framing using a HTTP-like `Content-Length: <length>\r\n` header followed by
@@ -146,8 +147,7 @@ proc sendMsgLengthHeaderBE32(
     transport: StreamTransport, msg: seq[byte]
 ) {.async: (raises: [CancelledError, TransportError]).} =
   var header = msg.len.uint32.toBytesBE()
-  discard await transport.write(addr header[0], header.len)
-  discard await transport.write(msg)
+  discard await transport.write(@header & msg)
 
 proc lengthHeaderBE32*(T: type Framing): T =
   ## Framing using a HTTP-like `Content-Length` header followed by two newlines
