@@ -62,9 +62,9 @@ suite "test client features":
     server.start()
     waitFor client.connect("ws://" & $server.localAddress())
   teardown:
+    waitFor client.close()
     server.stop()
     waitFor server.closeWait()
-    waitFor client.close()
 
   test "hook success":
     let res = waitFor client.get_Banana(99)
@@ -137,10 +137,10 @@ suite "test rpc socket client":
   waitFor client.connect(server.localAddress()[0])
 
   test "missing id in server response":
-    expect JsonRpcError:
-      let res = waitFor client.get_Banana(11)
-      discard res
+    check not waitFor client.get_Banana(11).withTimeout(1.seconds)
+    check client.pendingRequests.len == 0
 
+  waitFor client.close()
   server.stop()
   waitFor server.closeWait()
 
@@ -221,6 +221,7 @@ suite "test rpc http client":
       let res = waitFor client.get_Banana(11)
       discard res
 
+  waitFor client.close()
   waitFor server.stop()
   waitFor server.closeWait()
 
@@ -288,19 +289,37 @@ proc newWsServer(address: TransportAddress, getData: proc(): string {.gcsafe, ra
   server
 
 suite "test ws http client":
-  let serverAddress = initTAddress("127.0.0.1:0")
-  let server = newWsServer(serverAddress, proc(): string {.gcsafe, raises: [].} =
-     return """{"jsonrpc":"2.0","result":10}"""
-  )
+  setup:
+    let serverAddress = initTAddress("127.0.0.1:0")
+    let server = newWsServer(serverAddress, proc(): string {.gcsafe, raises: [].} =
+      return """{"jsonrpc":"2.0","result":10}"""
+    )
+    var client = newRpcWebSocketClient()
+    server.start()
+    waitFor client.connect("ws://" & $server.localAddress())
 
-  var client = newRpcWebSocketClient()
-  server.start()
-  waitFor client.connect("ws://" & $server.localAddress())
+  teardown:
+    # XXX client.close() causes a "Incomplete data sent or received"
+    #     it's the same in HEAD and v0.5.4
+    waitFor client.close()
+    server.stop()
+    waitFor server.closeWait()
 
   test "missing id in server response":
-    expect JsonRpcError:
-      let res = waitFor client.get_Banana(11)
-      discard res
+    check not waitFor client.get_Banana(11).withTimeout(1.seconds)
+    check client.pendingRequests.len == 0
 
-  server.stop()
-  waitFor server.closeWait()
+  test "unordered responses":
+    # Ref: https://github.com/status-im/nim-json-rpc/issues/261
+    const resps = [
+      """{"jsonrpc": "2.0", "result": 19, "id": 2}""",
+      """{"jsonrpc": "2.0", "result": 7, "id": 1}""",
+    ]
+    var i = -1
+    server.getData = proc(): string {.gcsafe, raises: [].} =
+      inc i
+      resps[i]
+    let fut1 = client.get_Banana(1)
+    let fut2 = client.get_Banana(1)
+    check waitFor(fut1) == 7
+    check waitFor(fut2) == 19

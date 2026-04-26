@@ -138,6 +138,35 @@ type
     of rbkSingle:
       single*: RequestRx2
 
+  ResponseBatchRx* = object
+    case kind*: ReBatchKind
+    of rbkMany:
+      many*  : seq[ResponseRx2]
+    of rbkSingle:
+      single*: ResponseRx2
+
+  BidiMessageIx = object
+    jsonrpc : results.Opt[JsonRPC2]
+    `method`: results.Opt[string]
+    params  : RequestParamsRx  # XXX this is isFieldExpected = false
+    result  : results.Opt[JsonString]
+    error   : results.Opt[ResponseError]
+    id      : results.Opt[RequestId]
+
+  BidiMessageKind* = enum
+    bmResponse
+    bmRequest
+
+  BidiMessage* = object
+    case kind*: BidiMessageKind
+    of bmResponse:
+      response*: ResponseBatchRx
+    of bmRequest:
+      request*: RequestBatchRx
+  
+  BidiMessageRequestError* = object of SerializationError
+  BidiMessageResponseError* = object of SerializationError
+
 # don't mix the json-rpc system encoding with the
 # actual response/params encoding
 createJsonFlavor JrpcSys,
@@ -333,6 +362,106 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
     r.readValue(val.single)
   else:
     r.raiseUnexpectedValue("RequestBatch must be either array or object, got=" & $tok)
+
+proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageIx)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  r.parseObjectWithoutSkip(key):
+    case key
+    of "jsonrpc": r.readValue(val.jsonrpc)
+    of "id"     : r.readValue(val.id)
+    of "result" : val.result.ok r.parseAsString()
+    of "error"  : r.readValue(val.error)
+    of "method" : r.readValue(val.`method`)
+    of "params" : r.readValue(val.params)
+    else: discard
+
+proc validateRequest(val: BidiMessageIx) {.gcsafe, raises: [BidiMessageRequestError].} =
+  if val.jsonrpc.isNone:
+    raise (ref BidiMessageRequestError)(msg: "Missing `jsonrpc` field")
+  if val.`method`.isNone:
+    raise (ref BidiMessageRequestError)(msg: "Missing `method` field")
+
+proc validateResponse(val: BidiMessageIx) {.gcsafe, raises: [BidiMessageResponseError].} =
+  if val.jsonrpc.isNone:
+    raise (ref BidiMessageResponseError)(msg: "Missing `jsonrpc` field")
+  if val.id.isNone:
+    raise (ref BidiMessageResponseError)(msg: "Missing `id` field")
+  if val.result.isNone and val.error.isNone:
+    raise (ref BidiMessageResponseError)(msg: "Missing `result` or `error` field")
+  if val.result.isSome and val.error.isSome:
+    raise (ref BidiMessageResponseError)(msg: "Both `result` and `error` fields present")
+
+proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  let tok = r.tokKind
+  case tok
+  of JsonValueKind.Array:
+    var ambiguous = 0
+    var reqs = newSeq[RequestRx2]()
+    var resps = newSeq[ResponseRx2]()
+    r.parseArray:
+      var m: BidiMessageIx
+      r.readValue(m)
+      if m.`method`.isSome:
+        validateRequest(m)
+        reqs.add RequestRx2(
+          jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: move(m.id)
+        )
+      elif m.result.isSome:
+        validateResponse(m)
+        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: move(m.id[]))
+      elif m.error.isSome:
+        validateResponse(m)
+        resps.add ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: move(m.id[]))
+      else:
+        inc ambiguous
+    if ambiguous > 0:
+      r.raiseUnexpectedValue("Multiple missing fields")
+    if reqs.len > 0 and resps.len > 0:
+      r.raiseUnexpectedValue("Mixed responses and requests batch")
+    if reqs.len == 0 and resps.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
+    val = if reqs.len > 0:
+      BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkMany, many: move(reqs)))
+    else:
+      doAssert resps.len > 0
+      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkMany, many: move(resps)))
+  of JsonValueKind.Object:
+    var m: BidiMessageIx
+    r.readValue(m)
+    val = if m.`method`.isSome:
+      validateRequest(m)
+      var req = RequestRx2(
+        jsonrpc: move(m.jsonrpc[]), `method`: move(m.`method`[]), params: move(m.params), id: move(m.id)
+      )
+      BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkSingle, single: move(req)))
+    elif m.result.isSome:
+      validateResponse(m)
+      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkResult, result: move(m.result[]), id: move(m.id[]))
+      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
+    elif m.error.isSome:
+      validateResponse(m)
+      var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: move(m.id[]))
+      BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
+    else:
+      r.raiseUnexpectedValue("Multiple missing fields")
+  else:
+    r.raiseUnexpectedValue("BidiMessage must be either array or object, got=" & $tok)
+
+proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
+       {.gcsafe, raises: [IOError, SerializationError].} =
+  let tok = r.tokKind
+  case tok
+  of JsonValueKind.Array:
+    val = ResponseBatchRx(kind: rbkMany)
+    r.readValue(val.many)
+    if val.many.len == 0:
+      r.raiseUnexpectedValue("Batch must contain at least one message")
+  of JsonValueKind.Object:
+    val = ResponseBatchRx(kind: rbkSingle)
+    r.readValue(val.single)
+  else:
+    r.raiseUnexpectedValue("ResponseBatch must be either array or object, got=" & $tok)
 
 func toTx*(params: RequestParamsRx): RequestParamsTx =
   case params.kind:

@@ -71,9 +71,9 @@ method send*(
   except CatchableError as exc:
     raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
-method request*(
-    client: RpcWebSocketClient, reqData: seq[byte]
-): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
+method request(
+    client: RpcWebSocketClient, reqData: seq[byte], id: int
+): Future[ResponseBatchRx] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
   let transport = client.transport
   if transport.isNil:
@@ -81,17 +81,10 @@ method request*(
       RpcTransportError, "Transport is not initialised (missing a call to connect?)"
     )
 
-  client.withPendingFut(fut):
+  client.withPendingFut(fut, id):
     try:
       await transport.send(reqData, Opcode.Binary)
     except CatchableError as exc:
-      # If there's an error sending, the "next messages" facility will be
-      # broken since we don't know if the server observed the message or not
-      try:
-        await noCancel transport.close()
-      except CatchableError as exc:
-        # TODO https://github.com/status-im/nim-websock/pull/178
-        raiseAssert exc.msg
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut
@@ -114,7 +107,14 @@ proc processMessages(client: RpcWebSocketClient) {.async: (raises: []).} =
       if not fallback:
         continue
 
-      let resp = await client.processMessage(data)
+      let resp = try:
+        await client.processMessage(data)
+      except JsonRpcError as exc:
+        try:
+          await client.transport.send(wrapError(router.INVALID_REQUEST, exc.msg), Opcode.Binary)
+        except CatchableError:
+          discard
+        raise exc
 
       if resp.len > 0:
         await client.transport.send(resp, Opcode.Binary)

@@ -198,9 +198,9 @@ method send*(
   except TransportError as exc:
     raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
-method request*(
-    client: RpcSocketClient, reqData: seq[byte]
-): Future[seq[byte]] {.async: (raises: [CancelledError, JsonRpcError]).} =
+method request(
+    client: RpcSocketClient, reqData: seq[byte], id: int
+): Future[ResponseBatchRx] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
   let transport = client.transport
   if transport.isNil:
@@ -208,13 +208,10 @@ method request*(
       RpcTransportError, "Transport is not initialised (missing a call to connect?)"
     )
 
-  client.withPendingFut(fut):
+  client.withPendingFut(fut, id):
     try:
       await client.framing.sendMsg(client.transport, reqData)
     except CatchableError as exc:
-      # If there's an error sending, the "next messages" facility will be
-      # broken since we don't know if the server observed the message or not
-      transport.close()
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut
@@ -239,7 +236,14 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
       if not fallback:
         continue
 
-      let resp = await client.processMessage(data)
+      let resp = try:
+        await client.processMessage(data)
+      except JsonRpcError as exc:
+        try:
+          await client.framing.sendMsg(client.transport, wrapError(router.INVALID_REQUEST, exc.msg))
+        except TransportError:
+          discard
+        raise exc
 
       if resp.len > 0:
         await client.framing.sendMsg(client.transport, resp)
