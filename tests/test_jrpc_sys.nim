@@ -204,3 +204,22 @@ suite "jrpc_sys serialization":
         rx.kind == ResponseKind.rkError
         rx.error.code == tx.error.code
         rx.error.message == tx.error.message
+
+  test "meth helper works for both RequestRx and RequestRx2":
+    # RequestRx2 test: method is a string
+    let rx2 = RequestRx2(
+      jsonrpc: JsonRPC2(),
+      `method`: "test_method",
+      params: RequestParamsRx(kind: rpPositional, positional: @[]),
+      id: Opt.some(RequestId(kind: riNumber, num: 42))
+    )
+    check meth(rx2) == "test_method"
+
+    # RequestRx test: method is Opt[string]
+    let rx = RequestRx(
+      jsonrpc: Opt.some(JsonRPC2()),
+      `method`: Opt.some("old_method"),
+      params: RequestParamsRx(kind: rpPositional, positional: @[]),
+      id: RequestId(kind: riNumber, num: 123)
+    )
+    check meth(rx).get == "old_method"
