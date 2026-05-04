@@ -222,4 +222,4 @@ suite "jrpc_sys serialization":
       params: RequestParamsRx(kind: rpPositional, positional: @[]),
       id: RequestId(kind: riNumber, num: 123)
     )
-    check meth(rx) == "old_method"
+    check meth(rx).get == "old_method"

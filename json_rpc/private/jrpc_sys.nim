@@ -213,8 +213,8 @@ func `==`*(a, b: RequestId): bool =
   of riString: a.str == b.str
   of riNull: true
 
-func meth*(rx: RequestRx): string =
-  rx.`method`.get
+func meth*(rx: RequestRx): Opt[string] =
+  rx.`method`
 
 func meth*(rx: RequestRx2): string =
   rx.`method`
