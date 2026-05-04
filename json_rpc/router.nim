@@ -191,10 +191,11 @@ macro rpc*(
   ## Define a remote procedure call.
   ## Input and return parameters are defined using the ``do`` notation.
   ## For example:
-  ## .. code-block:: nim
-  ##    myServer.rpc("path") do(param1: int, param2: float) -> string:
-  ##      result = $param1 & " " & $param2
-  ##    ```
+  ##
+  ## .. code-block::
+  ##   myServer.rpc("path") do(param1: int, param2: float) -> string:
+  ##     result = $param1 & " " & $param2
+  ##
   ## Input parameters are automatically marshalled from json to Nim types,
   ## and output parameters are automatically marshalled to json for transport.
   rpcImpl(server, path, formatType, body)

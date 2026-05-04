@@ -1,0 +1,27 @@
+name: Docgen
+on:
+  push:
+    branches:
+      - main
+      - master
+      - nitely_docs  # XXX remove
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: status-im/nimbus-common-workflow/.github/workflows/docs.yml@main
+    with:
+      mdbook-version: "0.4.51"
+      mdbook-preprocessors: >-
+        [
+          "mdbook-open-on-gh@2.4.3",
+          "mdbook-toc@0.14.2",
+          "mdbook-admonish@1.20.0",
+          "mdbook-shiftinclude@0.1.0"
+        ]
+      nim-version: "2.2.4"
+      publish-dir: ./docs/book
+      docs-command: |
+        nim --version
+        nimble --version
+        nimble docs || true

@@ -19,7 +19,7 @@ import
   ../private/jrpc_sys,
   ../clients/socketclient
 
-export errors, server, jsnet
+export errors, server, jsnet, Framing, lengthHeaderBE32, httpHeader
 
 logScope:
   topics = "jsonrpc server socket"
