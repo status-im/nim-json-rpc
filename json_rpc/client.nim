@@ -133,23 +133,23 @@ proc callOnProcessMessage*(
 
 const defaultRouter = default(RpcRouter)
 
-proc singleResponseId(resp: ResponseRx2): int {.raises: [JsonRpcError].} =
+proc singleResponseId(resp: ResponseRx2): int {.raises: [InvalidResponse].} =
   case resp.id.kind
   of riNumber:
     resp.id.num
   of riString:
-    int.low
+    raise (ref InvalidResponse)(msg: "Unexpected response with string id = " & resp.id.str)
   of riNull:
     case resp.kind
     of rkResult:
-      int.low
+      raise (ref InvalidResponse)(msg: "Unexpected response result with id = null")
     of rkError:
       # likely an invalid request error
-      raise (ref JsonRpcError)(msg: JrpcSys.encode(resp.error))
+      raise (ref InvalidResponse)(msg: JrpcSys.encode(resp.error))
 
 proc processMessageResponse(
     client: RpcConnection, batch: ResponseBatchRx
-) {.raises: [JsonRpcError].} =
+) {.raises: [InvalidResponse].} =
   let id = case batch.kind
   of rbkMany:
     var curr = int.low

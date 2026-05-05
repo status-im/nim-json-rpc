@@ -26,6 +26,25 @@ createRpcSigsFromNim(RpcClient, JrpcFlavor):
   proc rets(s: string): string
   proc invalid(s: int): string
 
+template checkInvalidMessage(client: untyped, req, expectedErr: string): untyped =
+  # check sending `req` terminates the connection with `expectedErr` error
+  var disconnFut = newFuture[void]()
+  client.onDisconnect = proc () {.gcsafe, raises: [].} =
+    disconnFut.complete()
+  let fut1 = client.send(req.toBytes)
+  let fut2 = client.rets("foobar")
+  waitFor fut1
+  waitFor disconnFut
+  try:
+    discard waitFor fut2
+    doAssert false
+  except RpcTransportError as err:
+    doAssert err.parent != nil
+    check err.parent.msg == expectedErr
+  # following requests won't work
+  expect RpcTransportError:
+    discard waitFor client.rets("foobar")
+
 template allTests(client: untyped) =
   test "Successful RPC call":
     let r1 = waitFor client.rets("foobar")
@@ -60,104 +79,52 @@ template allTests(client: untyped) =
       res.get()[1].error.isNone
       res.get()[2].error.isSome
 
-  test "Request with null id terminates the connection":
-    # the response will contain a null id
-    var disconnFut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      disconnFut.complete()
-    let fut1 = client.send("""{"jsonrpc": "2.0", "method": "foobar", "id": null}""".toBytes)
-    let fut2 = client.rets("foobar")
-    waitFor fut1
-    waitFor disconnFut
-    try:
-      discard waitFor fut2
-      doAssert false
-    except RpcTransportError as err:
-      # check it fails with method not found; id=null response
-      check err.parent.msg == """{"code":-32601,"message":"'foobar' is not a registered RPC method"}"""
-    # following requests won't work
-    expect RpcTransportError:
-      discard waitFor client.rets("foobar")
-
   test "Sending an ambiguous message terminates the connection":
-    var disconnFut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      disconnFut.complete()
-    let fut1 = client.send("""{"foo": "boo"}""".toBytes)
-    let fut2 = client.rets("foobar")
-    waitFor fut1
-    waitFor disconnFut
-    try:
-      discard waitFor fut2
-      doAssert false
-    except RpcTransportError as err:
-      # check it fails with parse error; id=null response
-      check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
-    # following requests won't work
-    expect RpcTransportError:
-      discard waitFor client.rets("foobar")
+    const req = """{"foo": "boo"}"""
+    # check it fails with parse error; id=null response
+    const expected = """{"code":-32600,"message":"',' expected"}"""
+    checkInvalidMessage(client, req, expected)
 
   test "Sending an ambiguous batch message terminates the connection":
-    var disconnFut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      disconnFut.complete()
-    let fut1 = client.send("""[{"foo": "boo"}]""".toBytes)
-    let fut2 = client.rets("foobar")
-    waitFor fut1
-    waitFor disconnFut
-    try:
-      discard waitFor fut2
-      doAssert false
-    except RpcTransportError as err:
-      # check it fails with parse error; id=null response
-      check err.parent.msg == """{"code":-32600,"message":"',' expected"}"""
-    # following requests won't work
-    expect RpcTransportError:
-      discard waitFor client.rets("foobar")
+    const req = """[{"foo": "boo"}]"""
+    const expected = """{"code":-32600,"message":"',' expected"}"""
+    checkInvalidMessage(client, req, expected)
 
-  test "Sending a response with id null terminates the connection":
-    var disconnFut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      disconnFut.complete()
-    const resp = """{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}"""
-    waitFor client.send(resp.toBytes)
-    waitFor disconnFut
+  test "Sending a null id terminates the connection":
+    # note this terminates the connection when receiving the null id response
+    const req = """{"jsonrpc": "2.0", "method": "foo", "id": null}"""
+    const expected = """{"code":-32601,"message":"'foo' is not a registered RPC method"}"""
+    checkInvalidMessage(client, req, expected)
 
-  test "Sending a batch response with id null terminates the connection":
-    var disconnFut = newFuture[void]()
-    client.onDisconnect = proc () {.gcsafe, raises: [].} =
-      disconnFut.complete()
-    const resp = """[{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}]"""
-    waitFor client.send(resp.toBytes)
-    waitFor disconnFut
+  test "Sending a null id within a batch terminates the connection":
+    const req = """[{"jsonrpc": "2.0", "method": "foo", "id": null}]"""
+    const expected = """{"code":-32601,"message":"'foo' is not a registered RPC method"}"""
+    checkInvalidMessage(client, req, expected)
 
   test "Sending an unknown id is ignored":
-    const resp = """{"jsonrpc": "2.0", "result": 7, "id": 123123}"""
-    waitFor client.send(resp.toBytes)
+    const req = """{"jsonrpc": "2.0", "method": "foo", "id": 123123}"""
+    waitFor client.send(req.toBytes)
     # following requests still work
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
 
   test "Sending a batch with an unknown id is ignored":
-    const resp = """[{"jsonrpc": "2.0", "result": 7, "id": 123123}]"""
-    waitFor client.send(resp.toBytes)
+    const req = """[{"jsonrpc": "2.0", "method": "foo", "id": 123123}]"""
+    waitFor client.send(req.toBytes)
     # following requests still work
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
 
-  test "Sending a string id is ignored":
-    const resp = """{"jsonrpc": "2.0", "result": 7, "id": "123123"}"""
-    waitFor client.send(resp.toBytes)
-    # following requests still work
-    let r1 = waitFor client.rets("foobar")
-    check r1 == "ret foobar"
+  test "Sending a string id terminates the connection":
+    # note this terminates the connection when receiving the string id response
+    const req = """{"jsonrpc": "2.0", "method": "foo", "id": "123123"}"""
+    const expected = "Unexpected response with string id = 123123"
+    checkInvalidMessage(client, req, expected)
 
-  test "Sending a batch with a string id is ignored":
-    const resp = """[{"jsonrpc": "2.0", "result": 7, "id": "123123"}]"""
-    waitFor client.send(resp.toBytes)
-    # following requests still work
-    let r1 = waitFor client.rets("foobar")
-    check r1 == "ret foobar"
+  test "Sending a string id within a batch terminates the connection":
+    const req = """[{"jsonrpc": "2.0", "method": "foo", "id": "123123"}]"""
+    const expected = "Unexpected response with string id = 123123"
+    checkInvalidMessage(client, req, expected)
 
 suite "Test bidirectional socket server/client":
   setup:
