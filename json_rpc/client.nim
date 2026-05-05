@@ -138,11 +138,11 @@ proc singleResponseId(resp: ResponseRx2): int {.raises: [InvalidResponse].} =
   of riNumber:
     resp.id.num
   of riString:
-    raise (ref InvalidResponse)(msg: "Unexpected response with string id = " & resp.id.str)
+    raise (ref InvalidResponse)(msg: "Expected response with int `id`, but got `id` = \"" & resp.id.str & "\"")
   of riNull:
     case resp.kind
     of rkResult:
-      raise (ref InvalidResponse)(msg: "Unexpected response result with id = null")
+      raise (ref InvalidResponse)(msg: "Expected response with int `id`, but got `id` = null")
     of rkError:
       # likely an invalid request error
       raise (ref InvalidResponse)(msg: JrpcSys.encode(resp.error))

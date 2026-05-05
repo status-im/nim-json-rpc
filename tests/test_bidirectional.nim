@@ -117,23 +117,23 @@ template allTests(client: untyped) =
 
   test "Sending a null id terminates the connection; variant":
     const req = """{"jsonrpc": "2.0", "method": "rets", "params": ["foo"], "id": null}"""
-    const expected = "Unexpected response result with id = null"
+    const expected = "Expected response with int `id`, but got `id` = null"
     checkInvalidRequest(client, req, expected)
 
   test "Sending a null id within a batch terminates the connection; variant":
     const req = """[{"jsonrpc": "2.0", "method": "rets", "params": ["foo"], "id": null}]"""
-    const expected = "Unexpected response result with id = null"
+    const expected = "Expected response with int `id`, but got `id` = null"
     checkInvalidRequest(client, req, expected)
 
   test "Sending a string id terminates the connection":
     # note this terminates the connection when receiving the string id response
     const req = """{"jsonrpc": "2.0", "method": "foo", "id": "123123"}"""
-    const expected = "Unexpected response with string id = 123123"
+    const expected = """Expected response with int `id`, but got `id` = "123123""""
     checkInvalidRequest(client, req, expected)
 
   test "Sending a string id within a batch terminates the connection":
     const req = """[{"jsonrpc": "2.0", "method": "foo", "id": "123123"}]"""
-    const expected = "Unexpected response with string id = 123123"
+    const expected = """Expected response with int `id`, but got `id` = "123123""""
     checkInvalidRequest(client, req, expected)
 
 suite "Test bidirectional socket server/client":
