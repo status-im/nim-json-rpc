@@ -115,6 +115,16 @@ template allTests(client: untyped) =
     const expected = """{"code":-32601,"message":"'foo' is not a registered RPC method"}"""
     checkInvalidMessage(client, req, expected)
 
+  test "Sending a null id terminates the connection; variant":
+    const req = """{"jsonrpc": "2.0", "method": "rets", "params": ["foo"], "id": null}"""
+    const expected = "Unexpected response result with id = null"
+    checkInvalidMessage(client, req, expected)
+
+  test "Sending a null id within a batch terminates the connection; variant":
+    const req = """[{"jsonrpc": "2.0", "method": "rets", "params": ["foo"], "id": null}]"""
+    const expected = "Unexpected response result with id = null"
+    checkInvalidMessage(client, req, expected)
+
   test "Sending a string id terminates the connection":
     # note this terminates the connection when receiving the string id response
     const req = """{"jsonrpc": "2.0", "method": "foo", "id": "123123"}"""
