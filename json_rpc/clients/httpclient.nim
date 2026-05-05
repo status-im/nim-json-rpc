@@ -57,15 +57,25 @@ method send(
     else:
       @[]
   headers.add(("Content-Type", "application/json"))
+  headers.add(("Content-Length", $reqData.len))
 
   let
     req = HttpClientRequestRef.post(
-      client.httpSession, client.httpAddress, body = reqData, headers = headers
+      client.httpSession, client.httpAddress, headers = headers, body = default(array[0, byte])
     )
 
     res =
       try:
-        await req.send()
+        let wr = await req.open()
+        try:
+          await wr.write(unsafeAddr reqData[0], reqData.len)
+          await wr.finish()
+        finally:
+          await wr.closeWait()
+
+        await req.finish()
+      except AsyncStreamError as exc:
+        raise (ref RpcPostError)(msg: exc.msg, parent: exc)
       except HttpError as exc:
         raise (ref RpcPostError)(msg: exc.msg, parent: exc)
       finally:
@@ -92,15 +102,25 @@ method request(
     else:
       @[]
   headers.add(("Content-Type", "application/json"))
+  headers.add(("Content-Length", $reqData.len))
 
   let
     req = HttpClientRequestRef.post(
-      client.httpSession, client.httpAddress, body = reqData, headers = headers
+      client.httpSession, client.httpAddress, headers = headers, body = default(array[0, byte])
     )
 
     res =
       try:
-        await req.send()
+        let wr = await req.open()
+        try:
+          await wr.write(unsafeAddr reqData[0], reqData.len)
+          await wr.finish()
+        finally:
+          await wr.closeWait()
+
+        await req.finish()
+      except AsyncStreamError as exc:
+        raise (ref RpcPostError)(msg: exc.msg, parent: exc)
       except HttpError as exc:
         raise (ref RpcPostError)(msg: exc.msg, parent: exc)
       finally:
