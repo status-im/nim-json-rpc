@@ -26,7 +26,7 @@ createRpcSigsFromNim(RpcClient, JrpcFlavor):
   proc rets(s: string): string
   proc invalid(s: int): string
 
-template checkInvalidMessage(client: untyped, req, expectedErr: string): untyped =
+template checkInvalidRequest(client: untyped, req, expectedErr: string): untyped =
   # check sending `req` terminates the connection with `expectedErr` error
   var disconnFut = newFuture[void]()
   client.onDisconnect = proc () {.gcsafe, raises: [].} =
@@ -97,44 +97,44 @@ template allTests(client: untyped) =
     # check it fails with parse error; id=null response
     const req = """{"foo": "boo"}"""
     const expected = """{"code":-32600,"message":"',' expected"}"""
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending an ambiguous batch message terminates the connection":
     const req = """[{"foo": "boo"}]"""
     const expected = """{"code":-32600,"message":"',' expected"}"""
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending a null id terminates the connection":
     # note this terminates the connection when receiving the null id response
     const req = """{"jsonrpc": "2.0", "method": "foo", "id": null}"""
     const expected = """{"code":-32601,"message":"'foo' is not a registered RPC method"}"""
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending a null id within a batch terminates the connection":
     const req = """[{"jsonrpc": "2.0", "method": "foo", "id": null}]"""
     const expected = """{"code":-32601,"message":"'foo' is not a registered RPC method"}"""
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending a null id terminates the connection; variant":
     const req = """{"jsonrpc": "2.0", "method": "rets", "params": ["foo"], "id": null}"""
     const expected = "Unexpected response result with id = null"
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending a null id within a batch terminates the connection; variant":
     const req = """[{"jsonrpc": "2.0", "method": "rets", "params": ["foo"], "id": null}]"""
     const expected = "Unexpected response result with id = null"
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending a string id terminates the connection":
     # note this terminates the connection when receiving the string id response
     const req = """{"jsonrpc": "2.0", "method": "foo", "id": "123123"}"""
     const expected = "Unexpected response with string id = 123123"
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
   test "Sending a string id within a batch terminates the connection":
     const req = """[{"jsonrpc": "2.0", "method": "foo", "id": "123123"}]"""
     const expected = "Unexpected response with string id = 123123"
-    checkInvalidMessage(client, req, expected)
+    checkInvalidRequest(client, req, expected)
 
 suite "Test bidirectional socket server/client":
   setup:
