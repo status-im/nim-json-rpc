@@ -79,9 +79,23 @@ template allTests(client: untyped) =
       res.get()[1].error.isNone
       res.get()[2].error.isSome
 
+  test "Sending an unknown id is ignored":
+    const req = """{"jsonrpc": "2.0", "method": "foo", "id": 123123}"""
+    waitFor client.send(req.toBytes)
+    # following requests still work
+    let r1 = waitFor client.rets("foobar")
+    check r1 == "ret foobar"
+
+  test "Sending an unknown id within a batch is ignored":
+    const req = """[{"jsonrpc": "2.0", "method": "foo", "id": 123123}]"""
+    waitFor client.send(req.toBytes)
+    # following requests still work
+    let r1 = waitFor client.rets("foobar")
+    check r1 == "ret foobar"
+
   test "Sending an ambiguous message terminates the connection":
-    const req = """{"foo": "boo"}"""
     # check it fails with parse error; id=null response
+    const req = """{"foo": "boo"}"""
     const expected = """{"code":-32600,"message":"',' expected"}"""
     checkInvalidMessage(client, req, expected)
 
@@ -100,20 +114,6 @@ template allTests(client: untyped) =
     const req = """[{"jsonrpc": "2.0", "method": "foo", "id": null}]"""
     const expected = """{"code":-32601,"message":"'foo' is not a registered RPC method"}"""
     checkInvalidMessage(client, req, expected)
-
-  test "Sending an unknown id is ignored":
-    const req = """{"jsonrpc": "2.0", "method": "foo", "id": 123123}"""
-    waitFor client.send(req.toBytes)
-    # following requests still work
-    let r1 = waitFor client.rets("foobar")
-    check r1 == "ret foobar"
-
-  test "Sending a batch with an unknown id is ignored":
-    const req = """[{"jsonrpc": "2.0", "method": "foo", "id": 123123}]"""
-    waitFor client.send(req.toBytes)
-    # following requests still work
-    let r1 = waitFor client.rets("foobar")
-    check r1 == "ret foobar"
 
   test "Sending a string id terminates the connection":
     # note this terminates the connection when receiving the string id response
