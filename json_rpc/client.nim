@@ -134,6 +134,7 @@ proc callOnProcessMessage*(
 const defaultRouter = default(RpcRouter)
 
 proc singleResponseId(resp: ResponseRx2): int {.raises: [InvalidResponse].} =
+  # Note this client only ever sends number IDs, and so it expects number IDs back
   case resp.id.kind
   of riNumber:
     resp.id.num
