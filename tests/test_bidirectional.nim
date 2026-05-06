@@ -93,6 +93,13 @@ template allTests(client: untyped) =
     let r1 = waitFor client.rets("foobar")
     check r1 == "ret foobar"
 
+  test "Sending a notification won't terminate the connection":
+    const req = """{"jsonrpc": "2.0", "method": "rets", "params": ["foo"]}"""
+    waitFor client.send(req.toBytes)
+    # following requests still work
+    let r1 = waitFor client.rets("foobar")
+    check r1 == "ret foobar"
+
   test "Sending an ambiguous message terminates the connection":
     # check it fails with parse error; id=null response
     const req = """{"foo": "boo"}"""
