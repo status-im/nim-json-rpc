@@ -61,7 +61,7 @@ method send(
 
   let
     req = HttpClientRequestRef.post(
-      client.httpSession, client.httpAddress, headers = headers, body = default(array[0, byte])
+      client.httpSession, client.httpAddress, headers = headers
     )
 
     res =
@@ -106,7 +106,7 @@ method request(
 
   let
     req = HttpClientRequestRef.post(
-      client.httpSession, client.httpAddress, headers = headers, body = default(array[0, byte])
+      client.httpSession, client.httpAddress, headers = headers
     )
 
     res =
