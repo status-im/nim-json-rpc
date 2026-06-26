@@ -22,6 +22,13 @@ export chronos, jsonmarshal, json, jrpc_sys
 logScope:
   topics = "jsonrpc router"
 
+template errorReturnWorkaround(body) =
+  when NimMajor < 2:
+    body
+    raiseAssert "never hit"
+  else:
+    body
+
 type
   RpcProc* = proc(params: RequestParamsRx): Future[JsonString] {.async.}
     ## Procedure signature accepted as an RPC call by server - if the function
@@ -211,8 +218,8 @@ macro rpc*(server: RpcRouter, formatType, procList: untyped): untyped =
         of nnkIdent, nnkAccQuoted:
           $prc[0]
         else:
-          error "Unsupported rpc proc definition", prc
-          ""  # Nim 1.6
+          errorReturnWorkaround:
+            error "Unsupported rpc proc definition", prc
       result.add rpcImpl(server, path, formatType, prc)
     else:
       error "Only proc definitions are allowed within an rpc context", prc
