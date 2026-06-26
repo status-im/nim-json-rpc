@@ -139,6 +139,7 @@ suite "JSON-RPC/http":
 
         # Final empty chunk to end the stream (0\r\n\r\n)
         discard await conn.write("\r\n0\r\n\r\n".toBytes())
+        await conn.shutdownWait()
         await conn.closeWait()
       except CatchableError as exc:
         raiseAssert exc.msg
