@@ -63,7 +63,7 @@ task test, "run tests":
 task examples, "Run examples":
   # Run book examples
   for file in listFiles("docs/examples"):
-    if file.endsWith("_sigs.nim"):
+    if file.endsWith("_sigs_def.nim"):
       continue
     elif file.endsWith("_server.nim"):
       # Avoid serve forever
