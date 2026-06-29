@@ -63,7 +63,12 @@ task test, "run tests":
 task examples, "Run examples":
   # Run book examples
   for file in listFiles("docs/examples"):
-    if file.endsWith(".nim"):
+    if file.endsWith("_sigs.nim"):
+      continue
+    elif file.endsWith("_server.nim"):
+      # Avoid serve forever
+      buildOnly "--threads:on", file
+    elif file.endsWith(".nim"):
       run "--threads:on", file
 
 task docs, "Generate API documentation":
