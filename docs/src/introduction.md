@@ -23,7 +23,7 @@ If you're new to JSON-RPC and/or `json_rpc`, check out our brief [overview](./ov
 1. [Establishing a JSON-RPC connection](./connecting.md)
 1. [Receiving a JSON-RPC request](./receiving_requests.md)
 1. [Sending a JSON-RPC request](./sending_requests.md)
-1. [Adding Remote RPC Targets](./remote_targets.md)
+1. [RPC Proxy Server](./rpc_proxy_server.md)
 1. [Throwing and handling exceptions](./exceptions.md)
 1. [Format conversion](./format_conversion.md)
 1. [Testability](./testability.md)

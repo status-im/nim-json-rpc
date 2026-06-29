@@ -6,7 +6,7 @@
 - [Establishing a JSON-RPC connection](./connecting.md)
 - [Receiving a JSON-RPC request](./receiving_requests.md)
 - [Sending a JSON-RPC request](./sending_requests.md)
-- [Adding Remote RPC Targets](./remote_targets.md)
+- [RPC Proxy Server](./rpc_proxy_server.md)
 - [Throwing and handling exceptions](./exceptions.md)
 - [Format conversion](./format_conversion.md)
 - [Testability](./testability.md)
