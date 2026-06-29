@@ -21,7 +21,7 @@ proc startServer*(): RpcWebSocketServer {.raises: [JsonRpcError].} =
   srv.start()
   srv
 
-proc stopServer*(srv: RpcWebSocketServer) {.async.} =
+proc stopServer*(srv: RpcWebSocketServer) {.async: (raises: []).} =
   srv.stop()
   await srv.closeWait()
 
