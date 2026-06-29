@@ -41,8 +41,7 @@ proc main() {.raises: [CatchableError].} =
   let proxy = waitFor startProxy(srvUrl)
   runForever()
 
-# Compile with -d:jsonRpcExample to run this
-when defined(jsonRpcExample):
+when isMainModule:
   main()
 
 # ANCHOR_END: All
