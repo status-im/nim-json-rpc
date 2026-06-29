@@ -2,7 +2,7 @@
 
 Before receiving any request, you should have already [established a connection](./connecting.md).
 
-When a request is received, the router matches it to a server method that was previously registered with a matching name. If no matching server method can be found the request is dropped, and an error is returned to the client if the client requested a response.
+When a request is received, the router matches it to a server method by name. If no matching server method can be found the request is dropped, and an error is returned to the client if the client requested a response.
 
 When an RPC-invoked server method throws an exception, the server will handle the exception and (when applicable) send an error response to the client with a description of the failure.
 
