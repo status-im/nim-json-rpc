@@ -29,8 +29,7 @@ proc main() {.raises: [JsonRpcError].} =
   let srv = startServer()
   runForever()
 
-# Pass -d:jsonRpcExample to nim to run this
-when defined(jsonRpcExample):
+when isMainModule:
   main()
 
 # ANCHOR_END: All
