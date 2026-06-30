@@ -206,19 +206,32 @@ template notifyTest(router, client: untyped) =
     var
       notified = newAsyncEvent()
       notified2 = newAsyncEvent()
+      notified3 = newAsyncEvent()
+      notified4 = newAsyncEvent()
 
     router[].rpc("some_notify") do() -> void:
       notified.fire()
     router[].rpc("some_notify2") do() -> void:
       notified2.fire()
 
+    router[].rpc(JrpcFlavor):
+      proc some_notify3(): void =
+        notified3.fire()
+
+      proc some_notify4(): void {.async: (raises: []).} =
+        notified4.fire()
+
     await srv.notify("some_notify", default(RequestParamsTx))
     await srv.notify("doesnt_exist", default(RequestParamsTx))
     await srv.notify("some_notify2", default(RequestParamsTx))
+    await srv.notify("some_notify3", default(RequestParamsTx))
+    await srv.notify("some_notify4", default(RequestParamsTx))
 
     check:
       await notified.wait().withTimeout(1.seconds)
       await notified2.wait().withTimeout(1.seconds)
+      await notified3.wait().withTimeout(1.seconds)
+      await notified4.wait().withTimeout(1.seconds)
 
 suite "Socket Bidirectional":
   setup:

@@ -345,7 +345,7 @@ func wrapServerHandler*(
 
   let
     executeCall = newCall(handlerName, executeParams)
-    executeCallReturnType = handler.params[0]
+    handlerReturnType = handler.params[0]
 
   result = newStmtList()
   result.add handler
@@ -354,7 +354,7 @@ func wrapServerHandler*(
       # Avoid 'yield in expr not lowered' with an intermediate variable.
       # See: https://github.com/nim-lang/Nim/issues/17849
       `setup`
-      when `executeCallReturnType` is void:
+      when `handlerReturnType` is void:
         `executeCall`
       else:
         let handlerRes = `executeCall`
