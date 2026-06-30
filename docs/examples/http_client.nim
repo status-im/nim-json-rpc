@@ -11,9 +11,9 @@ createRpcSigsFromNim(RpcClient, RpcConv):
   proc hello(input: string): string
   # ANCHOR_END: RpcHello
   proc bye(input: string): string
-  # ANCHOR: RpcSmile
-  proc `🙂`(input: string): string
-  # ANCHOR_END: RpcSmile
+  # ANCHOR: RpcEmoji
+  proc `👑`(input: string): string
+  # ANCHOR_END: RpcEmoji
   proc empty()
   proc justHello(): string
   proc teaPot()
@@ -60,13 +60,13 @@ proc main() {.async.} =
   let resp6 = await client.call("bye", %* {"user-name": "Daisy"}, RpcConv)
   doAssert RpcConv.decode(resp6, string) == "Bye Daisy"
 
-  let resp7 = await client.`🙂`("Daisy")
-  doAssert resp7 == "🙂 Daisy"
+  let resp7 = await client.`👑`("Daisy")
+  doAssert resp7 == "👑 Daisy"
 
   # ANCHOR: ClientBatch
   let batch = client.prepareBatch()
   batch.hello("Daisy")
-  batch.`🙂`("Daisy")
+  batch.`👑`("Daisy")
   let batchRes = await batch.send()
   # ANCHOR_END: ClientBatch
   # ANCHOR: ClientBatchResult
@@ -74,7 +74,7 @@ proc main() {.async.} =
   doAssert r[0].error.isNone
   doAssert RpcConv.decode(r[0].result, string) == "Hello Daisy"
   doAssert r[1].error.isNone
-  doAssert RpcConv.decode(r[1].result, string) == "🙂 Daisy"
+  doAssert RpcConv.decode(r[1].result, string) == "👑 Daisy"
   # ANCHOR_END: ClientBatchResult
 
   # ANCHOR: ClientNotification
