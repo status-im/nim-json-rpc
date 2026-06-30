@@ -8,12 +8,26 @@ When an RPC-invoked server method throws an exception, the server will handle th
 
 JSON-RPC is an inherently asynchronous protocol. Multiple concurrent requests are allowed. Methods are invoked as the requests are processed, even while prior requests are still running.
 
+## Request format flavor
+
+A [format flavor](./format_conversion.md) to convert the request parameters and the response result to/from JSON must be created to use in the RPC methods:
+
+```nim
+{{#shiftinclude auto:../examples/rpc_format.nim:FormatRpcConv}}
+```
+
 ## Registering methods
 
-The `rpc` macro accepts a list of proc definitions which are turned into async procedures and registered as RPC methods. Procedure overload is not supported. A format flavor supporting the parameters and return type must be set. The `RpcConv` defined in the [flavors section](./format_conversion.md) is used in the following example:
+The `rpc` macro accepts a list of proc definitions which are registered as RPC methods. Procedure overload is not supported:
 
 ```nim
 {{#shiftinclude auto:../examples/http_server.nim:RpcHello}}
+```
+
+Async RPC methods are supported with `{.async.}`:
+
+```nim
+{{#shiftinclude auto:../examples/http_server.nim:RpcHowdy}}
 ```
 
 When [named parameters](https://www.jsonrpc.org/specification#parameter_structures) are used, [`serializedFieldName`](https://github.com/status-im/nim-serialization?tab=readme-ov-file#custom-serialization-of-user-defined-types) can be used to customize the field name:
