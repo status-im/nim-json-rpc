@@ -18,7 +18,9 @@ A [format flavor](./format_conversion.md) to convert the request parameters and 
 
 ## Registering methods
 
-The `rpc` macro accepts a list of proc definitions which are registered as RPC methods. Procedure overload is not supported:
+The `rpc` macro accepts a list of proc definitions which are registered as RPC methods. The procedures can be synchronous or async, both run within the async event loop. Procedure overload is not supported.
+
+Synchronous RPC methods are implemented as regular procs:
 
 ```nim
 {{#shiftinclude auto:../examples/http_server.nim:RpcHello}}

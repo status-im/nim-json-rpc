@@ -15,10 +15,10 @@ proc setupServer(srv: RpcServer) =
       "Hello " & input
   # ANCHOR_END: RpcHello
 
-  # ANCHOR: RpcHowdy
+    # ANCHOR: RpcHowdy
     proc howdy(input: string): string {.async: (raises: []).} =
       "Howdy " & input
-  # ANCHOR_END: RpcHowdy
+    # ANCHOR_END: RpcHowdy
 
     # ANCHOR: RpcBye
     proc bye(input {.serializedFieldName: "user-name".}: string): string =
