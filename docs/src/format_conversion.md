@@ -6,7 +6,7 @@ The conversion to and from JSON is done using a [nim-json-serialization format](
 
 The return type then performs the opposite process, converting Nim types to JSON for transport.
 
-## Creating a JSON flavor
+## Creating a JSON format flavor
 
 The `createJsonFlavor` API accepts a flavor name and serialization options. The flavor can be passed to RPC method APIs and it will be used to convert the parameters and return value. In the following example the flavor is named `RpcConv`:
 
