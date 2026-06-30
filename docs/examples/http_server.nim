@@ -50,7 +50,7 @@ proc startServer*(): RpcHttpServer {.raises: [JsonRpcError].} =
   # ANCHOR_END: RpcHttpServerStart
   srv
 
-proc stopServer*(srv: RpcHttpServer) {.async.} =
+proc stopServer*(srv: RpcHttpServer) {.async: (raises: []).} =
   # ANCHOR: ServerDisconnect
   await srv.stop()
   await srv.closeWait()
