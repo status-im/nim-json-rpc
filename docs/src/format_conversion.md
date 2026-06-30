@@ -14,10 +14,20 @@ The `createJsonFlavor` API accepts a flavor name and serialization options. The 
 {{#shiftinclude auto:../examples/rpc_format.nim:FormatRpcConv}}
 ```
 
-In the above configuration automatic object serialization is disabled. Enabling the default serialization for a given object can be done with `RpcConv.useDefaultSerializationFor(MyObject)`. This is to avoid unintentionally using the default for objects that define a custom serializer.
+## Object serialization
+
+In the above configuration automatic object serialization is disabled. This is to avoid unintentionally using the default serializer for objects that define a custom serializer. Object serialization can be enabled per object using `useDefaultSerializationIn`:
+
+```nim
+{{#shiftinclude auto:../examples/rpc_format.nim:FormatUserInfo}}
+```
 
 ## Custom type serialization
 
-It is possible to provide a custom serializer for a given type creating `writeValue` and `readValue` functions.
+It is possible to provide a custom serializer for a given type creating `writeValue` and `readValue` functions:
+
+```nim
+{{#shiftinclude auto:../examples/rpc_format.nim:FormatUploadData}}
+```
 
 [Learn more about serialization in the nim-json-serialization documentation.](https://status-im.github.io/nim-json-serialization/reference.html#custom-parsers-and-writers)
