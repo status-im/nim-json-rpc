@@ -20,10 +20,10 @@ proc setupServer(srv: RpcServer) =
       "Bye " & input
     # ANCHOR_END: RpcBye
 
-    # ANCHOR: RpcSmile
-    proc `🙂`(input: string): string =
-      "🙂 " & input
-    # ANCHOR_END: RpcSmile
+    # ANCHOR: RpcEmoji
+    proc `👑`(input: string): string =
+      "👑 " & input
+    # ANCHOR_END: RpcEmoji
 
     # ANCHOR: RpcEmpty
     proc empty(): void =

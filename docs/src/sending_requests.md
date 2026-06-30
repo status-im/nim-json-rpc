@@ -25,7 +25,7 @@ The `createRpcSigsFromNim` macro accepts a list of forward procedure declaration
 Wrapping the method name in backticks allows any character:
 
 ```nim
-{{#shiftinclude auto:../examples/http_client.nim:RpcSmile}}
+{{#shiftinclude auto:../examples/http_client.nim:RpcEmoji}}
 ```
 
 The RPC method can be invoked using a client instance with a stablished connection:

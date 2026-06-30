@@ -25,7 +25,7 @@ When [named parameters](https://www.jsonrpc.org/specification#parameter_structur
 Wrapping the method name in backticks allows any character:
 
 ```nim
-{{#shiftinclude auto:../examples/http_server.nim:RpcSmile}}
+{{#shiftinclude auto:../examples/http_server.nim:RpcEmoji}}
 ```
 
 When the procedure return type is not specified, `JsonNode` is implicitly used. To avoid returning a result, `void` can be used instead:
