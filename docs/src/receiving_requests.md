@@ -8,7 +8,7 @@ When an RPC-invoked server method throws an exception, the server will handle th
 
 JSON-RPC is an inherently asynchronous protocol. Multiple concurrent requests are allowed. Methods are invoked as the requests are processed, even while prior requests are still running.
 
-## Request format flavor
+## Method format flavor
 
 A [format flavor](./format_conversion.md) to convert the request parameters and the response result to/from JSON must be created to use in the RPC methods:
 
