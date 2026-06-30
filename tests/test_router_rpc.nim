@@ -93,8 +93,8 @@ server.rpc(JrpcConv):
   proc rpcCtxAsyncEmpty(s: string): void {.async.} =
     discard
 
-#  proc rpcCtxSyncEmpty(s: string): void =
-#    discard
+  proc rpcCtxSyncEmpty(s: string): void =
+    discard
 
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
@@ -270,7 +270,7 @@ suite "rpc context":
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
 
-#  test "Rpc sync empty response":
-#    let n = req("rpcCtxSyncEmpty", """{"result": "foo"}""")
-#    let res = waitFor server.route(n)
-#    check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
+  test "Rpc sync empty response":
+    let n = req("rpcCtxSyncEmpty", """{"result": "foo"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
