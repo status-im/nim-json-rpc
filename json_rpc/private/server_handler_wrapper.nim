@@ -359,6 +359,7 @@ func wrapServerHandler*(
       `setup`
       when `handlerReturnType` is void:
         `executeCall`
+        JsonString("null")
       else:
         let handlerRes = `executeCall`
         maybeWrapServerResult(`formatType`, handlerRes)
