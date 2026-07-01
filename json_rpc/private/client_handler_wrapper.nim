@@ -61,7 +61,7 @@ template maybeUnwrapClientResult*(client, meth, reqParams, returnType, formatTyp
         decode(formatType, res.string, returnType)
       except SerializationError as exc:
         raise (ref ResultDecodeError)(
-          result: res, msg: exc.formatMsg("result"), parent: exc
+          res: res, msg: exc.formatMsg("result"), parent: exc
         )
 
     let fut = client.call(meth, reqParams)
