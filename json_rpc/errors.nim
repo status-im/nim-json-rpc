@@ -42,6 +42,10 @@ type
     ## raised when fail to decode RequestRx
     payload*: seq[byte]
 
+  ResultDecodeError* = object of JsonRpcError
+    ## raised when failing to decode the response result
+    res*: JsonString
+
   ApplicationError* = object of JsonRpcError
     ## Error to be raised by the application request handlers when the server
     ## needs to respond with a custom application error. The error code should
