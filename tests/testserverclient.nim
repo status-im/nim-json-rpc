@@ -16,7 +16,7 @@ import
 # Create RPC on server
 proc setupServer*(srv: RpcServer) =
   srv.rpc("myProc") do(input: string, data: array[0..3, int]):
-    return %("Hello " & input & " data: " & $data)
+    %("Hello " & input & " data: " & $data)
 
   srv.rpc("myError") do(input: string, data: array[0..3, int]):
     raise (ref ValueError)(msg: "someMessage")
@@ -25,28 +25,31 @@ proc setupServer*(srv: RpcServer) =
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
 
   srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
-    return FlavorObj.init("ret " & obj.s.string)
+    FlavorObj.init("ret " & obj.s.string)
 
   srv.rpc(JrpcFlavor):
     proc myProcCtx1(obj: FlavorObj): FlavorObj =
-      return FlavorObj.init("ret " & obj.s.string)
+      FlavorObj.init("ret " & obj.s.string)
 
     proc myProcCtx2(obj: FlavorObj): FlavorObj =
-      return FlavorObj.init("ret " & obj.s.string)
+      FlavorObj.init("ret " & obj.s.string)
 
     proc `my.Proc.Ctx3`(obj: FlavorObj): FlavorObj =
-      return FlavorObj.init("ret " & obj.s.string)
+      FlavorObj.init("ret " & obj.s.string)
 
     proc my_Proc_Ctx4(obj: FlavorObj): FlavorObj =
-      return FlavorObj.init("ret " & obj.s.string)
+      FlavorObj.init("ret " & obj.s.string)
 
     proc myProcCtx5(obj: FlavorObj) =
-      return %("ret " & obj.s.string)
+      %("ret " & obj.s.string)
+
+    proc myProcCtx6Empty(obj: FlavorObj): void =
+      discard
 
   # A second context in same scope works
   srv.rpc(JrpcFlavor):
     proc myProcCtxOther(obj: FlavorObj): FlavorObj =
-      return FlavorObj.init("ret " & obj.s.string)
+      FlavorObj.init("ret " & obj.s.string)
 
 template callTests(client: untyped) =
   test "Successful RPC call":
@@ -80,6 +83,7 @@ template callTests(client: untyped) =
       r3 = waitFor client.call("my.Proc.Ctx3", %[FlavorObj.init("foobar3")], JrpcFlavor)
       r4 = waitFor client.call("my_Proc_Ctx4", %[FlavorObj.init("foobar4")], JrpcFlavor)
       r5 = waitFor client.call("myProcCtx5", %[FlavorObj.init("foobar5")], JrpcFlavor)
+      r6 = waitFor client.call("myProcCtx6Empty", %[FlavorObj.init("foobar6")], JrpcFlavor)
     check:
       r.string == """{"s":"ret foobar"}"""
       r1.string == """{"s":"ret foobar1"}"""
@@ -87,6 +91,7 @@ template callTests(client: untyped) =
       r3.string == """{"s":"ret foobar3"}"""
       r4.string == """{"s":"ret foobar4"}"""
       r5.string == """"ret foobar5""""
+      r6.string == """null"""
 
   test "Concurrent RPC calls":
     var calls = newSeq[Future[JsonString]]()
