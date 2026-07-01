@@ -54,9 +54,15 @@ template maybeUnwrapClientResult*(client, meth, reqParams, returnType, formatTyp
   when noWrap(returnType):
     client.call(meth, reqParams)
   else:
-    proc complete(f: auto): Future[returnType] {.async.} =
+    proc complete(f: auto): Future[returnType] {.async: (raises: [CancelledError, JsonRpcError]).} =
       let res = await f
-      decode(formatType, res.string, returnType)
+      try:
+        decode(formatType, res.string, returnType)
+      except SerializationError as exc:
+        raise (ref JsonRpcError)(
+          msg: exc.formatMsg("msg"), parent: exc
+        )
+
     let fut = client.call(meth, reqParams)
     complete(fut)
 
