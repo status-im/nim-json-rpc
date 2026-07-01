@@ -20,7 +20,8 @@ func createRpcProc(procName, parameters, callBody: NimNode): NimNode =
   for p in parameters: paramList.add(p)
 
   # build proc
-  result = newProc(procName, paramList, callBody)
+  let pragmas = quote do: {.async: (raw: true, raises: [CancelledError, JsonRpcError]).}
+  result = newProc(procName, paramList, callBody, pragmas = pragmas)
 
   # export this proc
   result[0] = nnkPostfix.newTree(ident"*", newIdentNode($procName))
@@ -59,8 +60,8 @@ template maybeUnwrapClientResult*(client, meth, reqParams, returnType, formatTyp
       try:
         decode(formatType, res.string, returnType)
       except SerializationError as exc:
-        raise (ref JsonRpcError)(
-          msg: exc.formatMsg("result"), parent: exc
+        raise (ref ResultDecodeError)(
+          result: res, msg: exc.formatMsg("result"), parent: exc
         )
 
     let fut = client.call(meth, reqParams)

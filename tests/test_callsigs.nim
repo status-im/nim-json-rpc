@@ -90,12 +90,17 @@ proc installHandlers(s: RpcServer) =
     return RefObject(name: "meow")
 
 suite "test callsigs":
-  var server = newRpcSocketServer(["127.0.0.1:0"])
-  server.installHandlers()
-  var client = newRpcSocketClient()
+  setup:
+    var server = newRpcSocketServer(["127.0.0.1:0"])
+    server.installHandlers()
+    var client = newRpcSocketClient()
 
-  server.start()
-  waitFor client.connect(server.localAddress()[0])
+    server.start()
+    waitFor client.connect(server.localAddress()[0])
+
+  teardown:
+    server.stop()
+    waitFor server.closeWait()
 
   test "callsigs from file":
     let res = waitFor client.shh_uninstallFilter(123)
@@ -149,8 +154,10 @@ suite "test callsigs":
     check res2.isNil.not
     check res2.name == "meow"
 
-  server.stop()
-  waitFor server.closeWait()
+  test "callsigs from nim with raises":
+    proc testRaises(c: RpcClient) {.async: (raises: [CancelledError, JsonRpcError]).} =
+      discard await client.get_Banana(789)
+    waitFor testRaises(client)
 
 createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs_flavor.nim", JrpcFlavor)
 
@@ -171,12 +178,17 @@ proc installFlavorHandlers(s: RpcServer) =
     return FlavorObj.init("ret " & obj.s.string)
 
 suite "test callsigs with flavors":
-  var server = newRpcSocketServer(["127.0.0.1:0"])
-  server.installFlavorHandlers()
-  var client = newRpcSocketClient()
+  setup:
+    var server = newRpcSocketServer(["127.0.0.1:0"])
+    server.installFlavorHandlers()
+    var client = newRpcSocketClient()
 
-  server.start()
-  waitFor client.connect(server.localAddress()[0])
+    server.start()
+    waitFor client.connect(server.localAddress()[0])
+
+  teardown:
+    server.stop()
+    waitFor server.closeWait()
 
   test "callsigs from file with flavor":
     let res = waitFor client.getFileFlavor(FlavorObj.init("file"))
@@ -189,6 +201,3 @@ suite "test callsigs with flavors":
   test "callsigs from nim with flavor":
     let res = waitFor client.getNimFlavor(FlavorObj.init("nim"))
     check res == FlavorObj.init("ret nim")
-
-  server.stop()
-  waitFor server.closeWait()
