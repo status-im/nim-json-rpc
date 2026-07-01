@@ -29,7 +29,7 @@ import
 from strutils import replace
 
 export
-  chronos, deques, tables, jsonmarshal, RequestParamsTx, RequestIdKind,
+  chronos, deques, tables, errors, jsonmarshal, RequestParamsTx, RequestIdKind,
   RequestId, RequestTx, RequestParamKind, ResponseBatchRx, results
 
 logScope:
