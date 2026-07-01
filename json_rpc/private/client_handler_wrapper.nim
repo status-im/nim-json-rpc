@@ -51,7 +51,12 @@ func setupConversion(reqParams, params, formatType: NimNode): NimNode =
 
 template maybeUnwrapClientResult*(client, meth, reqParams, returnType, formatType): auto =
   ## Don't decode e.g. JsonString, return as is
-  when noWrap(returnType):
+  when returnType is void:
+    proc complete(f: auto): Future[returnType] {.async.} =
+      discard await f
+    let fut = client.call(meth, reqParams)
+    complete(fut)
+  elif noWrap(returnType):
     client.call(meth, reqParams)
   else:
     proc complete(f: auto): Future[returnType] {.async.} =

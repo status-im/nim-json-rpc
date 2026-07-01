@@ -40,6 +40,7 @@ createRpcSigsFromNim(RpcClient):
   proc getJsonString(name: string): JsonString
   proc getVariant(id: Variant): bool
   proc getRefObject(shouldNull: bool): RefObject
+  proc empty(): void
 
 proc installHandlers(s: RpcServer) =
   s.rpc("shh_uninstallFilter") do(id: int) -> bool:
@@ -89,6 +90,9 @@ proc installHandlers(s: RpcServer) =
     if shouldNull: return nil
     return RefObject(name: "meow")
 
+  s.rpc("empty") do() -> void:
+    discard
+
 suite "test callsigs":
   var server = newRpcSocketServer(["127.0.0.1:0"])
   server.installHandlers()
@@ -119,6 +123,8 @@ suite "test callsigs":
       check res4 == true
 
   test "callsigs from nim":
+    waitFor client.empty()
+
     let res = waitFor client.get_Banana(789)
     check res == true
 
