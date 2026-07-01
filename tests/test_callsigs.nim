@@ -156,7 +156,7 @@ suite "test callsigs":
 
   test "callsigs from nim with raises":
     proc testRaises(c: RpcClient) {.async: (raises: [CancelledError, JsonRpcError]).} =
-      discard await client.get_Banana(789)
+      discard await c.get_Banana(789)
     waitFor testRaises(client)
 
 createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs_flavor.nim", JrpcFlavor)
