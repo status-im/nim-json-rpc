@@ -40,6 +40,7 @@ createRpcSigsFromNim(RpcClient):
   proc getJsonString(name: string): JsonString
   proc getVariant(id: Variant): bool
   proc getRefObject(shouldNull: bool): RefObject
+  proc wrongResult(): int
 
 proc installHandlers(s: RpcServer) =
   s.rpc("shh_uninstallFilter") do(id: int) -> bool:
@@ -88,6 +89,9 @@ proc installHandlers(s: RpcServer) =
   s.rpc("getRefObject") do(shouldNull: bool) -> Refobject:
     if shouldNull: return nil
     return RefObject(name: "meow")
+
+  s.rpc("wrongResult") do() -> JsonString:
+    JsonString("\"bad_value\"")
 
 suite "test callsigs":
   setup:
@@ -154,10 +158,20 @@ suite "test callsigs":
     check res2.isNil.not
     check res2.name == "meow"
 
-  test "callsigs from nim with raises":
+  test "callsigs with raises":
     proc testRaises(c: RpcClient) {.async: (raises: [CancelledError, JsonRpcError]).} =
       discard await c.get_Banana(789)
     waitFor testRaises(client)
+
+  test "callsigs with bad result":
+    try:
+      discard waitFor client.wrongResult()
+      fail()
+    except ResultDecodeError as exc:
+      check:
+        exc.result == JsonString("\"bad_value\"")
+        exc.msg == "result(1, 1) number expected"
+        exc.parent of SerializationError
 
 createRpcSigs(RpcClient, sourceDir & "/private/file_callsigs_flavor.nim", JrpcFlavor)
 
