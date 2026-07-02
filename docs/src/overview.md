@@ -10,7 +10,11 @@ A common pattern is that one peer sends most of the RPC requests, while the othe
 
 ## json_rpc's role
 
-`json_rpc` is a Nim library that implements the JSON-RPC protocol to easily send and receive RPC requests. It works on any transport (e.g. HTTP, Sockets, WebSocket). It is designed to automatically generate marshalling and parameter checking code based on the RPC parameter types.
+`json_rpc` is a Nim library that implements the JSON-RPC protocol to easily send and receive RPC requests. It implements three main layers:
+
+- Transports: HTTP, Sockets, and WebSocket.
+- Routing: matches a request to a server method by name, invokes it, and produces a response.
+- DSL: the `rpc` macro registers server methods, and `createRpcSigs` generates the client method calls. It automatically generates marshalling and parameter checking code based on the RPC parameter types.
 
 ## Security
 
