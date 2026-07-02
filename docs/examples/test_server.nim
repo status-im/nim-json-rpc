@@ -11,7 +11,7 @@ proc setupServer(srv: RpcServer) =
     proc hello(input: string): string =
       "Hello " & input
 
-proc main {.async.} =
+proc main {.async: (raises: [CancelledError, JsonRpcError, SerializationError]).} =
   let srv = newRpcHttpServer(["127.0.0.1:0"])
   srv.setupServer()
   # ANCHOR: TestExecute

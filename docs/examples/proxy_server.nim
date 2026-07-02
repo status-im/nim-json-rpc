@@ -29,7 +29,7 @@ proc startProxy*(srvUrl: string): Future[RpcProxy] {.async.} =
   # ANCHOR_END: ServerStart
   proxy
 
-proc stopProxy*(proxy: RpcProxy) {.async.} =
+proc stopProxy*(proxy: RpcProxy) {.async: (raises: []).} =
   # ANCHOR: ServerDisconnect
   await proxy.stop()
   await proxy.closeWait()

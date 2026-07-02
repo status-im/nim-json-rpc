@@ -9,7 +9,7 @@ import ./[rpc_format, socket_server]
 createRpcSigsFromNim(RpcClient, RpcConv):
   proc hello(input: string): string
 
-proc main() {.async.} =
+proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
   let srv = startServer()
   defer: await srv.stopServer()
 

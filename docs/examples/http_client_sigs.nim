@@ -15,7 +15,7 @@ createSingleRpcSig(RpcClient, "sayBye", RpcConv):
   proc bye(input: string): string
 # ANCHOR_END: ClientSingleSig
 
-proc main() {.async.} =
+proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
   let srv = startServer()
   let client = newRpcHttpClient()
   await client.connect("http://" & $srv.localAddress()[0])
