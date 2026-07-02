@@ -44,7 +44,7 @@ type
 
   ResultDecodeError* = object of JsonRpcError
     ## raised when failing to decode the response result
-    res*: JsonString
+    result*: JsonString
 
   ApplicationError* = object of JsonRpcError
     ## Error to be raised by the application request handlers when the server

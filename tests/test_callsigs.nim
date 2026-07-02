@@ -169,7 +169,7 @@ suite "test callsigs":
       fail()
     except ResultDecodeError as exc:
       check:
-        exc.res == JsonString("\"bad_value\"")
+        exc.result == JsonString("\"bad_value\"")
         exc.msg == "result(1, 1) number expected"
         exc.parent of SerializationError
 
