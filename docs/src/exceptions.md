@@ -4,7 +4,7 @@ The JSON-RPC protocol allows for server methods to return errors to the client i
 
 The [structure JSON-RPC defines for errors](https://www.jsonrpc.org/specification#response_object) includes an error code and a message.
 
-Error codes -32768 to -32000 are reserved for the protocol itself or for the library that implements it. The rest of the 32-bit integer range of the error code is available for the application to define. This error code is the best way for an RPC server to communicate a particular kind of error that the RPC client may use for controlling execution flow. For example the server may use an error code to indicate a conflict and another code to indicate a permission denied error. The client may check this error code and branch execution based on its value.
+Error codes -32768 to -32000 are reserved for the protocol itself or for the library that implements it (ie: `json_rpc`). The rest of the 32-bit integer range of the error code is available for the application to define. This error code is the best way for an RPC server to communicate a particular kind of error that the RPC client may use for controlling execution flow. For example the server may use an error code to indicate a conflict and another code to indicate a permission denied error. The client may check this error code and branch execution based on its value.
 
 The error *message* should be a localized, human readable message that explains the problem, possibly to the programmer of the RPC client or perhaps to the end user of the application.
 

@@ -28,13 +28,13 @@ Wrapping the method name in backticks allows any character:
 {{#shiftinclude auto:../examples/http_client.nim:RpcEmoji}}
 ```
 
-The RPC method can be invoked using a client instance with a stablished connection:
+The RPC method can be invoked using a client instance with a [established connection](./connecting.md):
 
 ```nim
 {{#shiftinclude auto:../examples/http_client.nim:ClientRequest}}
 ```
 
-The `createRpcSigs` macro accepts the path of a file containing a list of forward proc declarations and it generates the client RPCs of it:
+The `createRpcSigs` macro accepts the path of a file containing a list of forward proc declarations and it generates the client RPCs from it:
 
 ```nim
 {{#shiftinclude auto:../examples/http_client_sigs.nim:ClientFileSigs}}
@@ -55,7 +55,7 @@ createRpcSigsFromString(RpcClient, rpcClientDefs, RpcConv)
 
 ## Invoking methods using runtime information
 
-An RPC method can be invoked passing its name an parameter types at runtime. The parameter must be passed as a `JsonNode` or `RequestParamsTx`. The `RpcConv` defined in the flavors section is used in the following example:
+An RPC method can be invoked passing its name an parameter types at runtime. The parameter must be passed as a `JsonNode` or `RequestParamsTx`. The `RpcConv` defined in the [flavors section](./format_conversion.md) is used in the following example:
 
 ```nim
 {{#shiftinclude auto:../examples/http_client.nim:ClientRequestRuntime}}
