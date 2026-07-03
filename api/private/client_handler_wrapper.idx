@@ -1,0 +1,5 @@
+nimTitle	client_handler_wrapper	private/client_handler_wrapper.html	module json_rpc/private/client_handler_wrapper		0
+nim	maybeUnwrapClientResult	private/client_handler_wrapper.html#maybeUnwrapClientResult.t,,,,,	template maybeUnwrapClientResult(client, meth, reqParams, returnType, formatType): auto		53
+nim	createRpcFromSig	private/client_handler_wrapper.html#createRpcFromSig,NimNode,NimNode,NimNode	proc createRpcFromSig(clientType, rpcDecl, formatType: NimNode; alias = NimNode(nil)): NimNode		70
+nim	processRpcSigs	private/client_handler_wrapper.html#processRpcSigs,NimNode,NimNode,NimNode	proc processRpcSigs(clientType, parsedCode, formatType: NimNode): NimNode		145
+nim	cresteSignaturesFromString	private/client_handler_wrapper.html#cresteSignaturesFromString,NimNode,string,NimNode	proc cresteSignaturesFromString(clientType: NimNode; sigStrings: string;\n                           formatType: NimNode): NimNode		153

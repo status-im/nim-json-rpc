@@ -1,0 +1,4 @@
+nimTitle	utils	private/utils.html	module json_rpc/private/utils		0
+nim	resolveIP	private/utils.html#resolveIP.i,openArray[string]	iterator resolveIP(addresses: openArray[string]): TransportAddress		20
+nim	resolveIP	private/utils.html#resolveIP.i,string,Port	iterator resolveIP(address: string; port: Port): TransportAddress		43
+nimgrp	resolveip	private/utils.html#resolveIP-iterators-all	iterator		20

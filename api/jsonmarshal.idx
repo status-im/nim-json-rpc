@@ -1,0 +1,20 @@
+nimTitle	jsonmarshal	jsonmarshal.html	module json_rpc/jsonmarshal		0
+nim	JrpcConv	jsonmarshal.html#JrpcConv	object JrpcConv		77
+nim	Reader	jsonmarshal.html#Reader.t,typeJrpcConv	template Reader(T`gensym1: type JrpcConv): type		78
+nim	Writer	jsonmarshal.html#Writer.t,typeJrpcConv	template Writer(T`gensym1: type JrpcConv): type		79
+nim	PreferredOutputType	jsonmarshal.html#PreferredOutputType.t,typeJrpcConv	template PreferredOutputType(T`gensym1: type JrpcConv): type		80
+nim	mimeType	jsonmarshal.html#mimeType.t,typeJrpcConv	template mimeType(T`gensym1: type JrpcConv): string		120
+nim	decode	jsonmarshal.html#decode.t,typeJrpcConv,JsonString,type,varargs[untyped]	template decode(Format: type JrpcConv; inputParam: JsonString; RecordType: type;\n       params: varargs[untyped]): auto		129
+nim	flavorUsesAutomaticObjectSerialization	jsonmarshal.html#flavorUsesAutomaticObjectSerialization.t,typeJrpcConv	template flavorUsesAutomaticObjectSerialization(T: type JrpcConv): bool		137
+nim	flavorOmitsOptionalFields	jsonmarshal.html#flavorOmitsOptionalFields.t,typeJrpcConv	template flavorOmitsOptionalFields(T: type JrpcConv): bool		138
+nim	flavorRequiresAllFields	jsonmarshal.html#flavorRequiresAllFields.t,typeJrpcConv	template flavorRequiresAllFields(T: type JrpcConv): bool		139
+nim	flavorAllowsUnknownFields	jsonmarshal.html#flavorAllowsUnknownFields.t,typeJrpcConv	template flavorAllowsUnknownFields(T: type JrpcConv): bool		140
+nim	flavorSkipNullFields	jsonmarshal.html#flavorSkipNullFields.t,typeJrpcConv	template flavorSkipNullFields(T: type JrpcConv): bool		141
+nim	flavorEnumRep	jsonmarshal.html#flavorEnumRep.t,typeJrpcConv	template flavorEnumRep(T: type JrpcConv): EnumRepresentation		144
+nim	flavorEnumRep	jsonmarshal.html#flavorEnumRep.t,typeJrpcConv,static[EnumRepresentation]	template flavorEnumRep(T: type JrpcConv; rep: static[EnumRepresentation])		147
+nim	typeClassOrMemberAutoSerialize	jsonmarshal.html#typeClassOrMemberAutoSerialize,typeJrpcConv,,	proc typeClassOrMemberAutoSerialize(F: type JrpcConv; TC: distinct type;\n                               TM: distinct type): bool		53
+nim	typeAutoSerialize	jsonmarshal.html#typeAutoSerialize,typeJrpcConv,	proc typeAutoSerialize(F: type JrpcConv; TM: distinct type): bool		68
+nim	automaticSerialization	jsonmarshal.html#automaticSerialization.t,typeJrpcConv,,static[bool]	template automaticSerialization(F: type JrpcConv; T: distinct type; enable: static[bool])		19
+nim	automaticPrimitivesSerialization	jsonmarshal.html#automaticPrimitivesSerialization.t,typeJrpcConv,static[bool]	template automaticPrimitivesSerialization(F: type JrpcConv; enable: static[bool])		21
+nim	automaticBuiltinSerialization	jsonmarshal.html#automaticBuiltinSerialization.t,typeJrpcConv,static[bool]	template automaticBuiltinSerialization(F: type JrpcConv; enable: static[bool])		152
+nimgrp	flavorenumrep	jsonmarshal.html#flavorEnumRep-templates-all	template		144

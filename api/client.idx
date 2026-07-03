@@ -1,0 +1,34 @@
+nimTitle	client	client.html	module json_rpc/client		0
+nim	json_rpc_workaround_24844_future_string	client.html#json_rpc_workaround_24844_future_string	proc json_rpc_workaround_24844_future_string()		16
+nim	defaultMaxMessageSize	client.html#defaultMaxMessageSize	const defaultMaxMessageSize		38
+nim	RpcBatchItem	client.html#RpcBatchItem	object RpcBatchItem		41
+nim	RpcBatchCallRef	client.html#RpcBatchCallRef	type RpcBatchCallRef		45
+nim	RpcBatchResponse	client.html#RpcBatchResponse	object RpcBatchResponse		49
+nim	RpcClient	client.html#RpcClient	type RpcClient		53
+nim	RpcRouterCallback	client.html#RpcRouterCallback	type RpcRouterCallback		62
+nim	ResponseFut	client.html#ResponseFut	type ResponseFut		65
+nim	RpcConnection	client.html#RpcConnection	type RpcConnection		66
+nim	GetJsonRpcRequestHeaders	client.html#GetJsonRpcRequestHeaders	type GetJsonRpcRequestHeaders		71
+nim	hash	client.html#hash,RpcClient	proc hash(v: RpcClient): Hash		73
+nim	parseResponse	client.html#parseResponse,openArray[byte],type	proc parseResponse(payload: openArray[byte]; T: type): T:type		76
+nim	processsSingleResponse	client.html#processsSingleResponse,openArray[byte],int	proc processsSingleResponse(body: openArray[byte]; id: int): JsonString		97
+nim	withPendingFut	client.html#withPendingFut.t,untyped,untyped,untyped,untyped	template withPendingFut(client, fut, id, body: untyped): untyped		111
+nim	callOnProcessMessage	client.html#callOnProcessMessage,RpcClient,openArray[byte]	proc callOnProcessMessage(client: RpcClient; line: openArray[byte]): Result[bool,\n    string]		126
+nim	processMessage	client.html#processMessage,RpcConnection,seq[byte]	proc processMessage(client: RpcConnection; line: seq[byte]): Future[seq[byte]].Raising(\n    [])		171
+nim	clearPending	client.html#clearPending,RpcConnection,ref.JsonRpcError	proc clearPending(client: RpcConnection; exc: ref JsonRpcError)		203
+nim	close	client.html#close.e,RpcClient	method close(client: RpcClient): InternalRaisesFuture[void, void]		222
+nim	notify	client.html#notify,RpcClient,string,RequestParamsTx	proc notify(client: RpcClient; name: string; params: RequestParamsTx): InternalRaisesFuture[\n    void, (CancelledError, JsonRpcError)]		227
+nim	call	client.html#call,RpcClient,string,RequestParamsTx	proc call(client: RpcClient; name: string; params: RequestParamsTx): InternalRaisesFuture[\n    JsonString, (CancelledError, JsonRpcError)]		252
+nim	call	client.html#call,RpcClient,string,JsonNode,typeSerializationFormat	proc call(client: RpcClient; name: string; params: JsonNode;\n     Format: type SerializationFormat): InternalRaisesFuture[JsonString,\n    (CancelledError, JsonRpcError)]		281
+nim	call	client.html#call,RpcClient,string,JsonNode	proc call(client: RpcClient; name: string; params: JsonNode): InternalRaisesFuture[\n    JsonString, (CancelledError, JsonRpcError)]		286
+nim	prepareBatch	client.html#prepareBatch,RpcClient	proc prepareBatch(client: RpcClient): RpcBatchCallRef		289
+nim	send	client.html#send,RpcBatchCallRef	proc send(batch: RpcBatchCallRef): InternalRaisesFuture[\n    Result[seq[RpcBatchResponse], string], (CancelledError,)]		295
+nim	createRpcSigs	client.html#createRpcSigs.m,untyped,static[string],untyped	macro createRpcSigs(clientType: untyped; filePath: static[string]; formatType: untyped): untyped		371
+nim	createRpcSigs	client.html#createRpcSigs.t,untyped,string	template createRpcSigs(clientType: untyped; filePath: string): untyped		378
+nim	createRpcSigsFromString	client.html#createRpcSigsFromString.m,untyped,static[string],untyped	macro createRpcSigsFromString(clientType: untyped; sigString: static[string];\n                        formatType: untyped): untyped		381
+nim	createRpcSigsFromString	client.html#createRpcSigsFromString.t,untyped,string	template createRpcSigsFromString(clientType: untyped; sigString: string): untyped		388
+nim	createSingleRpcSig	client.html#createSingleRpcSig.m,untyped,static[string],untyped,untyped	macro createSingleRpcSig(clientType: untyped; alias: static[string];\n                   formatType, procDecl: untyped): untyped		391
+nim	createSingleRpcSig	client.html#createSingleRpcSig.t,untyped,string,untyped	template createSingleRpcSig(clientType: untyped; alias: string; procDecl: untyped): untyped		401
+nim	createRpcSigsFromNim	client.html#createRpcSigsFromNim.m,untyped,untyped,untyped	macro createRpcSigsFromNim(clientType, formatType, procList: untyped): untyped		404
+nim	createRpcSigsFromNim	client.html#createRpcSigsFromNim.t,untyped,untyped	template createRpcSigsFromNim(clientType, procList: untyped): untyped		411
+nimgrp	call	client.html#call-procs-all	proc		250

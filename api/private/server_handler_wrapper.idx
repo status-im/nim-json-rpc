@@ -1,0 +1,3 @@
+nimTitle	server_handler_wrapper	private/server_handler_wrapper.html	module json_rpc/private/server_handler_wrapper		0
+nim	maybeWrapServerResult	private/server_handler_wrapper.html#maybeWrapServerResult.t,,	template maybeWrapServerResult(Format, handlerRes): auto		240
+nim	wrapServerHandler	private/server_handler_wrapper.html#wrapServerHandler,string,NimNode,NimNode,NimNode,NimNode,NimNode	proc wrapServerHandler(methName: string; params, procBody, procWrapper, procPragmas,\n                                    formatType: NimNode): NimNode		256

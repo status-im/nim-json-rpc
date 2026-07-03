@@ -1,0 +1,23 @@
+nimTitle	router	router.html	module json_rpc/router		0
+nim	RpcProc	router.html#RpcProc	type RpcProc		33
+nim	RpcRouter	router.html#RpcRouter	object RpcRouter		37
+nim	JSON_PARSE_ERROR	router.html#JSON_PARSE_ERROR	const JSON_PARSE_ERROR		42
+nim	INVALID_REQUEST	router.html#INVALID_REQUEST	const INVALID_REQUEST		43
+nim	METHOD_NOT_FOUND	router.html#METHOD_NOT_FOUND	const METHOD_NOT_FOUND		44
+nim	INVALID_PARAMS	router.html#INVALID_PARAMS	const INVALID_PARAMS		45
+nim	INTERNAL_ERROR	router.html#INTERNAL_ERROR	const INTERNAL_ERROR		46
+nim	SERVER_ERROR	router.html#SERVER_ERROR	const SERVER_ERROR		47
+nim	JSON_ENCODE_ERROR	router.html#JSON_ENCODE_ERROR	const JSON_ENCODE_ERROR		48
+nim	wrapError	router.html#wrapError,int,string	proc wrapError(code: int; msg: string): seq[byte]		89
+nim	init	router.html#init,typeRpcRouter	proc init(T: type RpcRouter): T:type		99
+nim	register	router.html#register,RpcRouter,string,RpcProc	proc register(router: var RpcRouter; path: string; call: RpcProc)		101
+nim	clear	router.html#clear,RpcRouter	proc clear(router: var RpcRouter)		104
+nim	hasMethod	router.html#hasMethod,RpcRouter,string	proc hasMethod(router: RpcRouter; methodName: string): bool		107
+nim	route	router.html#route,RpcRouter,RequestRx2	proc route(router: RpcRouter; req: RequestRx2): InternalRaisesFuture[ResponseTx, void]		111
+nim	route	router.html#route,RpcRouter,RequestBatchRx	proc route(router: RpcRouter; request: RequestBatchRx): InternalRaisesFuture[\n    seq[byte], void]		133
+nim	route	router.html#route,RpcRouter,	proc route(router: RpcRouter; data: string | seq[byte]): InternalRaisesFuture[string,\n    void]		164
+nim	rpc	router.html#rpc.m,RpcRouter,static[string],untyped,untyped	macro rpc(server: RpcRouter; path: static[string]; formatType, body: untyped): untyped		195
+nim	rpc	router.html#rpc.t,RpcRouter,string,untyped	template rpc(server: RpcRouter; path: string; body: untyped): untyped		210
+nim	rpc	router.html#rpc.m,RpcRouter,untyped,untyped	macro rpc(server: RpcRouter; formatType, procList: untyped): untyped		213
+nimgrp	route	router.html#route-procs-all	proc		110
+nimgrp	rpc	router.html#rpc-macros-all	macro		195

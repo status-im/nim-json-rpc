@@ -1,0 +1,917 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>json_rpc</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="open-in.css">
+        <link rel="stylesheet" href="./mdbook-admonish.css">
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">json_rpc</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/status-im/nim-json-rpc" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p><code>json_rpc</code> is a library for routing JSON 2.0 format remote procedure calls over different transports, implementing the <a href="https://www.jsonrpc.org/specification">JSON-RPC</a> standard. It is designed to automatically generate marshalling and parameter checking code based on the RPC parameter types.</p>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>As a <code>nimble</code> dependency:</p>
+<pre><code class="language-nim">requires "json_rpc"
+</code></pre>
+<p>Via <code>nimble install</code>:</p>
+<pre><code class="language-text">nimble install json_rpc
+</code></pre>
+<h2 id="use-cases"><a class="header" href="#use-cases">Use cases</a></h2>
+<p>If you're new to JSON-RPC and/or <code>json_rpc</code>, check out our brief <a href="./overview.html">overview</a>. The rest of the documentation is organized around use cases:</p>
+<ol>
+<li><a href="./connecting.html">Establishing a JSON-RPC connection</a></li>
+<li><a href="./receiving_requests.html">Receiving a JSON-RPC request</a></li>
+<li><a href="./sending_requests.html">Sending a JSON-RPC request</a></li>
+<li><a href="./rpc_proxy_server.html">RPC Proxy Server</a></li>
+<li><a href="./exceptions.html">Throwing and handling exceptions</a></li>
+<li><a href="./format_conversion.html">Format conversion</a></li>
+<li><a href="./testability.html">Testability</a></li>
+</ol>
+<p>The cookbook section contains the functional code examples used throughout the docs.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/introduction.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="overview"><a class="header" href="#overview">Overview</a></h1>
+<h2 id="protocol-overview"><a class="header" href="#protocol-overview">Protocol overview</a></h2>
+<p>JSON-RPC is a two-party, peer-to-peer based protocol by which one party can request a method's invocation of the other party, and optionally receive a response from the server with the result of that invocation.</p>
+<p>Either peer may send RPC requests to the other peer. Both acting as server and client at the same time.</p>
+<p>A common pattern is that one peer sends most of the RPC requests, while the other peer only occasionally sends requests back to the client to deliver notifications. This pattern is common in many applications because of how they are structured, not because of the JSON-RPC protocol itself or because of how this library implements it.</p>
+<h2 id="json_rpcs-role"><a class="header" href="#json_rpcs-role">json_rpc's role</a></h2>
+<p><code>json_rpc</code> is a Nim library that implements the JSON-RPC protocol to easily send and receive RPC requests. It implements three main layers:</p>
+<ul>
+<li>Transport: HTTP, Sockets, and WebSocket.</li>
+<li>Routing: matches a request to a server method by name, invokes it, and produces a response.</li>
+<li>DSL: the <code>rpc</code> macro registers server methods. The <code>createRpcSigs</code> macro creates the client method calls. It automatically generates marshalling and parameter checking code based on the RPC parameter types.</li>
+</ul>
+<h2 id="security"><a class="header" href="#security">Security</a></h2>
+<p>The fundamental feature of the JSON-RPC protocol is the ability to request code execution of another party, including passing data either direction that may influence code execution. Neither the JSON-RPC protocol nor this library attempts to address the applicable security risks entailed.</p>
+<p>Before establishing a JSON-RPC connection with a party that exists outside your own trust boundary, consider the threats and how to mitigate them at your application level.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/overview.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="establishing-a-json-rpc-connection"><a class="header" href="#establishing-a-json-rpc-connection">Establishing a JSON-RPC connection</a></h1>
+<h2 id="transports"><a class="header" href="#transports">Transports</a></h2>
+<p>A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets and pipes, and Websockets:</p>
+<ul>
+<li>HTTP POST: unidirectional, one request/response pair per call.</li>
+<li>Sockets and pipes, via <a href="https://github.com/status-im/nim-chronos">chronos</a>' <code>StreamTransport</code>: bidirectional, persistent connection, custom message framing.
+<ul>
+<li><code>Framing.httpHeader</code>: <code>Content-Length</code> prefix specifying the length of the payload, compatible with <a href="https://www.npmjs.com/package/vscode-jsonrpc">vscode-jsonrpc</a>.</li>
+<li><code>Framing.lengthHeaderBE32</code>: Big-endian, 32-bit binary prefix - most efficient option.</li>
+</ul>
+</li>
+<li>Websockets: bidirectional, persistent connection.</li>
+</ul>
+<h2 id="server-and-possibly-client-also"><a class="header" href="#server-and-possibly-client-also">Server (and possibly client also)</a></h2>
+<p>Create the server instance using one of the available transports:</p>
+<p>HTTP:</p>
+<pre><code class="language-nim">let srv = newRpcHttpServer(["127.0.0.1:0"])
+</code></pre>
+<p>Sockets:</p>
+<pre><code class="language-nim">const framing = Framing.lengthHeaderBE32()
+let srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
+</code></pre>
+<p>Websockets:</p>
+<pre><code class="language-nim">let srv = newRpcWebSocketServer("127.0.0.1", Port(0))
+</code></pre>
+<p>After <a href="./receiving_requests.html">registering the RPC methods</a>, the server can start serving clients:</p>
+<pre><code class="language-nim">srv.start()
+</code></pre>
+<p>Then usually <code>runForever()</code> or <code>waitFor</code> a program termination signal <code>waitSignal(SIGINT)</code>. This will run the Chronos async event loop until the program is terminated.</p>
+<h2 id="client"><a class="header" href="#client">Client</a></h2>
+<p>Create the client instance using one of the available transports:</p>
+<p>HTTP:</p>
+<pre><code class="language-nim">let client = newRpcHttpClient()
+await client.connect("http://" &amp; $srv.localAddress()[0])
+</code></pre>
+<p>Sockets:</p>
+<pre><code class="language-nim">const framing = Framing.lengthHeaderBE32()
+let client = newRpcSocketClient(framing = framing)
+await client.connect(srv.localAddress()[0])
+</code></pre>
+<p>Websockets:</p>
+<pre><code class="language-nim">let client = newRpcWebSocketClient()
+await client.connect("ws://" &amp; $srv.localAddress())
+</code></pre>
+<p>You can then <a href="./sending_requests.html">proceed to send requests</a>.</p>
+<h2 id="disconnecting"><a class="header" href="#disconnecting">Disconnecting</a></h2>
+<p>Close the client connection:</p>
+<pre><code class="language-nim">await client.close()
+</code></pre>
+<p>Stop the RPC server and clean-up resources:</p>
+<pre><code class="language-nim">await srv.stop()
+await srv.closeWait()
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/connecting.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="receiving-a-json-rpc-request"><a class="header" href="#receiving-a-json-rpc-request">Receiving a JSON-RPC request</a></h1>
+<p>Before receiving any request, you should have already <a href="./connecting.html">established a connection</a>.</p>
+<p>When a request is received, the router matches it to a server method by name. If no matching server method can be found the request is dropped, and an error is returned to the client if the client requested a response.</p>
+<p>When an RPC-invoked server method throws an exception, the server will handle the exception and (when applicable) send an error response to the client with a description of the failure.</p>
+<p>JSON-RPC is an inherently asynchronous protocol. Multiple concurrent requests are allowed. Methods are invoked as the requests are processed, even while prior requests are still running.</p>
+<h2 id="method-format-flavor"><a class="header" href="#method-format-flavor">Method format flavor</a></h2>
+<p>A <a href="./format_conversion.html">format flavor</a> to convert the request parameters and the response result to/from JSON must be created to use in the RPC methods:</p>
+<pre><code class="language-nim">createJsonFlavor RpcConv,
+  automaticObjectSerialization = false,
+  automaticPrimitivesSerialization = true,
+  requireAllFields = false,
+  omitOptionalFields = true, # Skip optional fields==none in Writer
+  allowUnknownFields = true,
+  skipNullFields = true # Skip optional fields==null in Reader
+</code></pre>
+<h2 id="registering-methods"><a class="header" href="#registering-methods">Registering methods</a></h2>
+<p>The <code>rpc</code> macro accepts a list of proc definitions which are registered as RPC methods. The procedures can be synchronous or async, both run within the async event loop. Procedure overload is not supported.</p>
+<p>Synchronous RPC methods are implemented as regular procs:</p>
+<pre><code class="language-nim">srv.rpc(RpcConv):
+  proc hello(input: string): string =
+    "Hello " &amp; input
+</code></pre>
+<p>Async RPC methods are supported with <code>{.async.}</code>:</p>
+<pre><code class="language-nim">proc howdy(input: string): string {.async: (raises: []).} =
+  "Howdy " &amp; input
+</code></pre>
+<p>When <a href="https://www.jsonrpc.org/specification#parameter_structures">named parameters</a> are used, <a href="https://github.com/status-im/nim-serialization?tab=readme-ov-file#custom-serialization-of-user-defined-types"><code>serializedFieldName</code></a> can be used to customize the field name:</p>
+<pre><code class="language-nim">proc bye(input {.serializedFieldName: "user-name".}: string): string =
+  "Bye " &amp; input
+</code></pre>
+<p>Wrapping the method name in backticks allows any character:</p>
+<pre><code class="language-nim">proc `👑`(input: string): string =
+  "👑 " &amp; input
+</code></pre>
+<p>When the procedure return type is not specified, <code>JsonNode</code> is implicitly used. To avoid returning a result, <code>void</code> can be used instead:</p>
+<pre><code class="language-nim">proc empty(): void =
+  echo "nothing"
+</code></pre>
+<p>Compiling with <code>-d:nimDumpRpcs</code> will show the output code for the RPC call. To see the output of the <code>async</code> generation, add <code>-d:nimDumpAsync</code>.</p>
+<h2 id="parameter-name-and-placement"><a class="header" href="#parameter-name-and-placement">Parameter name and placement</a></h2>
+<p>RPC servers should consider their methods as public API that requires stability. The following changes to a method's signature can be considered breaking:</p>
+<ul>
+<li>Renaming parameters will break clients that pass parameter by name.</li>
+<li>Reordering parameters will break clients that pass parameter by position.</li>
+<li>Removing parameters.</li>
+<li>Removing a method.</li>
+<li>Adding non-optional parameters.</li>
+</ul>
+<p>The following changes to a method's signature can be considered non-breaking:</p>
+<ul>
+<li>Adding optional parameters as last parameter.</li>
+<li>Changing the parameter type, if it remains compatible with the wire format representation for the value.</li>
+</ul>
+<h2 id="throwing-exceptions"><a class="header" href="#throwing-exceptions">Throwing exceptions</a></h2>
+<p>RPC methods can return errors to the client by throwing an exception.</p>
+<p><a href="./exceptions.html">Learn more about throwing and handling exceptions.</a></p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/receiving_requests.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="sending-a-json-rpc-request"><a class="header" href="#sending-a-json-rpc-request">Sending a JSON-RPC request</a></h1>
+<p>Before sending any request, you should have already <a href="./connecting.html">established a connection</a>.</p>
+<h2 id="requests-and-notifications"><a class="header" href="#requests-and-notifications">Requests and notifications</a></h2>
+<p>Within the JSON-RPC specification, a client request can specify whether a reply from the server is required. If no reply is expected, the message is a <em>notification</em>. Because notifications do not generate responses, the client receives no confirmation that the server received the request, processed it successfully, encountered an error, or produced any output.</p>
+<p>A notification should not be used just because a method does not return a value. Even when a method has no return data, using the standard request-response model ensures the client can detect failures or execution errors on the server side.</p>
+<h2 id="argument-arrays-vs-an-argument-object"><a class="header" href="#argument-arrays-vs-an-argument-object">Argument arrays vs. an argument object</a></h2>
+<p>The JSON-RPC protocol passes arguments from client to server using either an array or as a single JSON object with a property for each parameter on the target method. Essentially, this leads to argument-to-parameter matching by position or by name.</p>
+<p>Most JSON-RPC servers expect an array. <code>json_rpc</code> supports passing arguments both as a parameter object and in an array.</p>
+<h2 id="invoking-methods-using-compile-time-definitions"><a class="header" href="#invoking-methods-using-compile-time-definitions">Invoking methods using compile-time definitions</a></h2>
+<p>The <code>createRpcSigsFromNim</code> macro accepts a list of forward procedure declarations and it generates the client RPCs. The <code>RpcConv</code> defined in the <a href="./format_conversion.html">flavors section</a> is used in the following example:</p>
+<pre><code class="language-nim">createRpcSigsFromNim(RpcClient, RpcConv):
+  proc hello(input: string): string
+</code></pre>
+<p>Wrapping the method name in backticks allows any character:</p>
+<pre><code class="language-nim">proc `👑`(input: string): string
+</code></pre>
+<p>The RPC method can be invoked using a client instance with a <a href="./connecting.html">established connection</a>:</p>
+<pre><code class="language-nim">let resp1 = await client.hello("Daisy")
+</code></pre>
+<p>The <code>createRpcSigs</code> macro accepts the path of a file containing a list of forward proc declarations and it generates the client RPCs from it:</p>
+<pre><code class="language-nim">const sigsFilePath = currentSourcePath().parentDir / "client_sigs_def.nim"
+createRpcSigs(RpcClient, sigsFilePath, RpcConv)
+</code></pre>
+<p>The <code>createSingleRpcSig</code> macro accepts a single forward proc declaration and an alias. The alias can be used to invoke the RPC method:</p>
+<pre><code class="language-nim">createSingleRpcSig(RpcClient, "sayBye", RpcConv):
+  proc bye(input: string): string
+</code></pre>
+<p>The <code>createRpcSigsFromString</code> macro accepts a string containing a list of forward proc declarations and it generates the client RPCs:</p>
+<pre><code class="language-nim">const rpcClientDefs = staticRead(sigsFilePath)
+createRpcSigsFromString(RpcClient, rpcClientDefs, RpcConv)
+</code></pre>
+<h2 id="invoking-methods-using-runtime-information"><a class="header" href="#invoking-methods-using-runtime-information">Invoking methods using runtime information</a></h2>
+<p>An RPC method can be invoked passing its name an parameter types at runtime. The parameter must be passed as a <code>JsonNode</code> or <code>RequestParamsTx</code>. The <code>RpcConv</code> defined in the <a href="./format_conversion.html">flavors section</a> is used in the following example:</p>
+<pre><code class="language-nim">let resp2 = await client.call("hello", %* ["Daisy"], RpcConv)
+</code></pre>
+<p>Using named parameters is allowed. Some server implementations may support only positional parameters, <code>json_rpc</code> supports both styles:</p>
+<pre><code class="language-nim">let resp3 = await client.call("hello", %* {"input": "Daisy"}, RpcConv)
+</code></pre>
+<p>When the method doesn't take parameters, it can be invoked passing an empty array:</p>
+<pre><code class="language-nim">let resp4 = await client.call("justHello", %* [], RpcConv)
+</code></pre>
+<p>The response from <code>call</code> is a <code>JsonString</code> which can be decoded using <a href="https://github.com/status-im/nim-json-serialization">json_serialization</a>:</p>
+<pre><code class="language-nim">doAssert RpcConv.decode(resp2, string) == "Hello Daisy"
+</code></pre>
+<h2 id="sending-batch-requests"><a class="header" href="#sending-batch-requests">Sending batch requests</a></h2>
+<p>The JSON-RPC specification <a href="https://www.jsonrpc.org/specification#batch">allows for batching</a> requests and getting a response containing an array of responses for each request.</p>
+<p>The <code>prepareBatch</code> client function can be used to batch requests and <code>send</code> them all at once:</p>
+<pre><code class="language-nim">let batch = client.prepareBatch()
+batch.hello("Daisy")
+batch.`👑`("Daisy")
+let batchRes = await batch.send()
+</code></pre>
+<p>The <code>send</code> return value is an optional result with either the sequence of RPC responses, or an error indicating there was an error processing the array of responses. Each response contains a <code>result</code> or an <code>error</code>. The result field is the JSON encoded RPC <code>result</code>. If the optional error field is set, it'll contain either an error message or the JSON encoded RPC <code>error</code> response:</p>
+<pre><code class="language-nim">let r = batchRes.tryGet()
+doAssert r[0].error.isNone
+doAssert RpcConv.decode(r[0].result, string) == "Hello Daisy"
+doAssert r[1].error.isNone
+doAssert RpcConv.decode(r[1].result, string) == "👑 Daisy"
+</code></pre>
+<h2 id="sending-a-notification"><a class="header" href="#sending-a-notification">Sending a notification</a></h2>
+<p>A notification can be sent for fire and forget method invocations. As mentioned earlier, the method response is not returned, and the client is not notified about server errors:</p>
+<pre><code class="language-nim">await client.notify("empty", RequestParamsTx())
+</code></pre>
+<h2 id="exception-handling"><a class="header" href="#exception-handling">Exception handling</a></h2>
+<p>RPC methods may throw exceptions. The RPC client should be prepared to handle these exceptions.</p>
+<p><a href="./exceptions.html">Learn more about throwing and handling exceptions.</a></p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/sending_requests.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="rpc-proxy-server"><a class="header" href="#rpc-proxy-server">RPC Proxy Server</a></h1>
+<p>A proxy server can register methods which will be served by another server. In this case there will be a connection between <code>client</code>-<code>proxy-server</code> and <code>proxy-server</code>-<code>server</code>. Some methods can be served directly by the <code>proxy-server</code>, while the proxy methods are forwarded to the <code>server</code>.</p>
+<h2 id="create-a-proxy-server"><a class="header" href="#create-a-proxy-server">Create a proxy server</a></h2>
+<p>The proxy-server only supports HTTP to serve clients. It supports HTTP and Websockets to connect to the server:</p>
+<p>HTTP:</p>
+<pre><code class="language-nim">var proxy = RpcProxy.new(["127.0.0.1:0"], getHttpClientConfig(srvUrl))
+</code></pre>
+<p>Websockets:</p>
+<pre><code class="language-nim">var proxy = RpcProxy.new(["127.0.0.1:0"], getWebSocketClientConfig("ws://" &amp; $srv.localAddress()))
+</code></pre>
+<h2 id="registering-proxy-methods"><a class="header" href="#registering-proxy-methods">Registering proxy methods</a></h2>
+<p>The client can only make a call to the server endpoint if the proxy (what's in the middle) has registered the RPC proxy method:</p>
+<pre><code class="language-nim">proxy.registerProxyMethod("hello")
+</code></pre>
+<h2 id="registering-methods-1"><a class="header" href="#registering-methods-1">Registering methods</a></h2>
+<p>The proxy-server can register its own RPC methods:</p>
+<pre><code class="language-nim">proxy.rpc(RpcConv):
+  proc bye(input: string): string =
+    "Proxy Bye " &amp; input
+</code></pre>
+<h2 id="start-the-proxy-server"><a class="header" href="#start-the-proxy-server">Start the proxy server</a></h2>
+<p>After registering the RPC methods, the proxy-server can start serving clients:</p>
+<pre><code class="language-nim">await proxy.start()
+</code></pre>
+<p>Then usually <code>runForever()</code> or <code>waitFor</code> a program termination signal <code>waitSignal(SIGINT)</code>. This will run the Chronos async event loop until the program is terminated.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/rpc_proxy_server.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="throwing-and-handling-exceptions"><a class="header" href="#throwing-and-handling-exceptions">Throwing and handling exceptions</a></h1>
+<p>The JSON-RPC protocol allows for server methods to return errors to the client instead of a result, except when the client invoked the method as a notification.</p>
+<p>The <a href="https://www.jsonrpc.org/specification#response_object">structure JSON-RPC defines for errors</a> includes an error code and a message.</p>
+<p>Error codes -32768 to -32000 are reserved for the protocol itself or for the library that implements it (ie: <code>json_rpc</code>). The rest of the 32-bit integer range of the error code is available for the application to define. This error code is the best way for an RPC server to communicate a particular kind of error that the RPC client may use for controlling execution flow. For example the server may use an error code to indicate a conflict and another code to indicate a permission denied error. The client may check this error code and branch execution based on its value.</p>
+<p>The error <em>message</em> should be a localized, human readable message that explains the problem, possibly to the programmer of the RPC client or perhaps to the end user of the application.</p>
+<p>JSON-RPC also allows for an error <code>data</code> property which may be a primitive value, array or object that provides more data regarding the error. The schema for this property is up to the application.</p>
+<h2 id="server-side-concerns"><a class="header" href="#server-side-concerns">Server-side concerns</a></h2>
+<p>The RPC server can return errors to the client by throwing an exception from the RPC method. If the RPC method was invoked using a JSON-RPC notification, the client is not expecting any response and the exception thrown from the server will be swallowed.</p>
+<p>The RPC method can raise an <code>ApplicationError</code> with a specific <code>code</code>, <code>data</code>, and <code>msg</code> (message). Any other exception thrown from an RPC method is assigned -32000 (Server error) for the JSON-RPC error <code>code</code> property. The exception <code>msg</code> field is used as the JSON-RPC error <code>data</code> property.</p>
+<p>RPC method error example:</p>
+<pre><code class="language-nim">proc teaPot(): void {.raises: [ApplicationError].} =
+  raise (ref ApplicationError)(
+    code: 418, data: Opt.none(JsonString), msg: "I'm a teapot"
+  )
+</code></pre>
+<h2 id="client-side-concerns"><a class="header" href="#client-side-concerns">Client-side concerns</a></h2>
+<p>An invocation of an RPC method may throw several exceptions back at the client. The base exception <code>JsonRpcError</code> can be used to catch all RPC exceptions.</p>
+<p>These are the exceptions which the client should be prepared to handle: <code>RpcTransportError</code>, <code>InvalidResponse</code>, <code>RequestDecodeError</code>, and <code>JsonRpcError</code>.</p>
+<p>The JSON error object is assigned to the <code>msg</code> field of <code>JsonRpcError</code>, when it does not match the rest of exceptions.</p>
+<p>Error handling example:</p>
+<pre><code class="language-nim">try:
+  discard await client.teaPot()
+  doAssert false
+except JsonRpcError as err:
+  doAssert err.msg == """{"code":418,"message":"I'm a teapot"}"""
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/exceptions.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="format-conversion"><a class="header" href="#format-conversion">Format conversion</a></h1>
+<p>The conversion to and from JSON is done using a <a href="https://status-im.github.io/nim-json-serialization/reference.html#flavors">nim-json-serialization format</a>. For each type used in the RPC method, a serialization declaration tells <code>json_rpc</code> how to convert it to JSON, either using defaults or by overriding <code>readValue</code> and <code>writeValue</code>.</p>
+<p><code>json_rpc</code> will recursively parse the Nim types in order to produce marshalling code. This marshalling code uses the types to check the incoming JSON fields to ensure they exist and are of the correct kind.</p>
+<p>The return type then performs the opposite process, converting Nim types to JSON for transport.</p>
+<h2 id="creating-a-json-format-flavor"><a class="header" href="#creating-a-json-format-flavor">Creating a JSON format flavor</a></h2>
+<p>The <code>createJsonFlavor</code> API accepts a flavor name and serialization options. The flavor can be passed to RPC method APIs and it will be used to convert the parameters and return value. In the following example the flavor is named <code>RpcConv</code>:</p>
+<pre><code class="language-nim">createJsonFlavor RpcConv,
+  automaticObjectSerialization = false,
+  automaticPrimitivesSerialization = true,
+  requireAllFields = false,
+  omitOptionalFields = true, # Skip optional fields==none in Writer
+  allowUnknownFields = true,
+  skipNullFields = true # Skip optional fields==null in Reader
+</code></pre>
+<h2 id="object-serialization"><a class="header" href="#object-serialization">Object serialization</a></h2>
+<p>In the above configuration automatic object serialization is disabled. This is to avoid unintentionally using the default serializer for objects that define a custom serializer. Object serialization can be enabled per object using <code>useDefaultSerializationIn</code>:</p>
+<pre><code class="language-nim">type
+  UserInfo* = object
+    name*: string
+    bio*: string
+
+UserInfo.useDefaultSerializationIn RpcConv
+</code></pre>
+<h2 id="custom-type-serialization"><a class="header" href="#custom-type-serialization">Custom type serialization</a></h2>
+<p>It is possible to provide a custom serializer for a given type creating <code>writeValue</code> and <code>readValue</code> functions:</p>
+<pre><code class="language-nim">type
+  UploadData* = object
+    path*: string
+    public*: bool
+
+proc readValue*(
+    reader: var RpcConv.Reader, value: var UploadData
+) {.gcsafe, raises: [IOError, SerializationError].} =
+  let path = reader.readValue(string)
+  value = UploadData(path: path, public: false)
+
+proc writeValue*(
+    writer: var RpcConv.Writer, value: UploadData
+) {.gcsafe, raises: [IOError].} =
+  writer.writeValue value.path
+</code></pre>
+<p><a href="https://status-im.github.io/nim-json-serialization/reference.html#custom-parsers-and-writers">Learn more about serialization in the nim-json-serialization documentation.</a></p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/format_conversion.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="testability"><a class="header" href="#testability">Testability</a></h1>
+<p>A server can be tested directly without starting it:</p>
+<pre><code class="language-nim">let resp = await srv.executeMethod("hello", %* ["Daisy"], RpcConv)
+doAssert RpcConv.decode(resp, string) == "Hello Daisy"
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/testability.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="api-reference"><a class="header" href="#api-reference">API reference</a></h1>
+<div id="admonition-note" class="admonition admonish-note" role="note" aria-labelledby="admonition-note-title">
+<div class="admonition-title">
+<div id="admonition-note-title">
+<p>Note</p>
+</div>
+<a class="admonition-anchor-link" href="api_reference.html#admonition-note"></a>
+</div>
+<div>
+<p>Private modules under <code>json_rpc/private/*</code> are not to be imported. The exported symbols are subject to change from one version to the next, unless exported by a public module. They are only included here for documentation purposes.</p>
+<p>The main public modules are <code>json_rpc/[rpcserver, rpcclient, rpcproxy]</code>.</p>
+</div>
+</div>
+<p>Auto generated API documentation:</p>
+<ul>
+<li><a href="./api/theindex.html">Index</a></li>
+<li><a href="./api/rpcserver.html">Server</a></li>
+<li><a href="./api/rpcclient.html">Client</a></li>
+<li><a href="./api/errors.html">Errors</a></li>
+</ul>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/api_reference.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="json-format"><a class="header" href="#json-format">JSON Format</a></h1>
+<pre><code class="language-nim"># rpc_format.nim
+
+{.push raises: [], gcsafe.}
+
+import
+  json_serialization
+
+export
+  json_serialization
+
+createJsonFlavor RpcConv,
+  automaticObjectSerialization = false,
+  automaticPrimitivesSerialization = true,
+  requireAllFields = false,
+  omitOptionalFields = true, # Skip optional fields==none in Writer
+  allowUnknownFields = true,
+  skipNullFields = true # Skip optional fields==null in Reader
+
+type
+  UserInfo* = object
+    name*: string
+    bio*: string
+
+UserInfo.useDefaultSerializationIn RpcConv
+
+type
+  UploadData* = object
+    path*: string
+    public*: bool
+
+proc readValue*(
+    reader: var RpcConv.Reader, value: var UploadData
+) {.gcsafe, raises: [IOError, SerializationError].} =
+  let path = reader.readValue(string)
+  value = UploadData(path: path, public: false)
+
+proc writeValue*(
+    writer: var RpcConv.Writer, value: UploadData
+) {.gcsafe, raises: [IOError].} =
+  writer.writeValue value.path
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/json_format.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="http-server"><a class="header" href="#http-server">HTTP Server</a></h1>
+<pre><code class="language-nim"># http_server.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcserver
+import ./rpc_format
+
+export rpcserver
+
+proc setupServer(srv: RpcServer) =
+  srv.rpc(RpcConv):
+    proc hello(input: string): string =
+      "Hello " &amp; input
+
+    proc howdy(input: string): string {.async: (raises: []).} =
+      "Howdy " &amp; input
+
+    proc bye(input {.serializedFieldName: "user-name".}: string): string =
+      "Bye " &amp; input
+
+    proc `👑`(input: string): string =
+      "👑 " &amp; input
+
+    proc empty(): void =
+      echo "nothing"
+
+    proc justHello(): string =
+      "Hello"
+
+    proc teaPot(): void {.raises: [ApplicationError].} =
+      raise (ref ApplicationError)(
+        code: 418, data: Opt.none(JsonString), msg: "I'm a teapot"
+      )
+
+proc startServer*(): RpcHttpServer {.raises: [JsonRpcError].} =
+  let srv = newRpcHttpServer(["127.0.0.1:0"])
+  srv.setupServer()
+  srv.start()
+  srv
+
+proc stopServer*(srv: RpcHttpServer) {.async: (raises: []).} =
+  await srv.stop()
+  await srv.closeWait()
+
+proc main() {.raises: [JsonRpcError].} =
+  let srv = startServer()
+  runForever()
+
+when isMainModule:
+  main()
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/http_server.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="http-client"><a class="header" href="#http-client">HTTP Client</a></h1>
+<pre><code class="language-nim"># http_client.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcclient
+import ./[rpc_format, http_server]
+
+createRpcSigsFromNim(RpcClient, RpcConv):
+  proc hello(input: string): string
+  proc bye(input: string): string
+  proc `👑`(input: string): string
+  proc empty()
+  proc justHello(): string
+  proc teaPot()
+
+proc main() {.async.} =
+  let srv = startServer()
+  defer:
+    await srv.stopServer()
+
+  let client = newRpcHttpClient()
+  await client.connect("http://" &amp; $srv.localAddress()[0])
+  defer:
+    await client.close()
+
+  let resp1 = await client.hello("Daisy")
+  doAssert resp1 == "Hello Daisy"
+
+  let resp2 = await client.call("hello", %* ["Daisy"], RpcConv)
+  doAssert RpcConv.decode(resp2, string) == "Hello Daisy"
+
+  let resp3 = await client.call("hello", %* {"input": "Daisy"}, RpcConv)
+  doAssert RpcConv.decode(resp3, string) == "Hello Daisy"
+
+  let resp4 = await client.call("justHello", %* [], RpcConv)
+  doAssert RpcConv.decode(resp4, string) == "Hello"
+
+  let resp5 = await client.bye("Daisy")
+  doAssert resp5 == "Bye Daisy"
+
+  let resp6 = await client.call("bye", %* {"user-name": "Daisy"}, RpcConv)
+  doAssert RpcConv.decode(resp6, string) == "Bye Daisy"
+
+  let resp7 = await client.`👑`("Daisy")
+  doAssert resp7 == "👑 Daisy"
+
+  let batch = client.prepareBatch()
+  batch.hello("Daisy")
+  batch.`👑`("Daisy")
+  let batchRes = await batch.send()
+  let r = batchRes.tryGet()
+  doAssert r[0].error.isNone
+  doAssert RpcConv.decode(r[0].result, string) == "Hello Daisy"
+  doAssert r[1].error.isNone
+  doAssert RpcConv.decode(r[1].result, string) == "👑 Daisy"
+
+  await client.notify("empty", RequestParamsTx())
+
+  try:
+    discard await client.teaPot()
+    doAssert false
+  except JsonRpcError as err:
+    doAssert err.msg == """{"code":418,"message":"I'm a teapot"}"""
+
+when isMainModule:
+  waitFor main()
+  echo "ok"
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/http_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="socket-server"><a class="header" href="#socket-server">Socket server</a></h1>
+<pre><code class="language-nim"># socket_server.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcserver
+import ./rpc_format
+
+export rpcserver
+
+proc setupServer(srv: RpcServer) =
+  srv.rpc(RpcConv):
+    proc hello(input: string): string =
+      "Hello " &amp; input
+
+proc startServer*(): RpcSocketServer {.raises: [JsonRpcError].} =
+  const framing = Framing.lengthHeaderBE32()
+  let srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
+  srv.setupServer()
+  srv.start()
+  srv
+
+proc stopServer*(srv: RpcSocketServer) {.async: (raises: []).} =
+  srv.stop()
+  await srv.closeWait()
+
+proc main() {.raises: [JsonRpcError].} =
+  let srv = startServer()
+  runForever()
+
+when isMainModule:
+  main()
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/socket_server.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="socket-client"><a class="header" href="#socket-client">Socket client</a></h1>
+<pre><code class="language-nim"># socket_client.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcclient
+import ./[rpc_format, socket_server]
+
+createRpcSigsFromNim(RpcClient, RpcConv):
+  proc hello(input: string): string
+
+proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
+  let srv = startServer()
+  defer: await srv.stopServer()
+
+  const framing = Framing.lengthHeaderBE32()
+  let client = newRpcSocketClient(framing = framing)
+  await client.connect(srv.localAddress()[0])
+  defer: await client.close()
+
+  let resp1 = await client.hello("Daisy")
+  doAssert resp1 == "Hello Daisy"
+
+when isMainModule:
+  waitFor main()
+  echo "ok"
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/socket_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="websocket-server"><a class="header" href="#websocket-server">Websocket server</a></h1>
+<pre><code class="language-nim"># websocket_server.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcserver
+import ./rpc_format
+
+export rpcserver
+
+proc setupServer(srv: RpcServer) =
+  srv.rpc(RpcConv):
+    proc hello(input: string): string =
+      "Hello " &amp; input
+
+proc startServer*(): RpcWebSocketServer {.raises: [JsonRpcError].} =
+  let srv = newRpcWebSocketServer("127.0.0.1", Port(0))
+  srv.setupServer()
+  srv.start()
+  srv
+
+proc stopServer*(srv: RpcWebSocketServer) {.async: (raises: []).} =
+  srv.stop()
+  await srv.closeWait()
+
+proc main() {.raises: [JsonRpcError].} =
+  let srv = startServer()
+  runForever()
+
+when isMainModule:
+  main()
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/websocket_server.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="websocket-client"><a class="header" href="#websocket-client">Websocket client</a></h1>
+<pre><code class="language-nim"># websocket_client.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcclient
+import ./[rpc_format, websocket_server]
+
+createRpcSigsFromNim(RpcClient, RpcConv):
+  proc hello(input: string): string
+
+proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
+  let srv = startServer()
+  defer: await srv.stopServer()
+
+  let client = newRpcWebSocketClient()
+  await client.connect("ws://" &amp; $srv.localAddress())
+  defer: await client.close()
+
+  let resp1 = await client.hello("Daisy")
+  doAssert resp1 == "Hello Daisy"
+
+when isMainModule:
+  waitFor main()
+  echo "ok"
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/websocket_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="proxy-server"><a class="header" href="#proxy-server">Proxy server</a></h1>
+<pre><code class="language-nim"># proxy_server.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/[rpcserver, rpcproxy]
+import ./rpc_format
+
+export rpcproxy
+
+proc setupServer(proxy: var RpcProxy) =
+  proxy.registerProxyMethod("hello")
+
+  proxy.rpc(RpcConv):
+    proc bye(input: string): string =
+      "Proxy Bye " &amp; input
+
+proc startProxy*(srvUrl: string): Future[RpcProxy] {.async.} =
+  var proxy = RpcProxy.new(["127.0.0.1:0"], getHttpClientConfig(srvUrl))
+  proxy.setupServer()
+  await proxy.start()
+  proxy
+
+proc stopProxy*(proxy: RpcProxy) {.async: (raises: []).} =
+  await proxy.stop()
+  await proxy.closeWait()
+
+proc main() {.raises: [CatchableError].} =
+  # Compile with -d:srvUrl="http://hostname:port"
+  const srvUrl {.strdefine.}: string = ""
+  let proxy = waitFor startProxy(srvUrl)
+  runForever()
+
+when isMainModule:
+  main()
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/proxy_server.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="proxy-client"><a class="header" href="#proxy-client">Proxy client</a></h1>
+<pre><code class="language-nim"># proxy_client.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/rpcclient
+import ./[rpc_format, http_server, proxy_server]
+
+createRpcSigsFromNim(RpcClient, RpcConv):
+  proc hello(input: string): string
+  proc bye(input: string): string
+
+proc main() {.async.} =
+  let srv = startServer()
+  defer: await srv.stopServer()
+
+  let proxy = await startProxy("http://" &amp; $srv.localAddress()[0])
+  defer: await proxy.stopProxy()
+
+  let client = newRpcHttpClient()
+  await client.connect("http://" &amp; $proxy.localAddress()[0])
+  defer: await client.close()
+
+  let resp1 = await client.hello("Daisy")
+  doAssert resp1 == "Hello Daisy"
+  let resp2 = await client.bye("Daisy")
+  doAssert resp2 == "Proxy Bye Daisy"
+
+when isMainModule:
+  waitFor main()
+  echo "ok"
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/proxy_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="updating-this-book"><a class="header" href="#updating-this-book">Updating this book</a></h1>
+<p>This book is built using <a href="https://rust-lang.github.io/mdBook/">mdBook</a>, which in
+turn requires a recent version of <code>rust</code> and <code>cargo</code> installed.</p>
+<pre><code class="language-sh"># Install correct versions of tooling
+nimble mdbook
+
+# Run a local mdbook server
+mdbook serve docs
+</code></pre>
+<p>A <a href="../../.github/workflows/docs.yml">CI job</a> automatically published the book
+to <a href="https://pages.github.com/">GitHub Pages</a>.</p>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/book.md">Edit this page on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+    </div>
+    </body>
+</html>

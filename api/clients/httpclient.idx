@@ -1,0 +1,9 @@
+nimTitle	httpclient	clients/httpclient.html	module json_rpc/clients/httpclient		0
+nim	HttpClientOptions	clients/httpclient.html#HttpClientOptions	object HttpClientOptions		17
+nim	RpcHttpClient	clients/httpclient.html#RpcHttpClient	type RpcHttpClient		20
+nim	new	clients/httpclient.html#new,typeRpcHttpClient,GetJsonRpcRequestHeaders,HttpClientFlags	proc new(T: type RpcHttpClient; secure = false;\n    getHeaders: GetJsonRpcRequestHeaders = nil; flags: HttpClientFlags = {};\n    maxMessageSize = defaultMaxMessageSize): T:type		26
+nim	newRpcHttpClient	clients/httpclient.html#newRpcHttpClient,GetJsonRpcRequestHeaders,HttpClientFlags	proc newRpcHttpClient(maxBodySize = defaultMaxMessageSize; secure = false;\n                 getHeaders: GetJsonRpcRequestHeaders = nil;\n                 flags: HttpClientFlags = {}): RpcHttpClient		40
+nim	connect	clients/httpclient.html#connect,RpcHttpClient,string	proc connect(client: RpcHttpClient; url: string): InternalRaisesFuture[void,\n    (CancelledError, JsonRpcError)]		148
+nim	connect	clients/httpclient.html#connect,RpcHttpClient,string,Port,bool	proc connect(client: RpcHttpClient; address: string; port: Port; secure: bool): InternalRaisesFuture[\n    void, (CancelledError, JsonRpcError)]		156
+nim	close	clients/httpclient.html#close.e,RpcHttpClient	method close(client: RpcHttpClient): InternalRaisesFuture[void, void]		164
+nimgrp	connect	clients/httpclient.html#connect-procs-all	proc		146

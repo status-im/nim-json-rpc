@@ -1,0 +1,13 @@
+nimTitle	errors	errors.html	module json_rpc/errors		0
+nim	JsonRpcError	errors.html#JsonRpcError	object JsonRpcError		15
+nim	RpcTransportError	errors.html#RpcTransportError	object RpcTransportError		18
+nim	FailedHttpResponse	errors.html#FailedHttpResponse	type FailedHttpResponse		22
+nim	ErrorResponse	errors.html#ErrorResponse	object ErrorResponse		25
+nim	RpcPostError	errors.html#RpcPostError	object RpcPostError		30
+nim	InvalidResponse	errors.html#InvalidResponse	object InvalidResponse		34
+nim	RpcBindError	errors.html#RpcBindError	object RpcBindError		38
+nim	RpcAddressUnresolvableError	errors.html#RpcAddressUnresolvableError	object RpcAddressUnresolvableError		39
+nim	RequestDecodeError	errors.html#RequestDecodeError	object RequestDecodeError		41
+nim	ResultDecodeError	errors.html#ResultDecodeError	object ResultDecodeError		45
+nim	ApplicationError	errors.html#ApplicationError	object ApplicationError		49
+nim	InvalidRequest	errors.html#InvalidRequest	type InvalidRequest		57

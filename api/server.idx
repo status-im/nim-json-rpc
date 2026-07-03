@@ -1,0 +1,19 @@
+nimTitle	server	server.html	module json_rpc/server		0
+nim	RpcServer	server.html#RpcServer	type RpcServer		22
+nim	new	server.html#new,typeRpcServer	proc new(T: type RpcServer): T:type		32
+nim	rpc	server.html#rpc.t,RpcServer,string,untyped,untyped	template rpc(server: RpcServer; path: string; formatType, body: untyped): untyped		39
+nim	rpc	server.html#rpc.t,RpcServer,string,untyped	template rpc(server: RpcServer; path: string; body: untyped): untyped		42
+nim	rpc	server.html#rpc.t,RpcServer,untyped,untyped	template rpc(server: RpcServer; formatType, procList: untyped): untyped		45
+nim	hasMethod	server.html#hasMethod.t,RpcServer,string	template hasMethod(server: RpcServer; methodName: string): bool		48
+nim	executeMethod	server.html#executeMethod,RpcServer,string,RequestParamsTx	proc executeMethod(server: RpcServer; methodName: string; params: RequestParamsTx): InternalRaisesFuture[\n    JsonString, (CancelledError, JsonRpcError)]		53
+nim	executeMethod	server.html#executeMethod,RpcServer,string,JsonNode,typeSerializationFormat	proc executeMethod(server: RpcServer; methodName: string; args: JsonNode;\n              Format: type SerializationFormat): InternalRaisesFuture[\n    JsonString, (CancelledError, JsonRpcError)]		64
+nim	executeMethod	server.html#executeMethod,RpcServer,string,JsonNode	proc executeMethod(server: RpcServer; methodName: string; args: JsonNode): InternalRaisesFuture[\n    JsonString, (CancelledError, JsonRpcError)]		70
+nim	executeMethod	server.html#executeMethod,RpcServer,string,JsonString	proc executeMethod(server: RpcServer; methodName: string; args: JsonString): InternalRaisesFuture[\n    JsonString, (CancelledError, JsonRpcError)]		76
+nim	route	server.html#route,RpcServer,string	proc route(server: RpcServer; line: string): InternalRaisesFuture[string, void]		88
+nim	route	server.html#route,RpcServer,seq[byte]	proc route(server: RpcServer; line: seq[byte]): InternalRaisesFuture[string, void]		90
+nim	notify	server.html#notify,RpcServer,string,RequestParamsTx	proc notify(server: RpcServer; name: string; params: RequestParamsTx): InternalRaisesFuture[\n    void, (CancelledError,)]		95
+nim	register	server.html#register,RpcServer,string,RpcProc	proc register(server: RpcServer; name: string; rpc: RpcProc)		102
+nim	unRegisterAll	server.html#unRegisterAll,RpcServer	proc unRegisterAll(server: RpcServer)		106
+nimgrp	route	server.html#route-procs-all	proc		88
+nimgrp	executemethod	server.html#executeMethod-procs-all	proc		51
+nimgrp	rpc	server.html#rpc-templates-all	template		39

@@ -1,0 +1,16 @@
+nimTitle	socketclient	clients/socketclient.html	module json_rpc/clients/socketclient		0
+nim	RpcSocketClient	clients/socketclient.html#RpcSocketClient	type RpcSocketClient		26
+nim	Framing	clients/socketclient.html#Framing	object Framing		33
+nim	newLine	clients/socketclient.html#newLine,typeFraming	proc newLine(T: type Framing): T:type		52
+nim	httpHeader	clients/socketclient.html#httpHeader,typeFraming	proc httpHeader(T: type Framing): T:type		84
+nim	lengthHeaderBE32	clients/socketclient.html#lengthHeaderBE32,typeFraming	proc lengthHeaderBE32(T: type Framing): T:type		152
+nim	new	clients/socketclient.html#new,typeRpcSocketClient	proc new(T: type RpcSocketClient; maxMessageSize = defaultMaxMessageSize;\n    router = default(RpcRouterCallback); framing = Framing.newLine()): T:type		157
+nim	new	clients/socketclient.html#new,typeRpcSocketClient_2	proc new(T: type RpcSocketClient; maxMessageSize = defaultMaxMessageSize;\n    router = default(ref RpcRouter); framing = Framing.newLine()): T:type		165
+nim	newRpcSocketClient	clients/socketclient.html#newRpcSocketClient	proc newRpcSocketClient(maxMessageSize = defaultMaxMessageSize;\n                   router = default(ref RpcRouter); framing = Framing.newLine()): RpcSocketClient		181
+nim	send	clients/socketclient.html#send.e,RpcSocketClient,seq[byte]	method send(client: RpcSocketClient; reqData: seq[byte]): InternalRaisesFuture[void,\n    (CancelledError, JsonRpcError)]		191
+nim	attach	clients/socketclient.html#attach,RpcSocketClient,StreamTransport,string	proc attach(client: RpcSocketClient; transport: StreamTransport; remote: string): InternalRaisesFuture[\n    void, void]		270
+nim	connect	clients/socketclient.html#connect,RpcSocketClient,TransportAddress	proc connect(client: RpcSocketClient; address: TransportAddress): InternalRaisesFuture[\n    void, (CancelledError, JsonRpcError)]		278
+nim	connect	clients/socketclient.html#connect,RpcSocketClient,string,Port	proc connect(client: RpcSocketClient; address: string; port: Port): InternalRaisesFuture[\n    void, (CancelledError, JsonRpcError)]		289
+nim	close	clients/socketclient.html#close.e,RpcSocketClient	method close(client: RpcSocketClient): InternalRaisesFuture[void, void]		298
+nimgrp	connect	clients/socketclient.html#connect-procs-all	proc		276
+nimgrp	new	clients/socketclient.html#new-procs-all	proc		157

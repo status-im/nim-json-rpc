@@ -1,0 +1,91 @@
+nimTitle	jrpc_sys	private/jrpc_sys.html	module json_rpc/private/jrpc_sys		0
+nim	JsonRPC2	private/jrpc_sys.html#JsonRPC2	object JsonRPC2		25
+nim	rpPositional	private/jrpc_sys.html#rpPositional	RequestParamKind.rpPositional		27
+nim	rpNamed	private/jrpc_sys.html#rpNamed	RequestParamKind.rpNamed		27
+nim	RequestParamKind	private/jrpc_sys.html#RequestParamKind	enum RequestParamKind		27
+nim	ParamDescRx	private/jrpc_sys.html#ParamDescRx	object ParamDescRx		31
+nim	ParamDescNamed	private/jrpc_sys.html#ParamDescNamed	object ParamDescNamed		35
+nim	RequestParamsRx	private/jrpc_sys.html#RequestParamsRx	object RequestParamsRx		40
+nim	RequestParamsTx	private/jrpc_sys.html#RequestParamsTx	object RequestParamsTx		48
+nim	riNull	private/jrpc_sys.html#riNull	RequestIdKind.riNull		55
+nim	riNumber	private/jrpc_sys.html#riNumber	RequestIdKind.riNumber		55
+nim	riString	private/jrpc_sys.html#riString	RequestIdKind.riString		55
+nim	RequestIdKind	private/jrpc_sys.html#RequestIdKind	enum RequestIdKind		55
+nim	RequestId	private/jrpc_sys.html#RequestId	object RequestId		60
+nim	ReqRespHeader	private/jrpc_sys.html#ReqRespHeader	object ReqRespHeader		69
+nim	RequestRx	private/jrpc_sys.html#RequestRx	object RequestRx		75
+nim	RequestRx2	private/jrpc_sys.html#RequestRx2	object RequestRx2		81
+nim	RequestTx	private/jrpc_sys.html#RequestTx	object RequestTx		88
+nim	ResponseError	private/jrpc_sys.html#ResponseError	object ResponseError		94
+nim	rkError	private/jrpc_sys.html#rkError	ResponseKind.rkError		99
+nim	rkResult	private/jrpc_sys.html#rkResult	ResponseKind.rkResult		99
+nim	ResponseKind	private/jrpc_sys.html#ResponseKind	enum ResponseKind		99
+nim	ResponseTx	private/jrpc_sys.html#ResponseTx	object ResponseTx		104
+nim	ResponseRx	private/jrpc_sys.html#ResponseRx	object ResponseRx		115
+nim	ResponseRx2	private/jrpc_sys.html#ResponseRx2	object ResponseRx2		121
+nim	rbkSingle	private/jrpc_sys.html#rbkSingle	ReBatchKind.rbkSingle		130
+nim	rbkMany	private/jrpc_sys.html#rbkMany	ReBatchKind.rbkMany		130
+nim	ReBatchKind	private/jrpc_sys.html#ReBatchKind	enum ReBatchKind		130
+nim	RequestBatchRx	private/jrpc_sys.html#RequestBatchRx	object RequestBatchRx		134
+nim	ResponseBatchRx	private/jrpc_sys.html#ResponseBatchRx	object ResponseBatchRx		141
+nim	bmResponse	private/jrpc_sys.html#bmResponse	BidiMessageKind.bmResponse		156
+nim	bmRequest	private/jrpc_sys.html#bmRequest	BidiMessageKind.bmRequest		156
+nim	BidiMessageKind	private/jrpc_sys.html#BidiMessageKind	enum BidiMessageKind		156
+nim	BidiMessage	private/jrpc_sys.html#BidiMessage	object BidiMessage		160
+nim	BidiMessageRequestError	private/jrpc_sys.html#BidiMessageRequestError	object BidiMessageRequestError		167
+nim	BidiMessageResponseError	private/jrpc_sys.html#BidiMessageResponseError	object BidiMessageResponseError		168
+nim	JrpcSys	private/jrpc_sys.html#JrpcSys	object JrpcSys		77
+nim	Reader	private/jrpc_sys.html#Reader.t,typeJrpcSys	template Reader(T`gensym1: type JrpcSys): type		78
+nim	Writer	private/jrpc_sys.html#Writer.t,typeJrpcSys	template Writer(T`gensym1: type JrpcSys): type		79
+nim	PreferredOutputType	private/jrpc_sys.html#PreferredOutputType.t,typeJrpcSys	template PreferredOutputType(T`gensym1: type JrpcSys): type		80
+nim	mimeType	private/jrpc_sys.html#mimeType.t,typeJrpcSys	template mimeType(T`gensym1: type JrpcSys): string		120
+nim	decode	private/jrpc_sys.html#decode.t,typeJrpcSys,JsonString,type,varargs[untyped]	template decode(Format: type JrpcSys; inputParam: JsonString; RecordType: type;\n       params: varargs[untyped]): auto		129
+nim	flavorUsesAutomaticObjectSerialization	private/jrpc_sys.html#flavorUsesAutomaticObjectSerialization.t,typeJrpcSys	template flavorUsesAutomaticObjectSerialization(T: type JrpcSys): bool		137
+nim	flavorOmitsOptionalFields	private/jrpc_sys.html#flavorOmitsOptionalFields.t,typeJrpcSys	template flavorOmitsOptionalFields(T: type JrpcSys): bool		138
+nim	flavorRequiresAllFields	private/jrpc_sys.html#flavorRequiresAllFields.t,typeJrpcSys	template flavorRequiresAllFields(T: type JrpcSys): bool		139
+nim	flavorAllowsUnknownFields	private/jrpc_sys.html#flavorAllowsUnknownFields.t,typeJrpcSys	template flavorAllowsUnknownFields(T: type JrpcSys): bool		140
+nim	flavorSkipNullFields	private/jrpc_sys.html#flavorSkipNullFields.t,typeJrpcSys	template flavorSkipNullFields(T: type JrpcSys): bool		141
+nim	flavorEnumRep	private/jrpc_sys.html#flavorEnumRep.t,typeJrpcSys	template flavorEnumRep(T: type JrpcSys): EnumRepresentation		144
+nim	flavorEnumRep	private/jrpc_sys.html#flavorEnumRep.t,typeJrpcSys,static[EnumRepresentation]	template flavorEnumRep(T: type JrpcSys; rep: static[EnumRepresentation])		147
+nim	typeClassOrMemberAutoSerialize	private/jrpc_sys.html#typeClassOrMemberAutoSerialize,typeJrpcSys,,	proc typeClassOrMemberAutoSerialize(F: type JrpcSys; TC: distinct type;\n                               TM: distinct type): bool		53
+nim	typeAutoSerialize	private/jrpc_sys.html#typeAutoSerialize,typeJrpcSys,	proc typeAutoSerialize(F: type JrpcSys; TM: distinct type): bool		68
+nim	automaticSerialization	private/jrpc_sys.html#automaticSerialization.t,typeJrpcSys,,static[bool]	template automaticSerialization(F: type JrpcSys; T: distinct type; enable: static[bool])		19
+nim	automaticPrimitivesSerialization	private/jrpc_sys.html#automaticPrimitivesSerialization.t,typeJrpcSys,static[bool]	template automaticPrimitivesSerialization(F: type JrpcSys; enable: static[bool])		21
+nim	automaticBuiltinSerialization	private/jrpc_sys.html#automaticBuiltinSerialization.t,typeJrpcSys,static[bool]	template automaticBuiltinSerialization(F: type JrpcSys; enable: static[bool])		152
+nim	readValue	private/jrpc_sys.html#readValue.t,,ReqRespHeader	template readValue(r`gensym8: var Reader(JrpcSys); value`gensym8: var TT`gensym8)		179
+nim	readValue	private/jrpc_sys.html#readValue.t,,RequestRx	template readValue(r`gensym12: var Reader(JrpcSys); value`gensym12: var TT`gensym12)		180
+nim	readValue	private/jrpc_sys.html#readValue.t,,RequestRx2	template readValue(r`gensym16: var Reader(JrpcSys); value`gensym16: var TT`gensym16)		181
+nim	writeValue	private/jrpc_sys.html#writeValue.t,,ParamDescNamed	template writeValue(w`gensym20: var Writer(JrpcSys); value`gensym20: TT`gensym20)		183
+nim	writeValue	private/jrpc_sys.html#writeValue.t,,RequestTx	template writeValue(w`gensym24: var Writer(JrpcSys); value`gensym24: TT`gensym24)		184
+nim	writeValue	private/jrpc_sys.html#writeValue.t,,ResponseTx	template writeValue(w`gensym28: var Writer(JrpcSys); value`gensym28: TT`gensym28)		185
+nim	readValue	private/jrpc_sys.html#readValue.t,,ResponseError	template readValue(r`gensym32: var Reader(JrpcSys); value`gensym32: var TT`gensym32)		104
+nim	writeValue	private/jrpc_sys.html#writeValue.t,,ResponseError	template writeValue(w`gensym32: var Writer(JrpcSys); value`gensym32: TT`gensym32)		187
+nim	hash	private/jrpc_sys.html#hash,RequestId	proc hash(x: RequestId): hashes.Hash		194
+nim	`$`	private/jrpc_sys.html#$,RequestId	proc `$`(x: RequestId): string		202
+nim	`==`	private/jrpc_sys.html#==,RequestId,RequestId	proc `==`(a, b: RequestId): bool		208
+nim	meth	private/jrpc_sys.html#meth,RequestRx	proc meth(rx: RequestRx): Opt[string]		216
+nim	meth	private/jrpc_sys.html#meth,RequestRx2	proc meth(rx: RequestRx2): string		219
+nim	shouldWriteObjectField	private/jrpc_sys.html#shouldWriteObjectField.t,RequestParamsTx	template shouldWriteObjectField(field: RequestParamsTx): bool		222
+nim	isFieldExpected	private/jrpc_sys.html#isFieldExpected,typeRequestParamsRx	proc isFieldExpected(_: type RequestParamsRx): bool		229
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],JsonRPC2	proc readValue(r: var JsonReader[JrpcSys]; val: var JsonRPC2)		235
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader,Opt[RequestId]	proc readValue(r: var JsonReader; value: var Opt[RequestId])		242
+nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],JsonRPC2	proc writeValue(w: var JsonWriter[JrpcSys]; val: JsonRPC2)		251
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestId	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestId)		255
+nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],RequestId	proc writeValue(w: var JsonWriter[JrpcSys]; val: RequestId)		269
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestParamsRx	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestParamsRx)		276
+nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],RequestParamsTx	proc writeValue(w: var JsonWriter[JrpcSys]; val: RequestParamsTx)		297
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseRx	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseRx)		308
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseRx2	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseRx2)		320
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestBatchRx	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestBatchRx)		354
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],BidiMessage	proc readValue(r: var JsonReader[JrpcSys]; val: var BidiMessage)		397
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseBatchRx	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseBatchRx)		454
+nim	toTx	private/jrpc_sys.html#toTx,RequestParamsRx	proc toTx(params: RequestParamsRx): RequestParamsTx		469
+nim	writeRequest	private/jrpc_sys.html#writeRequest.t,,string,RequestParamsTx,int	template writeRequest(writer: var JrpcSys.Writer; name: string; params: RequestParamsTx;\n             id: int)		479
+nim	writeNotification	private/jrpc_sys.html#writeNotification.t,,string,RequestParamsTx	template writeNotification(writer: var JrpcSys.Writer; name: string;\n                  params: RequestParamsTx)		486
+nim	withWriter	private/jrpc_sys.html#withWriter.t,typeJrpcSys,untyped,untyped	template withWriter(_: type JrpcSys; writer, body: untyped): seq[byte]		492
+nimgrp	writevalue	private/jrpc_sys.html#writeValue-procs-all	proc		251
+nimgrp	meth	private/jrpc_sys.html#meth-procs-all	proc		216
+nimgrp	readvalue	private/jrpc_sys.html#readValue-procs-all	proc		235
+nimgrp	writevalue	private/jrpc_sys.html#writeValue-templates-all	template		117
+nimgrp	readvalue	private/jrpc_sys.html#readValue-templates-all	template		126
+nimgrp	flavorenumrep	private/jrpc_sys.html#flavorEnumRep-templates-all	template		144

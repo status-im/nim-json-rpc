@@ -1,0 +1,6 @@
+nimTitle	shared_wrapper	private/shared_wrapper.html	module json_rpc/private/shared_wrapper		0
+nim	paramsIter	private/shared_wrapper.html#paramsIter.i,NimNode	iterator paramsIter(params: NimNode): tuple[ident, str, ntype: NimNode]		17
+nim	ensureReturnType	private/shared_wrapper.html#ensureReturnType,NimNode	proc ensureReturnType(params: NimNode): NimNode		39
+nim	noWrap	private/shared_wrapper.html#noWrap.t,type	template noWrap(returnType: type): auto		49
+nim	paramsTx	private/shared_wrapper.html#paramsTx,JsonNode,typeSerializationFormat	proc paramsTx(params: JsonNode; Format: type SerializationFormat): RequestParamsTx		54
+nim	requestTx	private/shared_wrapper.html#requestTx,string,sinkRequestParamsTx,int	proc requestTx(name: string; params: sink RequestParamsTx; id: int): RequestTx		80

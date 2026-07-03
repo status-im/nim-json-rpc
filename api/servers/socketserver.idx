@@ -1,0 +1,20 @@
+nimTitle	socketserver	servers/socketserver.html	module json_rpc/servers/socketserver		0
+nim	RpcSocketServer	servers/socketserver.html#RpcSocketServer	type RpcSocketServer		27
+nim	addStreamServer	servers/socketserver.html#addStreamServer,RpcSocketServer,TransportAddress	proc addStreamServer(server: RpcSocketServer; address: TransportAddress)		59
+nim	addStreamServers	servers/socketserver.html#addStreamServers,RpcSocketServer,openArray[TransportAddress]	proc addStreamServers(server: RpcSocketServer; addresses: openArray[TransportAddress])		70
+nim	addStreamServer	servers/socketserver.html#addStreamServer,RpcSocketServer,string	proc addStreamServer(server: RpcSocketServer; address: string)		82
+nim	addStreamServers	servers/socketserver.html#addStreamServers,RpcSocketServer,openArray[string]	proc addStreamServers(server: RpcSocketServer; addresses: openArray[string])		88
+nim	addStreamServer	servers/socketserver.html#addStreamServer,RpcSocketServer,string,Port	proc addStreamServer(server: RpcSocketServer; address: string; port: Port)		93
+nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer	proc newRpcSocketServer(maxMessageSize = defaultMaxMessageSize;\n                   framing = Framing.newLine()): RpcSocketServer		111
+nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer,openArray[TransportAddress]	proc newRpcSocketServer(addresses: openArray[TransportAddress];\n                   framing = Framing.newLine()): RpcSocketServer		116
+nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer,openArray[string]	proc newRpcSocketServer(addresses: openArray[string]; framing = Framing.newLine()): RpcSocketServer		123
+nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer,string,Port	proc newRpcSocketServer(address: string; port: Port = Port(8545);\n                   framing = Framing.newLine()): RpcSocketServer		130
+nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer,StreamCallback2	proc newRpcSocketServer(processClientHook: StreamCallback2;\n                   framing = Framing.newLine()): RpcSocketServer		137
+nim	start	servers/socketserver.html#start,RpcSocketServer	proc start(server: RpcSocketServer)		144
+nim	stop	servers/socketserver.html#stop,RpcSocketServer	proc stop(server: RpcSocketServer)		154
+nim	close	servers/socketserver.html#close,RpcSocketServer	proc close(server: RpcSocketServer)		162
+nim	closeWait	servers/socketserver.html#closeWait,RpcSocketServer	proc closeWait(server: RpcSocketServer): InternalRaisesFuture[void, void]		167
+nim	localAddress	servers/socketserver.html#localAddress,RpcSocketServer	proc localAddress(server: RpcSocketServer): seq[TransportAddress]		172
+nimgrp	newrpcsocketserver	servers/socketserver.html#newRpcSocketServer-procs-all	proc		111
+nimgrp	addstreamservers	servers/socketserver.html#addStreamServers-procs-all	proc		70
+nimgrp	addstreamserver	servers/socketserver.html#addStreamServer-procs-all	proc		59
