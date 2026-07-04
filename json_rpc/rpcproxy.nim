@@ -85,27 +85,29 @@ proc new*(
     listenAddresses: openArray[TransportAddress],
     cfg: ClientConfig,
     authHooks: seq[HttpAuthHook] = @[]
-): T {.raises: [CatchableError].} =
+): T {.raises: [JsonRpcError].} =
   RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(), authHooks), cfg)
 
 proc new*(
     T: type RpcProxy,
     listenAddresses: openArray[string],
     cfg: ClientConfig,
-    authHooks: seq[HttpAuthHook] = @[]): T {.raises: [CatchableError].} =
+    authHooks: seq[HttpAuthHook] = @[]): T {.raises: [JsonRpcError].} =
   RpcProxy.new(newRpcHttpServer(listenAddresses, RpcRouter.init(), authHooks), cfg)
 
-proc connectToProxy(proxy: RpcProxy): Future[void] =
+proc connectToProxy(
+    proxy: RpcProxy
+): Future[void] {.async: (raw: true, raises: [CancelledError, JsonRpcError]).} =
   case proxy.kind
   of Http:
-    return proxy.httpClient.connect(proxy.httpUri)
+    proxy.httpClient.connect(proxy.httpUri)
   of WebSocket:
-    return proxy.webSocketClient.connect(
+    proxy.webSocketClient.connect(
       uri = proxy.wsUri,
       compression = proxy.compression,
       flags = proxy.flags)
 
-proc start*(proxy: RpcProxy) {.async.} =
+proc start*(proxy: RpcProxy) {.async: (raises: [CancelledError, JsonRpcError]).} =
   proxy.rpcHttpServer.start()
   await proxy.connectToProxy()
 
@@ -119,11 +121,7 @@ template rpc*(server: RpcProxy, formatType, procList: untyped): untyped =
   server.rpcHttpServer.rpc(formatType, procList)
 
 proc registerProxyMethod*(proxy: var RpcProxy, methodName: string) =
-  try:
-    proxy.rpcHttpServer.register(methodName, proxyCall(proxy.getClient(), methodName))
-  except CatchableError as err:
-    # Adding proc type to table gives invalid exception tracking, see Nim bug: https://github.com/nim-lang/Nim/issues/18376
-    raiseAssert err.msg
+  proxy.rpcHttpServer.register(methodName, proxyCall(proxy.getClient(), methodName))
 
 proc stop*(proxy: RpcProxy) {.async: (raises: []).} =
   await proxy.getClient().close()
