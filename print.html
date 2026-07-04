@@ -806,7 +806,7 @@ proc setupServer(proxy: var RpcProxy) =
     proc bye(input: string): string =
       "Proxy Bye " &amp; input
 
-proc startProxy*(srvUrl: string): Future[RpcProxy] {.async.} =
+proc startProxy*(srvUrl: string): Future[RpcProxy] {.async: (raises: [CancelledError, JsonRpcError]).} =
   var proxy = RpcProxy.new(["127.0.0.1:0"], getHttpClientConfig(srvUrl))
   proxy.setupServer()
   await proxy.start()
@@ -838,7 +838,7 @@ createRpcSigsFromNim(RpcClient, RpcConv):
   proc hello(input: string): string
   proc bye(input: string): string
 
-proc main() {.async.} =
+proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
   let srv = startServer()
   defer: await srv.stopServer()
 

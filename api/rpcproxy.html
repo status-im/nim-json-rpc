@@ -124,7 +124,9 @@
 
 </ul>
 <ul class="simple nested-toc-section">start
-  <li><a class="reference" href="#start%2CRpcProxy" title="start(proxy: RpcProxy): Future[void]">start(proxy: RpcProxy): Future[void]</a></li>
+  <li><a class="reference" href="#start%2CRpcProxy" title="start(proxy: RpcProxy): InternalRaisesFuture[void,
+    (CancelledError, JsonRpcError)]">start(proxy: RpcProxy): InternalRaisesFuture[void,
+    (CancelledError, JsonRpcError)]</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">stop
@@ -231,8 +233,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L132" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L132" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L130" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L130" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -288,8 +290,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L135" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L135" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L133" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L133" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -299,7 +301,7 @@
   <div id="new,typeRpcProxy,openArray[string],ClientConfig,seq[HttpAuthHook]">
   <dt><pre><span class="Keyword">proc</span> <a href="#new%2CtypeRpcProxy%2CopenArray%5Bstring%5D%2CClientConfig%2Cseq%5BHttpAuthHook%5D"><span class="Identifier">new</span></a><span class="Other">(</span><span class="Identifier">T</span><span class="Other">:</span> <span class="Keyword">type</span> <span class="Identifier">RpcProxy</span><span class="Other">;</span> <span class="Identifier">listenAddresses</span><span class="Other">:</span> <span class="Identifier">openArray</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span><span class="Other">;</span>
          <span class="Identifier">cfg</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">;</span> <span class="Identifier">authHooks</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="servers/httpserver.html#HttpAuthHook"><span class="Identifier">HttpAuthHook</span></a><span class="Other">]</span> <span class="Other">=</span> <span class="Operator">@</span><span class="Other">[</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
-    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">CatchableError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
   <dd>
     
     
@@ -311,7 +313,7 @@
 <div id="new,typeRpcProxy,openArray[TransportAddress],ClientConfig,seq[HttpAuthHook]">
   <dt><pre><span class="Keyword">proc</span> <a href="#new%2CtypeRpcProxy%2CopenArray%5BTransportAddress%5D%2CClientConfig%2Cseq%5BHttpAuthHook%5D"><span class="Identifier">new</span></a><span class="Other">(</span><span class="Identifier">T</span><span class="Other">:</span> <span class="Keyword">type</span> <span class="Identifier">RpcProxy</span><span class="Other">;</span> <span class="Identifier">listenAddresses</span><span class="Other">:</span> <span class="Identifier">openArray</span><span class="Other">[</span><span class="Identifier">TransportAddress</span><span class="Other">]</span><span class="Other">;</span>
          <span class="Identifier">cfg</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">;</span> <span class="Identifier">authHooks</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="servers/httpserver.html#HttpAuthHook"><span class="Identifier">HttpAuthHook</span></a><span class="Other">]</span> <span class="Other">=</span> <span class="Operator">@</span><span class="Other">[</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
-    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">CatchableError</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
+    <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
   <dd>
     
     
@@ -340,8 +342,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L121" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L121" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L123" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L123" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -349,13 +351,15 @@
 </div>
 <div id="start-procs-all">
   <div id="start,RpcProxy">
-  <dt><pre><span class="Keyword">proc</span> <a href="#start%2CRpcProxy"><span class="Identifier">start</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">Future</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
-    <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#start%2CRpcProxy"><span class="Identifier">start</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span>
+    <span class="Other">(</span><span class="Identifier">CancelledError</span><span class="Other">,</span> <a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a><span class="Other">)</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
+                                      <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span><span class="Other">,</span>
+                                      <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L108" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L108" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L110" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L110" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -369,8 +373,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L128" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L128" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L126" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L126" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -388,8 +392,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L118" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L118" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L120" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L120" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -398,8 +402,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L115" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L115" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L117" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L117" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -408,8 +412,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L112" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L112" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/rpcproxy.nim#L114" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/rpcproxy.nim#L114" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -425,7 +429,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-03 03:12:10 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-04 03:57:28 UTC</small>
       </div>
     </div>
   </div>

@@ -10,13 +10,13 @@ nim	getClient	rpcproxy.html#getClient,RpcProxy	proc getClient(proxy: RpcProxy): 
 nim	new	rpcproxy.html#new,typeRpcProxy,RpcHttpServer,ClientConfig	proc new(T: type RpcProxy; server: RpcHttpServer; cfg: ClientConfig): T:type		67
 nim	new	rpcproxy.html#new,typeRpcProxy,openArray[TransportAddress],ClientConfig,seq[HttpAuthHook]	proc new(T: type RpcProxy; listenAddresses: openArray[TransportAddress];\n    cfg: ClientConfig; authHooks: seq[HttpAuthHook] = @[]): T:type		83
 nim	new	rpcproxy.html#new,typeRpcProxy,openArray[string],ClientConfig,seq[HttpAuthHook]	proc new(T: type RpcProxy; listenAddresses: openArray[string]; cfg: ClientConfig;\n    authHooks: seq[HttpAuthHook] = @[]): T:type		91
-nim	start	rpcproxy.html#start,RpcProxy	proc start(proxy: RpcProxy): Future[void]		108
-nim	rpc	rpcproxy.html#rpc.t,RpcProxy,string,untyped,untyped	template rpc(server: RpcProxy; path: string; formatType, body: untyped): untyped		112
-nim	rpc	rpcproxy.html#rpc.t,RpcProxy,string,untyped	template rpc(server: RpcProxy; path: string; body: untyped): untyped		115
-nim	rpc	rpcproxy.html#rpc.t,RpcProxy,untyped,untyped	template rpc(server: RpcProxy; formatType, procList: untyped): untyped		118
-nim	registerProxyMethod	rpcproxy.html#registerProxyMethod,RpcProxy,string	proc registerProxyMethod(proxy: var RpcProxy; methodName: string)		121
-nim	stop	rpcproxy.html#stop,RpcProxy	proc stop(proxy: RpcProxy): InternalRaisesFuture[void, void]		128
-nim	closeWait	rpcproxy.html#closeWait,RpcProxy	proc closeWait(proxy: RpcProxy): InternalRaisesFuture[void, void]		132
-nim	localAddress	rpcproxy.html#localAddress,RpcProxy	proc localAddress(proxy: RpcProxy): seq[TransportAddress]		135
+nim	start	rpcproxy.html#start,RpcProxy	proc start(proxy: RpcProxy): InternalRaisesFuture[void,\n    (CancelledError, JsonRpcError)]		110
+nim	rpc	rpcproxy.html#rpc.t,RpcProxy,string,untyped,untyped	template rpc(server: RpcProxy; path: string; formatType, body: untyped): untyped		114
+nim	rpc	rpcproxy.html#rpc.t,RpcProxy,string,untyped	template rpc(server: RpcProxy; path: string; body: untyped): untyped		117
+nim	rpc	rpcproxy.html#rpc.t,RpcProxy,untyped,untyped	template rpc(server: RpcProxy; formatType, procList: untyped): untyped		120
+nim	registerProxyMethod	rpcproxy.html#registerProxyMethod,RpcProxy,string	proc registerProxyMethod(proxy: var RpcProxy; methodName: string)		123
+nim	stop	rpcproxy.html#stop,RpcProxy	proc stop(proxy: RpcProxy): InternalRaisesFuture[void, void]		126
+nim	closeWait	rpcproxy.html#closeWait,RpcProxy	proc closeWait(proxy: RpcProxy): InternalRaisesFuture[void, void]		130
+nim	localAddress	rpcproxy.html#localAddress,RpcProxy	proc localAddress(proxy: RpcProxy): seq[TransportAddress]		133
 nimgrp	new	rpcproxy.html#new-procs-all	proc		67
-nimgrp	rpc	rpcproxy.html#rpc-templates-all	template		112
+nimgrp	rpc	rpcproxy.html#rpc-templates-all	template		114
