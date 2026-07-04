@@ -19,7 +19,7 @@ proc setupServer(proxy: var RpcProxy) =
       "Proxy Bye " & input
   # ANCHOR_END: RpcBye
 
-proc startProxy*(srvUrl: string): Future[RpcProxy] {.async.} =
+proc startProxy*(srvUrl: string): Future[RpcProxy] {.async: (raises: [CancelledError, JsonRpcError]).} =
   # ANCHOR: ServerConnect
   var proxy = RpcProxy.new(["127.0.0.1:0"], getHttpClientConfig(srvUrl))
   # ANCHOR_END: ServerConnect
