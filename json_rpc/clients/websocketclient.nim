@@ -84,6 +84,8 @@ method request(
   client.withPendingFut(fut, id):
     try:
       await transport.send(reqData, Opcode.Binary)
+    except CancelledError as exc:
+      raise exc
     except CatchableError as exc:
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
