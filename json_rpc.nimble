@@ -63,7 +63,7 @@ task test, "run tests":
 task test_asan, "run tests with asan":
   # CI runs without leak detection: ASAN_OPTIONS=detect_leaks=0
   if (NimMajor, NimMinor) >= (2, 2) and defined(linux) and defined(amd64):
-    build " -d:release --mm:orc -d:useMalloc --cc:clang --passc:-fsanitize=address --passl:-fsanitize=address --debugger:native -r", path
+    build " -d:release --mm:orc -d:useMalloc --cc:clang --passc:-fsanitize=address --passl:-fsanitize=address --debugger:native -r", "tests/all"
 
 task examples, "Run examples":
   # Run book examples
