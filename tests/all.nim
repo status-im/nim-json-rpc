@@ -25,6 +25,6 @@ import
   testhttp,
   testhttps,
   testproxy,
+  testrpcchannels,
   testrpcmacro,
-  testserverclient,
-  testrpcchannels
+  testserverclient
