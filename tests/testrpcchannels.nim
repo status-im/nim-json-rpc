@@ -32,3 +32,6 @@ suite "Thread channel RPC":
     await client.connect()
     let r = await client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+    await client.close()
+    joinThread(server)
+    chan.close()
