@@ -66,6 +66,9 @@ server.rpc("returnJsonString") do(a, b, c: int) -> JsonString:
 server.rpc("serializedFN") do(a{.serializedFieldName: "result".}: int) -> int:
   return a
 
+server.rpc("empty") do() -> void:
+  discard
+
 server.rpc(JrpcConv):
   proc rpcCtxAsync(s: string): string {.async.} =
     await noCancel sleepAsync(0)
@@ -86,6 +89,12 @@ server.rpc(JrpcConv):
 
   proc rpcCtxSyncWithRaises(s: string): string {.raises: [ValueError].} =
     raise (ref ValueError)(msg: "err")
+
+  proc rpcCtxAsyncEmpty(s: string): void {.async.} =
+    discard
+
+  proc rpcCtxSyncEmpty(s: string): void =
+    discard
 
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
@@ -195,6 +204,11 @@ suite "rpc router":
     let res = waitFor server.route(n)
     check res == """[{"jsonrpc":"2.0","result":777,"id":0}]"""
 
+  test "Empty response":
+    let n = req("empty", """{"result": "foo"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
+
 suite "rpc context":
   test "Rpc method async":
     let n = req("rpcCtxAsync", """{"s": "foo"}""")
@@ -250,3 +264,13 @@ suite "rpc context":
           return "ret1 " & s
 
     check not compiles(ctxWithAwait())
+
+  test "Rpc async empty response":
+    let n = req("rpcCtxAsyncEmpty", """{"result": "foo"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
+
+  test "Rpc sync empty response":
+    let n = req("rpcCtxSyncEmpty", """{"result": "foo"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":null,"id":0}"""

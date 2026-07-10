@@ -239,19 +239,22 @@ func setupNamed(paramsObj, paramsIdent, params, formatType: NimNode): NimNode =
 
 template maybeWrapServerResult*(Format, handlerRes): auto =
   ## Don't encode e.g. JsonString, return as is
-  when typeof(handlerRes) is FutureBase:
-    type ResType = typeof(await handlerRes)
-    when noWrap(ResType):
-      await handlerRes
+  const isFuture = typeof(handlerRes) is FutureBase
+  template awaitMaybe(ret: untyped): untyped =
+    when isFuture:
+      await ret
     else:
-      let res = await handlerRes
-      JsonString(encode(Format, res))
+      ret
+
+  type ResType = typeof(awaitMaybe handlerRes)
+  when ResType is void:
+    awaitMaybe handlerRes
+    JsonString("null")
+  elif noWrap(ResType):
+    awaitMaybe handlerRes
   else:
-    type ResType = typeof(handlerRes)
-    when noWrap(ResType):
-      handlerRes
-    else:
-      JsonString(encode(Format, handlerRes))
+    let res = awaitMaybe handlerRes
+    JsonString(encode(Format, res))
 
 func wrapServerHandler*(
     methName: string, params, procBody, procWrapper, procPragmas, formatType: NimNode
@@ -356,6 +359,7 @@ func wrapServerHandler*(
       `setup`
       when `handlerReturnType` is void:
         `executeCall`
+        JsonString("null")
       else:
         let handlerRes = `executeCall`
         maybeWrapServerResult(`formatType`, handlerRes)
