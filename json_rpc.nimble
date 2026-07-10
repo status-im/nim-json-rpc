@@ -60,6 +60,11 @@ task test, "run tests":
     # on windows, socker server build failed
     buildOnly "-d:chronicles_log_level=TRACE -d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
 
+task test_asan, "run tests with asan":
+  # CI runs without leak detection: ASAN_OPTIONS=detect_leaks=0
+  if (NimMajor, NimMinor) >= (2, 2) and defined(linux) and defined(amd64):
+    build " -d:release --mm:orc -d:useMalloc --cc:clang --passc:-fsanitize=address --passl:-fsanitize=address --debugger:native -r", "tests/all"
+
 task examples, "Run examples":
   # Run book examples
   for file in listFiles("docs/examples"):
