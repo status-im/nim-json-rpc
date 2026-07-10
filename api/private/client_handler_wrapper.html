@@ -120,8 +120,8 @@
 <p>proc rpcApi(client: RpcClient; paramA: TypeA; paramB: TypeB): Future<a class="reference internal" href="#RetType">RetType</a> = {.gcsafe.}: var reqParams = RequestParamsTx(kind: rpPositional) reqParams.positional.add encode(JrpcConv, paramA).JsonString reqParams.positional.add encode(JrpcConv, paramB).JsonString let res = await client.call(&quot;rpcApi&quot;, reqParams) result = decode(JrpcConv, res.string, typeof RetType)</p>
 <p>2nd version to handle batch request after calling client.prepareBatch() proc rpcApi(batch: RpcBatchCallRef; paramA: TypeA; paramB: TypeB) = var reqParams = RequestParamsTx(kind: rpPositional) reqParams.positional.add encode(JrpcConv, paramA).JsonString reqParams.positional.add encode(JrpcConv, paramB).JsonString batch.batch.add RpcBatchItem(meth: &quot;rpcApi&quot;, params: reqParams)</p>
 
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/private/client_handler_wrapper.nim#L70" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/private/client_handler_wrapper.nim#L70" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/private/client_handler_wrapper.nim#L75" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/private/client_handler_wrapper.nim#L75" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -135,8 +135,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/private/client_handler_wrapper.nim#L153" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/private/client_handler_wrapper.nim#L153" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/private/client_handler_wrapper.nim#L158" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/private/client_handler_wrapper.nim#L158" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -149,8 +149,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/private/client_handler_wrapper.nim#L145" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/private/client_handler_wrapper.nim#L145" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/private/client_handler_wrapper.nim#L150" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/private/client_handler_wrapper.nim#L150" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -185,7 +185,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-08 21:38:43 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-07-10 06:24:54 UTC</small>
       </div>
     </div>
   </div>
