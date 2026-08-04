@@ -24,7 +24,7 @@ proc serverThread(chan: RpcChannelPtrs) {.thread.} =
 suite "Thread channel RPC":
   asyncTest "Successful RPC call":
     var chan: RpcChannel
-    var ptrs = chan.open().expect("")
+    var ptrs = chan.open()
     var server: Thread[RpcChannelPtrs]
     var client = newRpcChannelClient(ptrs)
 

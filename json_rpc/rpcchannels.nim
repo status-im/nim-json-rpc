@@ -30,26 +30,21 @@ type
   RpcChannelServer* = ref object of RpcServer
     client: RpcChannelClient
 
-proc open*(c: var RpcChannel): Result[RpcChannelPtrs, string] =
+proc open*(c: var RpcChannel): RpcChannelPtrs =
   ## Open the channel, returning a channel pair that can be passed to the
   ## server and client threads respectively.
   ##
   ## Only one server and client instance each may use the returned channel
   ## pairs. The returned `RpcChannelPtrs` are raw pointers that must be
   ## moved to the thread that will own the client or server.
-  ?c.recv.open()
+  c.recv.init()
+  c.send.init()
 
-  c.send.open().isOkOr:
-    c.recv.close()
-    return err(error)
-
-  ok (RpcChannelPtrs(recv: addr c.recv, send: addr c.send))
+  RpcChannelPtrs(recv: addr c.recv, send: addr c.send)
 
 proc close*(c: var RpcChannel) =
-  c.recv.close()
-  c.recv.reset()
-  c.send.close()
-  c.send.reset()
+  c.recv.destroy()
+  c.send.destroy()
 
 proc new*(
     T: type RpcChannelClient, channel: RpcChannelPtrs, router = default(ref RpcRouter)
@@ -81,7 +76,7 @@ method send*(
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Send a raw JSON‑RPC request to the remote side.
   ## The data is written synchronously to the underlying channel.
-  client.channel.send[].sendSync(reqData)
+  client.channel.send[].send(reqData)
 
 method request*(
     client: RpcChannelClient, reqData: seq[byte], id: int
@@ -90,7 +85,7 @@ method request*(
   ## The request is sent synchronously and the future returned by
   ## `client.processMessage` is awaited.
   client.withPendingFut(fut, id):
-    client.channel.send[].sendSync(reqData)
+    client.channel.send[].send(reqData)
     await fut
 
 proc processData(client: RpcChannelClient) {.async: (raises: []).} =
@@ -111,7 +106,7 @@ proc processData(client: RpcChannelClient) {.async: (raises: []).} =
             break
 
       if resp.len > 0:
-        client.channel.send[].sendSync(resp)
+        client.channel.send[].send(resp)
   except CancelledError:
     discard # shutting down
 
