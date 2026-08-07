@@ -54,8 +54,14 @@ proc getWebSocketClientConfig*(
   ClientConfig(kind: WebSocket, wsUri: uri, compression: compression, flags: flags)
 
 proc proxyCall(client: RpcClient, name: string): RpcProc =
-  return proc(params: RequestParamsRx): Future[JsonString] {.async: (raw: true).} =
-    client.call(name, params.toTx)
+  return proc(params: RequestParamsRx): Future[JsonString] {.async.} =
+    try:
+      await client.call(name, params.toTx)
+    except RpcResponseError as exc:
+      # Forward any server error as a local error
+      raise (ref RpcResponseError)(
+        origin: RpcOrigin.rpcLocal, code: exc.code, msg: exc.msg, data: exc.data
+      )
 
 proc getClient*(proxy: RpcProxy): RpcClient =
   case proxy.kind

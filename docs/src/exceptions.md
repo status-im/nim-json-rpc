@@ -14,7 +14,7 @@ JSON-RPC also allows for an error `data` property which may be a primitive value
 
 The RPC server can return errors to the client by throwing an exception from the RPC method. If the RPC method was invoked using a JSON-RPC notification, the client is not expecting any response and the exception thrown from the server will be swallowed.
 
-The RPC method can raise an `ApplicationError` with a specific `code`, `data`, and `msg` (message). Any other exception thrown from an RPC method is assigned -32000 (Server error) for the JSON-RPC error `code` property. The exception `msg` field is used as the JSON-RPC error `data` property.
+The RPC method can raise an `RpcResponseError` with a specific `code`, `data`, and `msg` (message). Any other exception thrown from an RPC method is assigned -32000 (Server error) for the JSON-RPC error `code` property.
 
 RPC method error example:
 
@@ -25,10 +25,6 @@ RPC method error example:
 ## Client-side concerns
 
 An invocation of an RPC method may throw several exceptions back at the client. The base exception `JsonRpcError` can be used to catch all RPC exceptions.
-
-These are the exceptions which the client should be prepared to handle: `RpcTransportError`, `InvalidResponse`, `RequestDecodeError`, and `JsonRpcError`.
-
-The JSON error object is assigned to the `msg` field of `JsonRpcError`, when it does not match the rest of exceptions.
 
 Error handling example:
 

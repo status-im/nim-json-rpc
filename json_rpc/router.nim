@@ -72,6 +72,18 @@ func respError(
   else:
     default(ResponseTx)
 
+func respError(
+    req: RequestRx2,
+    code: int,
+    msg: sink string,
+    data: sink JsonString,
+): ResponseTx =
+  let data2 = if data != JsonString(""):
+    Opt[JsonString].ok(data)
+  else:
+    Opt.none(JsonString)
+  respError(req, code, msg, data2)
+
 func methodNotFound(req: RequestRx2): ResponseTx =
   req.respError(METHOD_NOT_FOUND, "'" & req.meth & "' is not a registered RPC method")
 
@@ -79,7 +91,7 @@ func invalidParamsError(req: RequestRx2, data: sink JsonString): ResponseTx =
   req.respError(INVALID_PARAMS, "`" & req.meth & "` raised an exception", Opt.some(data))
 
 func serverError(req: RequestRx2, data: sink JsonString): ResponseTx =
-  req.respError(SERVER_ERROR, "`" & req.meth & "` raised an exception", Opt.some(data))
+  req.respError(SERVER_ERROR, "`" & req.meth & "` raised an exception", data)
 
 func lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
   let rpcProc = router.procs.getOrDefault(req.meth)
@@ -127,6 +139,13 @@ proc route*(router: RpcRouter, req: RequestRx2):
   except ParamsMismatchError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg
     req.invalidParamsError(escapeJson(err.msg).JsonString)
+  except RpcResponseError as err:
+    debug "Error occurred within RPC", methodName = req.meth, err = err.msg, code = err.code, origin = err.origin
+    if err.origin == RpcOrigin.rpcLocal:
+      req.respError(err.code, err.msg, err.data)
+    else:
+      const msg = JsonString(escapeJson("server error"))
+      req.serverError(msg)
   except CatchableError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg
 

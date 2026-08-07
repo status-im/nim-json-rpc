@@ -35,7 +35,7 @@ proc stopProxy*(proxy: RpcProxy) {.async: (raises: []).} =
   await proxy.closeWait()
   # ANCHOR_END: ServerDisconnect
 
-proc main() {.raises: [CatchableError].} =
+proc main() {.raises: [CancelledError, JsonRpcError].} =
   # Compile with -d:srvUrl="http://hostname:port"
   const srvUrl {.strdefine.}: string = ""
   let proxy = waitFor startProxy(srvUrl)

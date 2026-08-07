@@ -50,12 +50,73 @@ type
     ## Error raised internally when params fail to
     ## match the method signature
 
-  ApplicationError* = object of JsonRpcError
+  RpcOrigin* {.pure.} = enum
+    rpcLocal = "local"
+    rpcRemote = "remote"
+
+  RpcResponseError* = object of JsonRpcError
+    ## Base error for all server error responses
+    origin*: RpcOrigin
+    code*: int
+    data*: JsonString
+
+  RpcParseError* = object of RpcResponseError
+
+  RpcInvalidRequestError* = object of RpcResponseError
+
+  RpcMethodNotFoundError* = object of RpcResponseError
+
+  RpcInvalidParamsError* = object of RpcResponseError
+
+  RpcInternalError* = object of RpcResponseError
+
+  RpcServerError* = object of RpcResponseError
+
+  RpcApplicationError* = object of RpcResponseError
     ## Error to be raised by the application request handlers when the server
     ## needs to respond with a custom application error. The error code should
     ## be outside the range of -32768 to -32000. A custom JSON data object may
     ## be provided.
+
+  ApplicationError* {.deprecated: "RpcResponseError".} = object of JsonRpcError
     code*: int
     data*: results.Opt[JsonString]
 
-  InvalidRequest* {.deprecated: "ApplicationError".} = ApplicationError
+  InvalidRequest* {.deprecated: "RpcResponseError".} = ApplicationError
+
+# https://www.jsonrpc.org/specification#error_object
+proc new*(
+  T: type RpcResponseError,
+  code: int,
+  msg: sink string,
+  data: sink JsonString = JsonString(""),
+  origin: RpcOrigin = RpcOrigin.rpcLocal
+): ref RpcResponseError =
+  template err(obj: untyped): untyped =
+    (ref obj)(origin: origin, code: code, data: move(data), msg: move(msg))
+
+  const
+    JSON_PARSE_ERROR = -32700
+    INVALID_REQUEST = -32600
+    METHOD_NOT_FOUND = -32601
+    INVALID_PARAMS = -32602
+    INTERNAL_ERROR = -32603
+
+  case code
+  of JSON_PARSE_ERROR:
+    err(RpcParseError)
+  of INVALID_REQUEST:
+    err(RpcInvalidRequestError)
+  of METHOD_NOT_FOUND:
+    err(RpcMethodNotFoundError)
+  of INVALID_PARAMS:
+    err(RpcInvalidParamsError)
+  of INTERNAL_ERROR:
+    err(RpcInternalError)
+  else:
+    if -32768 <= code and code < -32099:
+      err(RpcResponseError)
+    elif -32099 <= code and code <= -32000:
+      err(RpcServerError)
+    else:
+      err(RpcApplicationError)
