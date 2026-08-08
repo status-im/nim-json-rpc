@@ -11,7 +11,11 @@ import unittest2, chronos/unittest2/asynctests
 import ../json_rpc/[rpcserver, rpcclient]
 import chronos/[streams/tlsstream, apps/http/httpcommon]
 
-const TestsCount = 100
+const TestsCount =
+  when defined(release) or defined(danger):
+    100
+  else:
+    10
 
 # To create self-signed certificate and key you can use openssl
 # openssl req -new -x509 -sha256 -newkey rsa:2048 -nodes \
