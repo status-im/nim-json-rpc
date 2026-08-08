@@ -94,8 +94,13 @@ template callTests(client: untyped) =
       r6.string == """null"""
 
   test "Concurrent RPC calls":
+    const reqCount =
+      when defined(release) or defined(danger):
+        50_000
+      else:
+        10
     var calls = newSeq[Future[JsonString]]()
-    for i in 0 ..< 50_000:
+    for i in 0 ..< reqCount:
       calls.add client.call("myProc", %[% $i, %[1, 2, 3, 4]])
     waitFor allFutures(calls)
     var checked = 0

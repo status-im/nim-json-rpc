@@ -54,7 +54,8 @@ proc buildOnly(args, path: string) =
     build args & " --mm:orc", path
 
 task test, "run tests":
-  run "", "tests/all"
+  for mode in ["", "-d:release"]:
+    run mode, "tests/all"
 
   when not defined(windows):
     # on windows, socker server build failed
