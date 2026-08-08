@@ -116,6 +116,8 @@ proc processMessages(client: RpcWebSocketClient) {.async: (raises: []).} =
       except JsonRpcError as exc:
         try:
           await client.transport.send(wrapError(router.INVALID_REQUEST, exc.msg), Opcode.Binary)
+        except CancelledError as e:
+          raise e
         except CatchableError:
           discard
         raise exc
