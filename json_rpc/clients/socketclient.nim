@@ -211,7 +211,7 @@ method request(
   client.withPendingFut(fut, id):
     try:
       await client.framing.sendMsg(client.transport, reqData)
-    except CatchableError as exc:
+    except TransportError as exc:
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut

@@ -48,7 +48,7 @@ func unpackArg(args: JsonString, argName: string, argType: type, Format: type Se
   ## Nim data types
   try:
     result = decode(Format, args.string, argType)
-  except CatchableError as err:
+  except SerializationError as err:
     raise newException(RequestDecodeError,
       "Parameter [" & argName & "] of type '" &
       $argType & "' could not be decoded: " & err.msg)
