@@ -298,6 +298,11 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestParamsRx)
         name: key,
         value: r.parseAsString(),
       )
+  of JsonValueKind.Null:
+    # Many JSON-RPC client libraries send `"params": null` for zero-argument
+    # calls; treat it the same as an omitted params member.
+    val = RequestParamsRx(kind: rpPositional)
+    r.parseNull()
   else:
     r.raiseInvalidRequestSys("RequestParam must be either array or object, got=" & $tok)
 
