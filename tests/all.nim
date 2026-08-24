@@ -17,6 +17,7 @@ import
   test_client_hook,
   test_jrpc_sys,
   test_router_rpc,
+  test_spec_examples,
   testhook,
   testhttp,
   testhttps,

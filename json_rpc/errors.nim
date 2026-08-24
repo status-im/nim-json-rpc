@@ -46,6 +46,10 @@ type
     ## raised when failing to decode the response result
     result*: JsonString
 
+  ParamsMismatchError* = object of JsonRpcError
+    ## Error raised internally when params fail to
+    ## match the method signature
+
   ApplicationError* = object of JsonRpcError
     ## Error to be raised by the application request handlers when the server
     ## needs to respond with a custom application error. The error code should

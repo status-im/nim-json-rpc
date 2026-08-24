@@ -75,6 +75,9 @@ func respError(
 func methodNotFound(req: RequestRx2): ResponseTx =
   req.respError(METHOD_NOT_FOUND, "'" & req.meth & "' is not a registered RPC method")
 
+func invalidParamsError(req: RequestRx2, data: sink JsonString): ResponseTx =
+  req.respError(INVALID_PARAMS, "`" & req.meth & "` raised an exception", Opt.some(data))
+
 func serverError(req: RequestRx2, data: sink JsonString): ResponseTx =
   req.respError(SERVER_ERROR, "`" & req.meth & "` raised an exception", Opt.some(data))
 
@@ -121,6 +124,9 @@ proc route*(router: RpcRouter, req: RequestRx2):
   except ApplicationError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg, code = err.code
     req.respError(err.code, err.msg, err.data)
+  except ParamsMismatchError as err:
+    debug "Error occurred within RPC", methodName = req.meth, err = err.msg
+    req.invalidParamsError(escapeJson(err.msg).JsonString)
   except CatchableError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg
 
@@ -170,8 +176,10 @@ proc route*(
   let request =
     try:
       JrpcSys.decode(data, RequestBatchRx)
-    except IncompleteObjectError as err:
+    except InvalidRequestSysError as err:
       return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
+    except IncompleteObjectError as err:
+      return string.fromBytes(wrapError(INVALID_REQUEST, "Invalid Request"))
     except SerializationError as err:
       return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg))
 
