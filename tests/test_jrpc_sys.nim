@@ -246,7 +246,7 @@ suite "jrpc_sys serialization":
         """{"jsonrpc":"2.0","method":"m","params":[1],"id":1,"extra":{"a":[1,2]}}"""
       let bm = JrpcSys.decode(data, BidiMessage)
       doAssert bm.kind == bmRequest
-      check bm.request.kind == rbkSingle
+      doAssert bm.request.kind == rbkSingle
       let rx = bm.request.single
       check:
         rx.meth == "m"
@@ -256,7 +256,7 @@ suite "jrpc_sys serialization":
       const data = """{"jsonrpc":"2.0","result":"ok","id":1,"extra":{"a":[1,2]}}"""
       let bm = JrpcSys.decode(data, BidiMessage)
       doAssert bm.kind == bmResponse
-      check bm.response.kind == rbkSingle
+      doAssert bm.response.kind == rbkSingle
       let rx = bm.response.single
       check:
         rx.kind == ResponseKind.rkResult
