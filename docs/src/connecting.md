@@ -2,13 +2,15 @@
 
 ## Transports
 
-A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets and pipes, and Websockets:
+A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets and Stdio, and Websockets:
 
 - HTTP POST: unidirectional, one request/response pair per call.
-- Sockets and pipes, via [chronos](https://github.com/status-im/nim-chronos)' `StreamTransport`: bidirectional, persistent connection, custom message framing.
+- Sockets, Pipes and Stdio, via [chronos](https://github.com/status-im/nim-chronos)' `StreamTransport`: bidirectional, persistent connection, custom message framing.
   - `Framing.httpHeader`: `Content-Length` prefix specifying the length of the payload, compatible with [vscode-jsonrpc](https://www.npmjs.com/package/vscode-jsonrpc).
   - `Framing.lengthHeaderBE32`: Big-endian, 32-bit binary prefix - most efficient option.
-- Websockets: bidirectional, persistent connection.
+- Websockets, via [websock](https://github.com/status-im/nim-websock): bidirectional, persistent connection.
+
+Note the Stdio server requires sending log messages to stderr instead of stdout to avoid corrupting the stream messages, including chronicles logs; ex: `-d:chronicles_default_output_device=stderr` or `-d:"chronicles_sinks=textlines[stderr]"`.
 
 ## Server (and possibly client also)
 
@@ -24,6 +26,18 @@ Sockets:
 
 ```nim
 {{#shiftinclude auto:../examples/socket_server.nim:ServerConnect}}
+```
+
+Stdio:
+
+```nim
+{{#shiftinclude auto:../examples/stdio_server.nim:ServerConnect}}
+```
+
+Pipes:
+
+```nim
+{{#shiftinclude auto:../examples/pipes_server_client.nim:ServerPipes}}
 ```
 
 Websockets:
@@ -54,6 +68,18 @@ Sockets:
 
 ```nim
 {{#shiftinclude auto:../examples/socket_client.nim:ClientConnect}}
+```
+
+Stdio:
+
+```nim
+{{#shiftinclude auto:../examples/stdio_client.nim:ClientConnect}}
+```
+
+Pipes:
+
+```nim
+{{#shiftinclude auto:../examples/pipes_server_client.nim:ClientPipes}}
 ```
 
 Websockets:
