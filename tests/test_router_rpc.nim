@@ -123,13 +123,13 @@ template test_optional(meth: static[string]) =
     let n = req(meth, "[44, 567, \"apple\", \"banana\"]")
     let res = waitFor server.route(n)
     when meth == "std_option":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`std_option` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`std_option` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
     elif meth == "results_opt":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`results_opt` raised an exception","data":"Parameter [D] of type 'Opt[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`results_opt` raised an exception","data":"Parameter [D] of type 'Opt[system.int]' could not be decoded: number expected"},"id":0}"""
     elif meth == "mixed_opt":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`mixed_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`mixed_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
     else:
-      check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`alias_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`alias_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
 
   test meth & " D extra, positional":
     let n = req(meth, "[44, 567, \"apple\", 999, \"banana\", true]")
@@ -160,7 +160,7 @@ suite "rpc router":
   test "no params with params":
     let n = req("noParams", "[123]")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`noParams` raised an exception","data":"Expected 0 JSON parameter(s) but got 1"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`noParams` raised an exception","data":"Expected 0 JSON parameter(s) but got 1"},"id":0}"""
 
   test_optional("std_option")
   test_optional("results_opt")
@@ -208,6 +208,136 @@ suite "rpc router":
     let n = req("empty", """{"result": "foo"}""")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
+
+# https://www.jsonrpc.org/specification#error_object
+suite "rpc router error codes":
+  test "invalid JSON is a parse error":
+    let res1 = waitFor server.route("{ this is not valid json }")
+    check res1 == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"string expected"},"id":null}"""
+
+    let res2 = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams"""")
+    check res2 == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"'}' expected"},"id":null}"""
+
+    let res3 = waitFor server.route("""[{"jsonrpc":"2.0","method":"noParams"}""")
+    check res3 == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"']' expected"},"id":null}"""
+
+  test "non object/array request is an invalid request":
+    let res1 = waitFor server.route("123")
+    check res1 == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestBatch must be either array or object, got=Number"},"id":null}"""
+
+    let res2 = waitFor server.route("null")
+    check res2 == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestBatch must be either array or object, got=Null"},"id":null}"""
+
+  test "empty batch is an invalid request":
+    let res = waitFor server.route("[]")
+    check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Batch must contain at least one message"},"id":null}"""
+
+  test "batch of non requests is an invalid request":
+    let res = waitFor server.route("[1,2,3]")
+    check res == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"'{' expected"},"id":null}"""
+
+  test "missing or invalid jsonrpc version is an invalid request":
+    let res1 = waitFor server.route("""{"method":"noParams","id":0}""")
+    check res1 == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request"},"id":null}"""
+
+    let res2 = waitFor server.route("""{"jsonrpc":"1.0","method":"noParams","id":0}""")
+    check res2 == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid JSON-RPC version, want=\"2.0\" got=\"1.0\""},"id":null}"""
+
+    let res3 = waitFor server.route("""{"jsonrpc":2.0,"method":"noParams","id":0}""")
+    check res3 == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid JSON-RPC version, want=\"2.0\" got=2.0"},"id":null}"""
+
+  test "missing or invalid method is an invalid request":
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","id":0}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":123,"id":0}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"string expected"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":null,"id":"abc"}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"string expected"},"id":null}"""
+
+  test "invalid id is an invalid request":
+    # the `id` is what cannot be detected here, so it is reported as null
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","id":{}}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid RequestId, must be Number, String, or Null, got=Object"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","id":[0]}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid RequestId, must be Number, String, or Null, got=Array"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","id":true}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid RequestId, must be Number, String, or Null, got=Bool"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","id":1.5}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32700,"message":"invalid integer value"},"id":null}"""
+
+  test "unstructured params are an invalid request":
+    # `Invalid params` is not a JSON decode error; it's for failing
+    # to pass params to the method
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":"abc","id":0}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=String"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":123,"id":"abc"}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=Number"},"id":null}"""
+    block:
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":null,"id":0}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=Null"},"id":null}"""
+    block:
+      # not a valid request object, hence not a notification either; the spec
+      # answers those with a null id
+      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":"abc"}""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=String"},"id":null}"""
+    block:
+      # within a batch there is no single id to report back
+      let res = waitFor server.route("""[{"jsonrpc":"2.0","method":"noParams","params":"abc","id":0}]""")
+      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=String"},"id":null}"""
+
+  test "unknown method is a method not found":
+    let res = waitFor server.route(req("noSuchMethod", "[]"))
+    check res == """{"jsonrpc":"2.0","error":{"code":-32601,"message":"'noSuchMethod' is not a registered RPC method"},"id":0}"""
+
+  test "wrong parameter count is invalid params":
+    let res = waitFor server.route(req("comboParams", "[1,2]"))
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`comboParams` raised an exception","data":"Expected 3 JSON parameter(s) but got 2"},"id":0}"""
+
+  test "wrong parameter type is invalid params":
+    let res = waitFor server.route(req("comboParams", """[1,2,"three"]"""))
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`comboParams` raised an exception","data":"Parameter [c] of type 'int' could not be decoded: number expected"},"id":0}"""
+
+  test "handler exception is a server error":
+    let res = waitFor server.route(req("rpcCtxSyncWithRaises", """{"s":"foo"}"""))
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`rpcCtxSyncWithRaises` raised an exception","data":"err"},"id":0}"""
+
+  test "notifications get no response, valid or not":
+    # https://www.jsonrpc.org/specification#notification
+    # "The Server MUST NOT reply to a Notification, including those that are
+    # within a batch request", so the client is never made aware of errors
+    block:
+      let res = waitFor server.route(notif("noParams", "[]"))
+      check res == ""
+    block:
+      # method not found
+      let res = waitFor server.route(notif("noSuchMethod", "[]"))
+      check res == ""
+    block:
+      # wrong number of parameters
+      let res = waitFor server.route(notif("comboParams", "[1,2]"))
+      check res == ""
+    block:
+      # wrong parameter type
+      let res = waitFor server.route(notif("comboParams", """[1,2,"three"]"""))
+      check res == ""
+    block:
+      # the handler raises
+      let res = waitFor server.route(notif("rpcCtxSyncWithRaises", """{"s":"foo"}"""))
+      check res == ""
+    block:
+      # within a batch, only the call is answered
+      let res = waitFor server.route(
+        "[" & notif("comboParams", "[1,2]") & "," & req("comboParams", "[1,2,3]") & "]")
+      check res == """[{"jsonrpc":"2.0","result":6,"id":0}]"""
 
 suite "rpc context":
   test "Rpc method async":

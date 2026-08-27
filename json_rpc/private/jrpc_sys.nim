@@ -163,7 +163,8 @@ type
       response*: ResponseBatchRx
     of bmRequest:
       request*: RequestBatchRx
-  
+
+  InvalidRequestSysError* = object of UnexpectedValueError
   BidiMessageRequestError* = object of SerializationError
   BidiMessageResponseError* = object of SerializationError
 
@@ -232,11 +233,17 @@ func isFieldExpected*(_: type RequestParamsRx): bool {.compileTime.} =
 
   false
 
+func raiseInvalidRequestSys(r: JsonReader, msg: string) {.noreturn, raises: [JsonReaderError].} =
+  var ex = new InvalidRequestSysError
+  ex.assignLineNumber(r.lex)
+  ex.msg = msg
+  raise ex
+
 proc readValue*(r: var JsonReader[JrpcSys], val: var JsonRPC2)
       {.gcsafe, raises: [IOError, JsonReaderError].} =
   let version = r.parseAsString()
   if version != JsonRPC2Literal:
-    r.raiseUnexpectedValue("Invalid JSON-RPC version, want=" &
+    r.raiseInvalidRequestSys("Invalid JSON-RPC version, want=" &
       JsonRPC2Literal.string & " got=" & version.string)
 
 proc readValue*(
@@ -264,7 +271,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestId)
     val = RequestId(kind: riNull)
     r.parseNull()
   else:
-    r.raiseUnexpectedValue("Invalid RequestId, must be Number, String, or Null, got=" & $tok)
+    r.raiseInvalidRequestSys("Invalid RequestId, must be Number, String, or Null, got=" & $tok)
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestId)
        {.gcsafe, raises: [IOError].} =
@@ -292,7 +299,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestParamsRx)
         value: r.parseAsString(),
       )
   else:
-    r.raiseUnexpectedValue("RequestParam must be either array or object, got=" & $tok)
+    r.raiseInvalidRequestSys("RequestParam must be either array or object, got=" & $tok)
 
 proc writeValue*(w: var JsonWriter[JrpcSys], val: RequestParamsTx)
       {.gcsafe, raises: [IOError].} =
@@ -359,12 +366,12 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var RequestBatchRx)
     val = RequestBatchRx(kind: rbkMany)
     r.readValue(val.many)
     if val.many.len == 0:
-      r.raiseUnexpectedValue("Batch must contain at least one message")
+      r.raiseInvalidRequestSys("Batch must contain at least one message")
   of JsonValueKind.Object:
     val = RequestBatchRx(kind: rbkSingle)
     r.readValue(val.single)
   else:
-    r.raiseUnexpectedValue("RequestBatch must be either array or object, got=" & $tok)
+    r.raiseInvalidRequestSys("RequestBatch must be either array or object, got=" & $tok)
 
 proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageIx)
        {.gcsafe, raises: [IOError, SerializationError].} =
@@ -419,11 +426,11 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
       else:
         inc ambiguous
     if ambiguous > 0:
-      r.raiseUnexpectedValue("Multiple missing fields")
+      r.raiseInvalidRequestSys("Multiple missing fields")
     if reqs.len > 0 and resps.len > 0:
-      r.raiseUnexpectedValue("Mixed responses and requests batch")
+      r.raiseInvalidRequestSys("Mixed responses and requests batch")
     if reqs.len == 0 and resps.len == 0:
-      r.raiseUnexpectedValue("Batch must contain at least one message")
+      r.raiseInvalidRequestSys("Batch must contain at least one message")
     val = if reqs.len > 0:
       BidiMessage(kind: bmRequest, request: RequestBatchRx(kind: rbkMany, many: move(reqs)))
     else:
@@ -447,9 +454,9 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var BidiMessage)
       var resp = ResponseRx2(jsonrpc: move(m.jsonrpc[]), kind: rkError, error: move(m.error[]), id: move(m.id[]))
       BidiMessage(kind: bmResponse, response: ResponseBatchRx(kind: rbkSingle, single: move(resp)))
     else:
-      r.raiseUnexpectedValue("Multiple missing fields")
+      r.raiseInvalidRequestSys("Multiple missing fields")
   else:
-    r.raiseUnexpectedValue("BidiMessage must be either array or object, got=" & $tok)
+    r.raiseInvalidRequestSys("BidiMessage must be either array or object, got=" & $tok)
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
        {.gcsafe, raises: [IOError, SerializationError].} =
@@ -459,12 +466,12 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseBatchRx)
     val = ResponseBatchRx(kind: rbkMany)
     r.readValue(val.many)
     if val.many.len == 0:
-      r.raiseUnexpectedValue("Batch must contain at least one message")
+      r.raiseInvalidRequestSys("Batch must contain at least one message")
   of JsonValueKind.Object:
     val = ResponseBatchRx(kind: rbkSingle)
     r.readValue(val.single)
   else:
-    r.raiseUnexpectedValue("ResponseBatch must be either array or object, got=" & $tok)
+    r.raiseInvalidRequestSys("ResponseBatch must be either array or object, got=" & $tok)
 
 func toTx*(params: RequestParamsRx): RequestParamsTx =
   case params.kind:

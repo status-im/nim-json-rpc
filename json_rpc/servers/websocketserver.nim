@@ -242,6 +242,7 @@ proc stop*(server: RpcWebSocketServer) =
     notice "Stopped JSON-RPC WebSocket server", address = server.server.local
   except TransportOsError as exc:
     warn "Could not stop JSON-RPC WebSocket server", err = exc.msg
+    discard exc
 
 proc close*(server: RpcWebSocketServer) =
   ## Cleanup resources of RPC server.

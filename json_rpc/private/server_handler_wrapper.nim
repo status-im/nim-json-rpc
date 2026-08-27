@@ -49,7 +49,7 @@ func unpackArg(args: JsonString, argName: string, argType: type, Format: type Se
   try:
     result = decode(Format, args.string, argType)
   except SerializationError as err:
-    raise newException(RequestDecodeError,
+    raise newException(ParamsMismatchError,
       "Parameter [" & argName & "] of type '" &
       $argType & "' could not be decoded: " & err.msg)
 
@@ -85,7 +85,7 @@ template expectOptionalParamsLen(params: RequestParamsRx,
       $maxLength & " Json parameter(s) but got "
 
   if params.positional.len < minLength:
-    raise newException(RequestDecodeError,
+    raise newException(ParamsMismatchError,
       expected & $params.positional.len)
 
 template expectParamsLen(params: RequestParamsRx, length: static[int]) =
@@ -102,7 +102,7 @@ template expectParamsLen(params: RequestParamsRx, length: static[int]) =
     expected = "Expected " & $nonConstLength & " JSON parameter(s) but got "
 
   if params.positional.len != length:
-    raise newException(RequestDecodeError,
+    raise newException(ParamsMismatchError,
       expected & $params.positional.len)
 
 template setupPositional(setup: static[RpcSetup], params: RequestParamsRx) =

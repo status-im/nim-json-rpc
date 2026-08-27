@@ -110,7 +110,7 @@ template allTests(client: untyped) =
     check r1 == "ret foobar"
 
   test "Sending an ambiguous message terminates the connection":
-    # check it fails with parse error; id=null response
+    # check it fails with an invalid request error; id=null response
     const req = """{"foo": "boo"}"""
     const expected = """{"code":-32600,"message":"Multiple missing fields"}"""
     checkInvalidRequest(client, req, expected)
