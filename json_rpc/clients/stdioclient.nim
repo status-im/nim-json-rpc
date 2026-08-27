@@ -7,33 +7,6 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-## JSON-RPC over standard input/output.
-##
-## This is the transport language servers (LSP) and MCP servers speak: the peer
-## is reached through a pair of pipes rather than a socket, so the two halves of
-## the connection are two distinct descriptors - an input transport that is only
-## read and an output transport that is only written. Apart from that, it is the
-## same bidirectional connection as the socket client: messages are delimited by
-## a pluggable framing, responses are correlated with pending requests, and
-## incoming requests are dispatched through the connection's router.
-##
-## Two ways to connect:
-##
-## * `connect(client)` speaks JSON-RPC over *this* process' own stdin/stdout,
-##   which is what an LSP/MCP server does.
-## * `connect(client, command, arguments)` spawns a child process and speaks
-##   JSON-RPC over its stdin/stdout, which is what an editor does when it
-##   launches a language server.
-##
-## Standard output carries the protocol, so nothing else may write to it - and
-## chronicles, which json-rpc itself logs through, writes there unless told
-## otherwise. Build programs using their own stdio with the log sinks pointed at
-## standard error:
-##
-##   -d:"chronicles_sinks=textlines[stderr]"
-##
-## and keep `echo` out of them.
-
 {.push raises: [], gcsafe.}
 
 import
@@ -49,6 +22,9 @@ import
 when defined(windows):
   import chronos/osdefs
 
+  when not compileOption("threads"):
+    {.error: "the stdio transport needs --threads:on on Windows".}
+
 export client, errors, asyncproc
 
 when not declared(newSeqUninit): # nim 2.2+
@@ -60,33 +36,34 @@ logScope:
 
 type
   RpcStdioClient* = ref object of RpcConnection
-    ## Bidirectional connection over a pair of pipes, with pluggable framing
-    ## options for delineating messages.
+    ## Bidirectional connection over a pair of pipes
     input*: StreamTransport
-      ## The half messages are read from - the peer's standard output.
     output*: StreamTransport
-      ## The half messages are written to - the peer's standard input.
     loop*: Future[void]
     framing*: StdioFraming
     process*: AsyncProcessRef
-      ## The peer process, when this client spawned one; `nil` when the client
-      ## is attached to this process' own standard input/output.
     peerExitCode: Opt[int]
-      ## Exit status of the peer process, once it has been waited for.
+
+  StdioRecvMsg* = proc(input: StreamTransport, limit: int): Future[seq[byte]] {.
+    async: (raises: [CancelledError, TransportError]), nimcall
+  .}
+
+  StdioSendMsg* = proc(output: StreamTransport, msg: seq[byte]) {.
+    async: (raises: [CancelledError, TransportError]), nimcall
+  .}
 
   StdioFraming* = object
-    ## Message delimiting. Unlike a socket, the two halves of the connection
-    ## are separate descriptors, so receiving and sending take one each.
-    recvMsg: proc(input: StreamTransport, limit: int): Future[seq[byte]] {.
-      async: (raises: [CancelledError, TransportError]), nimcall
-    .}
-    sendMsg: proc(output: StreamTransport, msg: seq[byte]) {.
-      async: (raises: [CancelledError, TransportError]), nimcall
-    .}
+    recvMsg: StdioRecvMsg
+    sendMsg: StdioSendMsg
 
 # ---------------------------------------------------------------------------
 # Framing
 # ---------------------------------------------------------------------------
+
+proc init*(T: type StdioFraming, recvMsg: StdioRecvMsg, sendMsg: StdioSendMsg): T =
+  ## Build a framing of your own, for a peer that delimits messages in a way
+  ## the framings below do not cover - newline-delimited JSON, for example.
+  T(recvMsg: recvMsg, sendMsg: sendMsg)
 
 proc recvMsgNewLine(
     input: StreamTransport, maxMessageSize: int
@@ -102,11 +79,6 @@ proc sendMsgNewLine(
 proc newLine*(
     T: type StdioFraming
 ): T {.deprecated: "Prefer lengthHeaderBE32 or httpHeader in in new applications".} =
-  ## A framing that suffixes messages with "\r\n", for peers that speak
-  ## newline-delimited JSON.
-  ##
-  ## The framing can only be used with payloads that do not contain newlines and
-  ## message length is checked only after that many bytes have been transmitted.
   T(recvMsg: recvMsgNewLine, sendMsg: sendMsgNewLine)
 
 proc recvMsgHttpHeader(
@@ -132,12 +104,6 @@ proc sendMsgHttpHeader(
   discard await output.write(field & toBytes($msg.len) & separator & msg)
 
 proc httpHeader*(T: type StdioFraming): T =
-  ## Framing using a HTTP-like `Content-Length: <length>\r\n` header followed by
-  ## an empty line ("\r\n") followed by the message itself.
-  ##
-  ## This is the encoding LSP and MCP peers speak over stdio, and the default
-  ## for this transport. It is compatible with the default encoding used by
-  ## StreamJsonRPC and https://www.npmjs.com/package/vscode-jsonrpc.
   T(recvMsg: recvMsgHttpHeader, sendMsg: sendMsgHttpHeader)
 
 proc recvMsgLengthHeaderBE32(
@@ -343,17 +309,73 @@ proc attach*(
 # Connecting
 # ---------------------------------------------------------------------------
 
-proc stdioTransports*(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError]} =
-  ## Wrap this process standard input and standard output in chronos transports.
-  when defined(windows):
+when defined(windows):
+  const BridgeBufSize = 8192
+
+  type PumpCtx = object
+    src, dst: HANDLE
+
+  var
+    stdinPump: Thread[PumpCtx]
+    stdoutPump: Thread[PumpCtx]
+
+  proc pump(ctx: PumpCtx) {.thread.} =
+    var buf {.noinit.}: array[BridgeBufSize, byte]
+    block copy:
+      while true:
+        var count = DWORD(0)
+        if readFile(ctx.src, addr buf[0], DWORD(len(buf)), addr count, nil) == FALSE:
+          break copy
+        if count == 0:
+          break copy
+        var sent = 0
+        while sent < int(count):
+          var written = DWORD(0)
+          let ok = writeFile(
+            ctx.dst, addr buf[sent], DWORD(int(count) - sent), addr written, nil
+          )
+          if ok == FALSE or written == 0:
+            break copy
+          sent += int(written)
+    discard closeHandle(ctx.dst)
+
+  proc bridgeStdio(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError].} =
     let
       inHandle = getStdHandle(STD_INPUT_HANDLE)
       outHandle = getStdHandle(STD_OUTPUT_HANDLE)
     if inHandle == INVALID_HANDLE_VALUE or outHandle == INVALID_HANDLE_VALUE:
       raise (ref RpcTransportError)(msg: "Unable to obtain the standard handles")
+
+    const
+      loopEnd = {DescriptorFlag.CloseOnExec, DescriptorFlag.NonBlock}
+      threadEnd = {DescriptorFlag.CloseOnExec}
     let
-      inFd = AsyncFD(inHandle)
-      outFd = AsyncFD(outHandle)
+      inPipe = createOsPipe(loopEnd, threadEnd).valueOr:
+        raise (ref RpcTransportError)(
+          msg: "Unable to create the standard input bridge: " & osErrorMsg(error)
+        )
+      outPipe = createOsPipe(threadEnd, loopEnd).valueOr:
+        raise (ref RpcTransportError)(
+          msg: "Unable to create the standard output bridge: " & osErrorMsg(error)
+        )
+
+    try:
+      createThread(stdinPump, pump, PumpCtx(src: inHandle, dst: inPipe.write))
+      createThread(stdoutPump, pump, PumpCtx(src: outPipe.read, dst: outHandle))
+    except ResourceExhaustedError as exc:
+      raise (ref RpcTransportError)(
+        msg: "Unable to start the standard input/output bridge: " & exc.msg,
+        parent: exc,
+      )
+
+    try:
+      (fromPipe(AsyncFD(inPipe.read)), fromPipe(AsyncFD(outPipe.write)))
+    except TransportOsError as exc:
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+
+proc stdioTransports*(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError]} =
+  when defined(windows):
+    bridgeStdio()
   else:
     let
       inFd = AsyncFD(0)
@@ -365,17 +387,12 @@ proc stdioTransports*(): tuple[input, output: StreamTransport] {.raises: [JsonRp
             " to non-blocking mode: " & osErrorMsg(error)
         )
 
-  try:
-    (fromPipe(inFd), fromPipe(outFd))
-  except TransportOsError as exc:
-    raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+    try:
+      (fromPipe(inFd), fromPipe(outFd))
+    except TransportOsError as exc:
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
 
 proc connect*(client: RpcStdioClient) {.raises: [JsonRpcError].} =
-  ## Speak JSON-RPC over this process' own standard input and output. The
-  ## message loop runs until standard input reaches end of file; await
-  ## `client.loop` to wait for that.
-  ##
-  ## Nothing else may write to standard output - see the module documentation.
   let (input, output) = stdioTransports()
   client.loop = client.attach(input, output, "stdio")
 
@@ -387,10 +404,6 @@ proc connect*(
     environment: StringTableRef = nil,
     options: set[AsyncProcessOption] = {},
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
-  ## Spawn `command` and speak JSON-RPC over its standard input and output.
-  ##
-  ## The child's stderr is inherited, so its diagnostics reach the terminal
-  ## without disturbing the protocol.
   let process =
     try:
       await startProcess(
@@ -406,10 +419,7 @@ proc connect*(
       raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
 
   client.process = process
-  # The pipes chronos created for the child are wrapped in async streams; the
-  # transports underneath them are what the framing works with.
-  client.loop =
-    client.attach(process.stdoutStream.tsource, process.stdinStream.tsource, command)
+  client.loop = client.attach(process.stdoutStream.tsource, process.stdinStream.tsource, command)
 
 method close*(client: RpcStdioClient) {.async: (raises: []).} =
   ## Close the connection and, if this client spawned the peer, wait for it to

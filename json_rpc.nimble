@@ -55,10 +55,10 @@ proc buildOnly(args, path: string) =
 
 task test, "run tests":
   for mode in ["", "-d:release"]:
+    # The peer program the stdio transport test spawns: its stdout carries the
+    # protocol, so it is the one binary that has to log to stderr.
+    buildOnly mode & " -d:\"chronicles_sinks=textlines[stderr]\" -o:tests/private/stdio_peer", "tests/private/stdio_peer"
     run mode, "tests/all"
-    # Built separately: this one re-executes itself as the peer process, so it
-    # cannot share a binary with the other suites.
-    run mode & " -d:\"chronicles_sinks=textlines[stderr]\"", "tests/test_stdio_transport"
 
   when not defined(windows):
     # on windows, socker server build failed

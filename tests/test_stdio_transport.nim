@@ -7,101 +7,23 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-## End-to-end test of the stdio transport, using two real processes: the test
-## binary re-executes itself with `--rpc-stdio-server`, and that child serves
-## JSON-RPC over its own standard input/output while the parent drives it with
-## an `RpcStdioClient`.
-
-proc checkChronicles(): bool =
-  const chronicles_sinks {.strdefine.} = ""
-  chronicles_sinks == "textlines[stderr]"
-
-when not checkChronicles():
-  {.error: "required `-d:chronicles_sinks=textlines[stderr]` to avoid sending chronicles output to stdio".}
+## End-to-end test of the stdio transport, using two real processes: the peer
+## is `private/stdio_peer`, a program that serves JSON-RPC over its own
+## standard input/output, and the test drives it with an `RpcStdioClient`.
 
 import
-  std/[json, os, strutils],
+  std/[json, os],
   chronos/unittest2/asynctests,
   ../json_rpc/[rpcclient, rpcserver],
   ../json_rpc/clients/stdioclient,
-  ../json_rpc/servers/stdioserver,
-  ./private/helpers
+  ./private/[helpers, stdio_peer]
 
-const ServerArg = "--rpc-stdio-server"
-
-proc framingByName(name: string): StdioFraming =
-  case name
-  of "be32": StdioFraming.lengthHeaderBE32()
-  else: StdioFraming.httpHeader()
-
-# ---------------------------------------------------------------------------
-# The child: a JSON-RPC server whose transport is its own stdin/stdout
-# ---------------------------------------------------------------------------
-
-var childServer: RpcStdioServer
-
-proc askClientAsync(conn: RpcConnection, question: string) {.async: (raises: []).} =
-  ## Ask the peer something, then tell it what came back.
-  try:
-    let answer = await conn.call("client/answer", %[%question])
-    await conn.notify("client/answered", default(RequestParamsTx))
-    doAssert answer.string == "\"re: " & question & "\"", answer.string
-  except CatchableError:
-    discard
-
-proc runChildServer(framingName: string) {.raises: [].} =
-  let srv = newRpcStdioServer(framing = framingByName(framingName))
-  childServer = srv
-
-  srv.rpc("hello") do(name: string):
-    %("Hello " & name)
-
-  srv.rpc("bigPayload") do(size: int):
-    %repeat('x', size)
-
-  srv.rpc("slow") do(ms: int, tag: string):
-    await sleepAsync(ms.milliseconds)
-    %tag
-
-  srv.rpc("boom") do():
-    raise (ref ValueError)(msg: "boom")
-
-  srv.rpc("askClient") do(question: string):
-    # Server -> client request over the same connection: this is what makes the
-    # transport bidirectional rather than a request/response pipe.
-    #
-    # It is dispatched rather than awaited here because json_rpc's read loop
-    # handles one message at a time (the socket transport behaves the same
-    # way): awaiting the peer's answer inside a handler would deadlock, since
-    # that answer can only be read once the handler has returned.
-    var conn: RpcConnection
-    {.cast(gcsafe).}:
-      conn = childServer.connection
-    asyncSpawn askClientAsync(conn, question)
-    %true
-
-  srv.rpc("notifyClient") do():
-    var srv: RpcStdioServer
-    {.cast(gcsafe).}:
-      srv = childServer
-    await srv.notify("client/event", default(RequestParamsTx))
-    %true
-
-  try:
-    waitFor srv.serve()
-  except CatchableError:
-    discard
-  quit(0)
-
-# The suites below run at module scope, so the child has to branch off before
-# reaching them - otherwise every spawned server would run the tests too, each
-# spawning more servers.
-if paramCount() >= 1 and paramStr(1) == ServerArg:
-  runChildServer(if paramCount() >= 2: paramStr(2) else: "http")
-
-# ---------------------------------------------------------------------------
-# The parent: the tests
-# ---------------------------------------------------------------------------
+suite "stdio transport fixture":
+  test "the peer program has been built":
+    check fileExists(peerExe())
+    if not fileExists(peerExe()):
+      echo "build it with: nim c -d:\"chronicles_sinks=textlines[stderr]\" -o:",
+        peerExe(), " tests/private/stdio_peer.nim"
 
 template stdioTests(framingName: static string) =
   suite "JSON-RPC over stdio (" & framingName & " framing)":
@@ -109,6 +31,7 @@ template stdioTests(framingName: static string) =
       var
         router = new RpcRouter
         answered = newAsyncEvent()
+        notified = newAsyncEvent()
         client = newRpcStdioClient(
           router = router, framing = framingByName(framingName)
         )
@@ -117,11 +40,10 @@ template stdioTests(framingName: static string) =
         answered.fire()
         %("re: " & question)
 
-      var notified = newAsyncEvent()
       router[].rpc("client/event") do() -> void:
         notified.fire()
 
-      waitFor client.connect(getAppFilename(), @[ServerArg, framingName])
+      waitFor client.connect(peerExe(), @["server", framingName])
 
     teardown:
       waitFor client.close()
@@ -176,6 +98,39 @@ template stdioTests(framingName: static string) =
 
 stdioTests("http")
 stdioTests("be32")
+stdioTests("lines")
+
+suite "JSON-RPC over stdio, peer is an RpcStdioClient on its own stdio":
+  setup:
+    var
+      router = new RpcRouter
+      answered = newAsyncEvent()
+      roundTripped = newAsyncEvent()
+      client = newRpcStdioClient(router = router, framing = framingByName("http"))
+
+    router[].rpc("client/answer") do(question: string):
+      answered.fire()
+      %("re: " & question)
+
+    router[].rpc("client/answered") do() -> void:
+      roundTripped.fire()
+
+    waitFor client.connect(peerExe(), @["client", "http"])
+
+  teardown:
+    waitFor client.close()
+
+  asyncTest "call and response":
+    check (await client.call("hello", %[%"stdio"])).string == "\"Hello stdio\""
+
+  asyncTest "message larger than the pipe buffer":
+    check (await client.call("bigPayload", %[%(1024 * 1024)])).string.len ==
+      1024 * 1024 + 2
+
+  asyncTest "the peer calls back into us":
+    check (await client.call("askClient", %[%"are you there?"])).string == "true"
+    check await answered.wait().withTimeout(2.seconds)
+    check await roundTripped.wait().withTimeout(2.seconds)
 
 suite "stdio transport errors":
   test "connecting to a command that does not exist":
@@ -185,7 +140,7 @@ suite "stdio transport errors":
 
   test "the peer exits when the client closes":
     var client = newRpcStdioClient()
-    waitFor client.connect(getAppFilename(), @[ServerArg, "http"])
+    waitFor client.connect(peerExe(), @["server", "http"])
     check (waitFor client.call("hello", %[%"bye"])).string == "\"Hello bye\""
     waitFor client.close()
     check client.exitCode() == Opt.some(0)
