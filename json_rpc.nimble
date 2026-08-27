@@ -56,6 +56,9 @@ proc buildOnly(args, path: string) =
 task test, "run tests":
   for mode in ["", "-d:release"]:
     run mode, "tests/all"
+    # Built separately: this one re-executes itself as the peer process, so it
+    # cannot share a binary with the other suites.
+    run mode & " -d:\"chronicles_sinks=textlines[stderr]\"", "tests/test_stdio_transport"
 
   when not defined(windows):
     # on windows, socker server build failed
@@ -71,6 +74,9 @@ task examples, "Run examples":
   for file in listFiles("docs/examples"):
     if file.endsWith("_sigs_def.nim"):
       continue
+    elif file.endsWith("stdio_server.nim"):
+      # Avoid serve forever; stdout carries the protocol, so logs go to stderr
+      buildOnly "--threads:on -d:\"chronicles_sinks=textlines[stderr]\"", file
     elif file.endsWith("_server.nim"):
       # Avoid serve forever
       buildOnly "--threads:on", file
