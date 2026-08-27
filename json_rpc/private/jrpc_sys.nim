@@ -322,7 +322,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx)
     of "id"     : r.readValue(val.id)
     of "result" : val.result = r.parseAsString()
     of "error"  : r.readValue(val.error)
-    else: discard
+    else: r.skipSingleJsValue()
 
 proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx2)
        {.gcsafe, raises: [IOError, SerializationError].} =
@@ -340,7 +340,7 @@ proc readValue*(r: var JsonReader[JrpcSys], val: var ResponseRx2)
     of "id"     : r.readValue(idOpt)
     of "result" : resultOpt.ok r.parseAsString()
     of "error"  : r.readValue(errorOpt)
-    else: discard
+    else: r.skipSingleJsValue()
 
   if jsonrpcOpt.isNone:
     r.raiseIncompleteObject("Missing or invalid `jsonrpc` version")
@@ -383,7 +383,7 @@ proc readValue(r: var JsonReader[JrpcSys], val: var BidiMessageIx)
     of "error"  : r.readValue(val.error)
     of "method" : r.readValue(val.`method`)
     of "params" : r.readValue(val.params)
-    else: discard
+    else: r.skipSingleJsValue()
 
 proc validateRequest(val: BidiMessageIx) {.gcsafe, raises: [BidiMessageRequestError].} =
   if val.jsonrpc.isNone:
