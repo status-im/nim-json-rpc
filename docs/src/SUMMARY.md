@@ -19,6 +19,8 @@
 - [HTTP client](./cookbook/http_client.md)
 - [Socket server](./cookbook/socket_server.md)
 - [Socket client](./cookbook/socket_client.md)
+- [Stdio server](./cookbook/stdio_server.md)
+- [Stdio client](./cookbook/stdio_client.md)
 - [Websocket server](./cookbook/websocket_server.md)
 - [Websocket client](./cookbook/websocket_client.md)
 - [Proxy server](./cookbook/proxy_server.md)
