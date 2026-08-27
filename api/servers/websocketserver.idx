@@ -9,7 +9,7 @@ nim	newRpcWebSocketServer	servers/websocketserver.html#newRpcWebSocketServer,Tra
 nim	newRpcWebSocketServer	servers/websocketserver.html#newRpcWebSocketServer,string,Port,TLSPrivateKey,TLSCertificate,bool,set[ServerFlags],set[TLSFlags],seq[WsAuthHook]	proc newRpcWebSocketServer(host: string; port: Port; tlsPrivateKey: TLSPrivateKey;\n                      tlsCertificate: TLSCertificate; compression: bool = false;\n                      flags: set[ServerFlags] = {TcpNoDelay, ReuseAddr};\n                      tlsFlags: set[TLSFlags] = {};\n                      tlsMinVersion = TLSVersion.TLS12;\n                      tlsMaxVersion = TLSVersion.TLS12;\n                      authHooks: seq[WsAuthHook] = @[];\n                      rng = HmacDrbgContext.new()): RpcWebSocketServer		200
 nim	start	servers/websocketserver.html#start,RpcWebSocketServer	proc start(server: RpcWebSocketServer)		230
 nim	stop	servers/websocketserver.html#stop,RpcWebSocketServer	proc stop(server: RpcWebSocketServer)		238
-nim	close	servers/websocketserver.html#close,RpcWebSocketServer	proc close(server: RpcWebSocketServer)		246
-nim	closeWait	servers/websocketserver.html#closeWait,RpcWebSocketServer	proc closeWait(server: RpcWebSocketServer): InternalRaisesFuture[void, void]		250
-nim	localAddress	servers/websocketserver.html#localAddress,RpcWebSocketServer	proc localAddress(server: RpcWebSocketServer): TransportAddress		254
+nim	close	servers/websocketserver.html#close,RpcWebSocketServer	proc close(server: RpcWebSocketServer)		247
+nim	closeWait	servers/websocketserver.html#closeWait,RpcWebSocketServer	proc closeWait(server: RpcWebSocketServer): InternalRaisesFuture[void, void]		251
+nim	localAddress	servers/websocketserver.html#localAddress,RpcWebSocketServer	proc localAddress(server: RpcWebSocketServer): TransportAddress		255
 nimgrp	newrpcwebsocketserver	servers/websocketserver.html#newRpcWebSocketServer-procs-all	proc		118

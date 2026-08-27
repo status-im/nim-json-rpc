@@ -66,6 +66,7 @@
 <li><a class="reference" href="#InvalidResponse" title="InvalidResponse = object of JsonRpcError
   payload*: seq[byte]">InvalidResponse</a></li>
 <li><a class="reference" href="#JsonRpcError" title="JsonRpcError = object of CatchableError">JsonRpcError</a></li>
+<li><a class="reference" href="#ParamsMismatchError" title="ParamsMismatchError = object of JsonRpcError">ParamsMismatchError</a></li>
 <li><a class="reference" href="#RequestDecodeError" title="RequestDecodeError = object of JsonRpcError
   payload*: seq[byte]">RequestDecodeError</a></li>
 <li><a class="reference" href="#ResultDecodeError" title="ResultDecodeError = object of JsonRpcError
@@ -99,8 +100,8 @@
   <dd>
     
     Error to be raised by the application request handlers when the server needs to respond with a custom application error. The error code should be outside the range of -32768 to -32000. A custom JSON data object may be provided.
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/errors.nim#L49" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/errors.nim#L49" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/errors.nim#L53" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/errors.nim#L53" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -137,8 +138,8 @@
 </div>
 
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/errors.nim#L57" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/errors.nim#L57" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/errors.nim#L61" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/errors.nim#L61" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -160,6 +161,16 @@
     Base type of all nim-json-rpc errors
     <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/errors.nim#L15" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
 <a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/errors.nim#L15" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+
+  </dd>
+</div>
+<div id="ParamsMismatchError">
+  <dt><pre><a href="errors.html#ParamsMismatchError"><span class="Identifier">ParamsMismatchError</span></a> <span class="Other">=</span> <span class="Keyword">object</span> <span class="Keyword">of</span> <a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a></pre></dt>
+  <dd>
+    
+    Error raised internally when params fail to match the method signature
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/errors.nim#L49" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/errors.nim#L49" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -235,7 +246,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-08-27 19:33:05 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-08-27 20:03:44 UTC</small>
       </div>
     </div>
   </div>
