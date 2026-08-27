@@ -223,3 +223,41 @@ suite "jrpc_sys serialization":
       id: RequestId(kind: riNumber, num: 123)
     )
     check meth(rx).get == "old_method"
+
+  test "unknown request members are ignored":
+    const data =
+      """{"jsonrpc":"2.0","method":"m","params":[1],"id":1,"extra":{"a":[1,2]}}"""
+    let rx = JrpcSys.decode(data, RequestRx2)
+    check:
+      rx.meth == "m"
+      rx.id == Opt.some(RequestId(kind: riNumber, num: 1))
+      rx.params.positional.len == 1
+
+  test "unknown response members are ignored":
+    const data = """{"jsonrpc":"2.0","result":"ok","id":1,"extra":{"a":[1,2]}}"""
+    let rx = JrpcSys.decode(data, ResponseRx2)
+    check:
+      rx.kind == ResponseKind.rkResult
+      rx.result == JsonString("\"ok\"")
+
+  test "unknown bidi message members are ignored":
+    block:
+      const data =
+        """{"jsonrpc":"2.0","method":"m","params":[1],"id":1,"extra":{"a":[1,2]}}"""
+      let bm = JrpcSys.decode(data, BidiMessage)
+      doAssert bm.kind == bmRequest
+      doAssert bm.request.kind == rbkSingle
+      let rx = bm.request.single
+      check:
+        rx.meth == "m"
+        rx.id == Opt.some(RequestId(kind: riNumber, num: 1))
+        rx.params.positional.len == 1
+    block:
+      const data = """{"jsonrpc":"2.0","result":"ok","id":1,"extra":{"a":[1,2]}}"""
+      let bm = JrpcSys.decode(data, BidiMessage)
+      doAssert bm.kind == bmResponse
+      doAssert bm.response.kind == rbkSingle
+      let rx = bm.response.single
+      check:
+        rx.kind == ResponseKind.rkResult
+        rx.result == JsonString("\"ok\"")

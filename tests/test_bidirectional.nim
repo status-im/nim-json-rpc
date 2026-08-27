@@ -112,12 +112,12 @@ template allTests(client: untyped) =
   test "Sending an ambiguous message terminates the connection":
     # check it fails with parse error; id=null response
     const req = """{"foo": "boo"}"""
-    const expected = """{"code":-32600,"message":"',' expected"}"""
+    const expected = """{"code":-32600,"message":"Multiple missing fields"}"""
     checkInvalidRequest(client, req, expected)
 
   test "Sending an ambiguous batch message terminates the connection":
     const req = """[{"foo": "boo"}]"""
-    const expected = """{"code":-32600,"message":"',' expected"}"""
+    const expected = """{"code":-32600,"message":"Multiple missing fields"}"""
     checkInvalidRequest(client, req, expected)
 
   test "Sending a null id terminates the connection":
