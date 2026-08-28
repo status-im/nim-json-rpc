@@ -114,9 +114,9 @@ proc new*(
   of INTERNAL_ERROR:
     err(RpcInternalError)
   else:
-    if -32768 <= code and code < -32099:
+    if code in -32768 ..< -32099:
       err(RpcResponseError)
-    elif -32099 <= code and code <= -32000:
+    elif code in -32099 .. -32000:
       err(RpcServerError)
     else:
       err(RpcApplicationError)

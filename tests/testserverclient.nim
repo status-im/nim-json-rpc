@@ -24,18 +24,10 @@ proc setupServer*(srv: RpcServer) =
   srv.rpc("invalidRequest") do():
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
 
-  srv.rpc("respError") do():
-    raise (ref RpcResponseError)(code: 123, msg: "Unknown payload")
-
-  srv.rpc("respErrorWithData") do():
+  srv.rpc("errorByCode") do(code: int, data: Opt[JsonString]):
     raise (ref RpcResponseError)(
-      code: 123,
-      msg: "Unknown payload",
-      data: JsonString("\"extra data\"")
+      code: code, msg: "Some err", data: data.get(default(JsonString))
     )
-
-  srv.rpc("apiParseError") do():
-    raise (ref RpcResponseError)(code: -32700, msg: "Custom api parse error")
 
   srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
     FlavorObj.init("ret " & obj.s.string)
@@ -91,38 +83,61 @@ template callTests(client: untyped): untyped =
 
   test "Response error":
     try:
-      discard waitFor client.call("respError", %[])
+      discard waitFor client.call("errorByCode", %[123])
       check false
     except RpcApplicationError as e:
       check:
         e.origin == RpcOrigin.rpcRemote
         e.code == 123
-        e.msg == "Unknown payload"
+        e.msg == "Some err"
         e.data == JsonString("")
-        toJsonError(e) == """{"code":123,"message":"Unknown payload"}"""
+        toJsonError(e) == """{"code":123,"message":"Some err"}"""
 
   test "Response error with data":
     try:
-      discard waitFor client.call("respErrorWithData", %[])
+      discard waitFor client.call("errorByCode", %[%123, %"extra data"])
       check false
     except RpcApplicationError as e:
       check:
         e.origin == RpcOrigin.rpcRemote
         e.code == 123
-        e.msg == "Unknown payload"
+        e.msg == "Some err"
         e.data == JsonString("\"extra data\"")
-        toJsonError(e) == """{"code":123,"message":"Unknown payload","data":"extra data"}"""
+        toJsonError(e) == """{"code":123,"message":"Some err","data":"extra data"}"""
 
-  test "Custom api parse error":
+  test "All response errors":
+    expect RpcParseError:
+      discard waitFor client.call("errorByCode", %[-32700])
+    expect RpcInvalidRequestError:
+      discard waitFor client.call("errorByCode", %[-32600])
+    expect RpcMethodNotFoundError:
+      discard waitFor client.call("errorByCode", %[-32601])
+    expect RpcInvalidParamsError:
+      discard waitFor client.call("errorByCode", %[-32602])
+    expect RpcInternalError:
+      discard waitFor client.call("errorByCode", %[-32603])
+    expect RpcServerError:
+      discard waitFor client.call("errorByCode", %[-32099])
+    expect RpcServerError:
+      discard waitFor client.call("errorByCode", %[-32000])
+    expect RpcServerError:
+      discard waitFor client.call("errorByCode", %[-32050])
+    expect RpcApplicationError:
+      discard waitFor client.call("errorByCode", %[-123])
     try:
-      discard waitFor client.call("apiParseError", %[])
+      discard waitFor client.call("errorByCode", %[-32768])
       check false
-    except RpcParseError as e:
-      check:
-        e.origin == RpcOrigin.rpcRemote
-        e.code == -32700
-        e.msg == "Custom api parse error"
-        e.data == JsonString("")
+    except RpcServerError, RpcApplicationError:
+      check false
+    except RpcResponseError as e:
+      check e.code == -32768
+    try:
+      discard waitFor client.call("errorByCode", %[-32100])
+      check false
+    except RpcServerError, RpcApplicationError:
+      check false
+    except RpcResponseError as e:
+      check e.code == -32100
 
   test "Successful RPC call with flavor":
     let r = waitFor client.call("myProcFlavor", %[FlavorObj.init("foobar")], JrpcFlavor)
