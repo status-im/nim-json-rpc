@@ -158,6 +158,7 @@ proc stop*(server: RpcSocketServer) =
       item.stop()
     except TransportOsError as exc:
       warn "Could not stop transport", err = exc.msg
+      discard exc
 
 proc close*(server: RpcSocketServer) =
   ## Cleanup resources of RPC server.

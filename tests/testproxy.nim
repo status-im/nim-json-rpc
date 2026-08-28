@@ -83,16 +83,15 @@ template callTests(client: untyped): untyped =
         exc.msg == "Some error"
         exc.data == JsonString("")
 
-  # XXX requires https://github.com/status-im/nim-json-rpc/pull/294
-  #test "Invalid params is propagated":
-  #  try:
-  #    discard waitFor client.call("myProc", %[123])
-  #    check false
-  #  except RpcInvalidParamsError as exc:
-  #    check:
-  #      exc.code == -32602
-  #      exc.msg == "`myProc` raised an exception"
-  #      exc.data == JsonString("\"Expected 2 JSON parameter(s) but got 1\"")
+  test "Invalid params is propagated":
+    try:
+      discard waitFor client.call("myProc", %[123])
+      check false
+    except RpcInvalidParamsError as exc:
+      check:
+        exc.code == -32602
+        exc.msg == "`myProc` raised an exception"
+        exc.data == JsonString("\"Expected 2 JSON parameter(s) but got 1\"")
 
 suite "Proxy RPC through http":
   var srv = newRpcHttpServer([srvAddress])

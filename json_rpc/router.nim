@@ -197,7 +197,7 @@ proc route*(
       JrpcSys.decode(data, RequestBatchRx)
     except InvalidRequestSysError as err:
       return string.fromBytes(wrapError(INVALID_REQUEST, err.msg))
-    except IncompleteObjectError as err:
+    except IncompleteObjectError:
       return string.fromBytes(wrapError(INVALID_REQUEST, "Invalid Request"))
     except SerializationError as err:
       return string.fromBytes(wrapError(JSON_PARSE_ERROR, err.msg))
