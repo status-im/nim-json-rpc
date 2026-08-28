@@ -70,7 +70,7 @@ template callTests(client: untyped): untyped =
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
 
   test "Missing params":
-    expect(RpcServerError):
+    expect(RpcInvalidParamsError):
       discard waitFor client.call("myProc", %[%"abc"])
 
   test "Error RPC call":

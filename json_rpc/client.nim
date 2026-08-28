@@ -187,6 +187,7 @@ proc processMessage*(
     JrpcSys.decode(line, BidiMessage)
   except BidiMessageResponseError as exc:
     debug "Failed to parse response", err = exc.msg, remote = client.remote
+    discard exc
     return makeResponse(default(seq[byte]))
   except BidiMessageRequestError as exc:
     debug "Failed to parse request", err = exc.msg, remote = client.remote
