@@ -93,7 +93,7 @@ proc processsSingleResponse(
     raise RpcResponseError.new(
       response.error.code,
       move(response.error.message),
-      response.error.data.get(JsonString("")),
+      response.error.data.get(default(JsonString)),
       RpcOrigin.rpcRemote
     )
   of ResponseKind.rkResult:
@@ -421,7 +421,7 @@ template createRpcSigsFromNim*(clientType, procList: untyped): untyped =
   createRpcSigsFromNim(clientType, JrpcConv, procList)
 
 proc toJsonError*(e: ref RpcResponseError): string =
-  let data = if e.data != JsonString(""):
+  let data = if e.data != default(JsonString):
     Opt[JsonString].ok(e.data)
   else:
     Opt.none(JsonString)

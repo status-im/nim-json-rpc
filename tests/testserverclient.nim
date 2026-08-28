@@ -78,7 +78,7 @@ template callTests(client: untyped): untyped =
         e.origin == RpcOrigin.rpcRemote
         e.code == -32001
         e.msg == "Unknown payload"
-        e.data == JsonString("")
+        e.data == default(JsonString)
         toJsonError(e) == """{"code":-32001,"message":"Unknown payload"}"""
 
   test "Response error":
@@ -90,7 +90,7 @@ template callTests(client: untyped): untyped =
         e.origin == RpcOrigin.rpcRemote
         e.code == 123
         e.msg == "Some err"
-        e.data == JsonString("")
+        e.data == default(JsonString)
         toJsonError(e) == """{"code":123,"message":"Some err"}"""
 
   test "Response error with data":

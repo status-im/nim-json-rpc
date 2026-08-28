@@ -47,11 +47,11 @@ template registerMethods(srv: RpcServer, proxy: RpcProxy) =
 template callTests(client: untyped): untyped =
   test "Successful RPC call thorugh proxy":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
-    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+    check r == JsonString("\"Hello abc data: [1, 2, 3, 4]\"")
 
   test "Successful RPC call no proxy":
     let r = waitFor client.call("myProc1", %[%"abc", %[1, 2, 3, 4]])
-    check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+    check r == JsonString("\"Hello abc data: [1, 2, 3, 4]\"")
 
   test "Missing params":
     expect(CatchableError):
@@ -63,22 +63,23 @@ template callTests(client: untyped): untyped =
 
   test "Successful RPC call thorugh proxy with flavor":
     let r = waitFor client.call("myProcFlavor", %[FlavorObj.init("foobar")])
-    check r.string == """{"s":"ret foobar"}"""
+    check r == JsonString("""{"s":"ret foobar"}""")
 
   test "Successful RPC call no proxy with flavor":
     let r = waitFor client.call("myProc1Flavor", %[FlavorObj.init("foobar")])
-    check r.string == """{"s":"ret foobar"}"""
+    check r == JsonString("""{"s":"ret foobar"}""")
 
   test "Successful RPC call no proxy with flavor context":
     let r = waitFor client.call("myProc1FlavorCtx", %[FlavorObj.init("foobar")])
-    check r.string == """{"s":"ret foobar"}"""
+    check r == JsonString("""{"s":"ret foobar"}""")
 
   test "Application error is propagated":
     try:
       discard waitFor client.call("mySrvAppErr", %[])
       check false
-    except RpcResponseError as exc:
+    except RpcApplicationError as exc:
       check:
+        exc.origin == RpcOrigin.rpcRemote
         exc.code == 123
         exc.msg == "Some error"
         exc.data == JsonString("")
@@ -89,6 +90,7 @@ template callTests(client: untyped): untyped =
       check false
     except RpcInvalidParamsError as exc:
       check:
+        exc.origin == RpcOrigin.rpcRemote
         exc.code == -32602
         exc.msg == "`myProc` raised an exception"
         exc.data == JsonString("\"Expected 2 JSON parameter(s) but got 1\"")

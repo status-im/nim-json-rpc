@@ -78,7 +78,7 @@ func respError(
     msg: sink string,
     data: sink JsonString,
 ): ResponseTx =
-  let data2 = if data != JsonString(""):
+  let data2 = if data != default(JsonString):
     Opt[JsonString].ok(data)
   else:
     Opt.none(JsonString)
@@ -88,7 +88,7 @@ func methodNotFound(req: RequestRx2): ResponseTx =
   req.respError(METHOD_NOT_FOUND, "'" & req.meth & "' is not a registered RPC method")
 
 func invalidParamsError(req: RequestRx2, data: sink JsonString): ResponseTx =
-  req.respError(INVALID_PARAMS, "`" & req.meth & "` raised an exception", Opt.some(data))
+  req.respError(INVALID_PARAMS, "`" & req.meth & "` raised an exception", data)
 
 func serverError(req: RequestRx2, data: sink JsonString): ResponseTx =
   req.respError(SERVER_ERROR, "`" & req.meth & "` raised an exception", data)

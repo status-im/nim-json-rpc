@@ -89,7 +89,7 @@ proc new*(
   T: type RpcResponseError,
   code: int,
   msg: sink string,
-  data: sink JsonString = JsonString(""),
+  data: sink JsonString = default(JsonString),
   origin: RpcOrigin = RpcOrigin.rpcLocal
 ): ref RpcResponseError =
   template err(obj: untyped): untyped =
