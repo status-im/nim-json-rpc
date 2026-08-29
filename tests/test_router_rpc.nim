@@ -96,9 +96,13 @@ server.rpc(JrpcConv):
   proc rpcCtxSyncEmpty(s: string): void =
     discard
 
+  proc emptyErrorMsg(): string {.raises: [ValueError].} =
+    raise (ref ValueError)(msg: "")
+
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
     "\"" & meth & "\", \"params\": " & params & """, "id":0}"""
+
 func notif(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
     "\"" & meth & "\", \"params\": " & params & """}"""
@@ -404,3 +408,7 @@ suite "rpc context":
     let n = req("rpcCtxSyncEmpty", """{"result": "foo"}""")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
+
+  test "Empty error message":
+    let res = waitFor server.route(req("emptyErrorMsg", "{}"))
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`emptyErrorMsg` raised an exception","data":""},"id":0}"""

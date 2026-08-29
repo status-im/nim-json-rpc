@@ -90,7 +90,12 @@ proc processsSingleResponse(
 
   case response.kind
   of ResponseKind.rkError:
-    raise (ref JsonRpcError)(msg: JrpcSys.encode(response.error))
+    raise RpcResponseError.new(
+      response.error.code,
+      move(response.error.message),
+      response.error.data.get(default(JsonString)),
+      RpcOrigin.rpcRemote
+    )
   of ResponseKind.rkResult:
     move(response.result)
 
@@ -182,6 +187,7 @@ proc processMessage*(
     JrpcSys.decode(line, BidiMessage)
   except BidiMessageResponseError as exc:
     debug "Failed to parse response", err = exc.msg, remote = client.remote
+    discard exc
     return makeResponse(default(seq[byte]))
   except BidiMessageRequestError as exc:
     debug "Failed to parse request", err = exc.msg, remote = client.remote
@@ -269,6 +275,9 @@ proc call*(
       let resData = await request
       debug "Processing JSON-RPC response", id, remote = client.remote
       processsSingleResponse(resData, id)
+    except RpcResponseError as exc:
+      debug "JSON-RPC request failed", code = exc.code, msg = exc.msg, data = exc.data, id, remote = client.remote
+      raise exc
     except JsonRpcError as exc:
       debug "JSON-RPC request failed", err = exc.msg, id, remote = client.remote
       raise exc
@@ -410,5 +419,12 @@ macro createRpcSigsFromNim*(clientType, formatType, procList: untyped): untyped 
 
 template createRpcSigsFromNim*(clientType, procList: untyped): untyped =
   createRpcSigsFromNim(clientType, JrpcConv, procList)
+
+proc toJsonError*(e: ref RpcResponseError): string =
+  let data = if e.data != default(JsonString):
+    Opt[JsonString].ok(e.data)
+  else:
+    Opt.none(JsonString)
+  JrpcSys.encode(ResponseError(code: e.code, message: e.msg, data: data))
 
 {.pop.}

@@ -55,11 +55,13 @@ proc serveHTTP*(rpc: RpcWebSocketHandler, request: HttpRequest)
     ws
   except WebSocketError as exc:
     error "WebSocket error:", address = $request.uri, msg = exc.msg
+    discard exc
     return
   except CancelledError as exc:
     raise exc
   except CatchableError as exc:
     debug "Internal error while processing JSON-RPC call", msg = exc.msg
+    discard exc
     return
 
   trace "Websocket handshake completed"
@@ -101,6 +103,7 @@ proc handleRequest(
       return
     except CatchableError as exc:
       debug "Something error", msg=exc.msg
+      discard exc
       return
 
   await rpc.serveHTTP(request)

@@ -24,6 +24,11 @@ proc setupServer*(srv: RpcServer) =
   srv.rpc("invalidRequest") do():
     raise (ref InvalidRequest)(code: -32001, msg: "Unknown payload")
 
+  srv.rpc("errorByCode") do(code: int, data: Opt[JsonString]):
+    raise (ref RpcResponseError)(
+      code: code, msg: "Some err", data: data.get(default(JsonString))
+    )
+
   srv.rpc("myProcFlavor", JrpcFlavor) do(obj: FlavorObj) -> FlavorObj:
     FlavorObj.init("ret " & obj.s.string)
 
@@ -51,25 +56,88 @@ proc setupServer*(srv: RpcServer) =
     proc myProcCtxOther(obj: FlavorObj): FlavorObj =
       FlavorObj.init("ret " & obj.s.string)
 
-template callTests(client: untyped) =
+template callTests(client: untyped): untyped =
   test "Successful RPC call":
     let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
 
   test "Missing params":
-    expect(CatchableError):
+    expect(RpcInvalidParamsError):
       discard waitFor client.call("myProc", %[%"abc"])
 
   test "Error RPC call":
-    expect(CatchableError): # The error type wont be translated
+    expect(RpcServerError): # The error type wont be translated
       discard waitFor client.call("myError", %[%"abc", %[1, 2, 3, 4]])
 
   test "Invalid request exception":
     try:
       discard waitFor client.call("invalidRequest", %[])
       check false
-    except CatchableError as e:
-      check e.msg == """{"code":-32001,"message":"Unknown payload"}"""
+    except RpcResponseError as e:
+      check:
+        e.origin == RpcOrigin.rpcRemote
+        e.code == -32001
+        e.msg == "Unknown payload"
+        e.data == default(JsonString)
+        toJsonError(e) == """{"code":-32001,"message":"Unknown payload"}"""
+
+  test "Response error":
+    try:
+      discard waitFor client.call("errorByCode", %[123])
+      check false
+    except RpcApplicationError as e:
+      check:
+        e.origin == RpcOrigin.rpcRemote
+        e.code == 123
+        e.msg == "Some err"
+        e.data == default(JsonString)
+        toJsonError(e) == """{"code":123,"message":"Some err"}"""
+
+  test "Response error with data":
+    try:
+      discard waitFor client.call("errorByCode", %[%123, %"extra data"])
+      check false
+    except RpcApplicationError as e:
+      check:
+        e.origin == RpcOrigin.rpcRemote
+        e.code == 123
+        e.msg == "Some err"
+        e.data == JsonString("\"extra data\"")
+        toJsonError(e) == """{"code":123,"message":"Some err","data":"extra data"}"""
+
+  test "All response errors":
+    expect RpcParseError:
+      discard waitFor client.call("errorByCode", %[-32700])
+    expect RpcInvalidRequestError:
+      discard waitFor client.call("errorByCode", %[-32600])
+    expect RpcMethodNotFoundError:
+      discard waitFor client.call("errorByCode", %[-32601])
+    expect RpcInvalidParamsError:
+      discard waitFor client.call("errorByCode", %[-32602])
+    expect RpcInternalError:
+      discard waitFor client.call("errorByCode", %[-32603])
+    expect RpcServerError:
+      discard waitFor client.call("errorByCode", %[-32099])
+    expect RpcServerError:
+      discard waitFor client.call("errorByCode", %[-32000])
+    expect RpcServerError:
+      discard waitFor client.call("errorByCode", %[-32050])
+    expect RpcApplicationError:
+      discard waitFor client.call("errorByCode", %[-123])
+    try:
+      discard waitFor client.call("errorByCode", %[-32768])
+      check false
+    except RpcServerError, RpcApplicationError:
+      check false
+    except RpcResponseError as e:
+      check e.code == -32768
+    try:
+      discard waitFor client.call("errorByCode", %[-32100])
+      check false
+    except RpcServerError, RpcApplicationError:
+      check false
+    except RpcResponseError as e:
+      check e.code == -32100
 
   test "Successful RPC call with flavor":
     let r = waitFor client.call("myProcFlavor", %[FlavorObj.init("foobar")], JrpcFlavor)
@@ -280,3 +348,42 @@ suite "Websocket Bidirectional":
     waitFor srv.closeWait()
 
   notifyTest(router, client)
+
+suite "Remote error propagation":
+  setup:
+    var srv1 = newRpcWebSocketServer("127.0.0.1", Port(0))
+    var srv2 = newRpcWebSocketServer("127.0.0.1", Port(0))
+
+    srv2.rpc(JrpcConv):
+      proc rpcErr(): void {.raises: [RpcResponseError].} =
+        raise (ref RpcResponseError)(code: 123, msg: "my error")
+
+    srv1.rpc(JrpcFlavor):
+      proc rpcCall(): void {.async: (raises: [CancelledError, JsonRpcError]).} =
+        var c = newRpcWebSocketClient()
+        defer: await c.close()
+        await c.connect("ws://" & $srv2.localAddress())
+        discard await c.call("rpcErr", %[])
+        doAssert false
+
+    srv1.start()
+    srv2.start()
+    var client = newRpcWebSocketClient()
+    waitFor client.connect("ws://" & $srv1.localAddress())
+
+  teardown:
+    waitFor client.close()
+    srv1.stop()
+    srv2.stop()
+    waitFor srv1.closeWait()
+    waitFor srv2.closeWait()
+
+  test "client call errors within an rpc handler are not propagated":
+    try:
+      discard waitFor client.call("rpcCall", %[])
+      check false
+    except RpcResponseError as exc:
+      check:
+        exc.code == -32000
+        exc.msg == "`rpcCall` raised an exception"
+        exc.data == JsonString("\"server error\"")
