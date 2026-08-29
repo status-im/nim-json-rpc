@@ -550,6 +550,12 @@
     maxMessageSize = defaultMaxMessageSize; router = default(ref RpcRouter)): T:type" href="clients/websocketclient.html#new%2CtypeRpcWebSocketClient%2CGetJsonRpcRequestHeaders_2">websocketclient: proc new(T: type RpcWebSocketClient; getHeaders: GetJsonRpcRequestHeaders = nil;
     maxMessageSize = defaultMaxMessageSize; router = default(ref RpcRouter)): T:type</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="errors: proc new(T: type RpcResponseError; code: int; msg: sink string;
+    data: sink JsonString = default(JsonString);
+    origin: RpcOrigin = RpcOrigin.rpcLocal): ref RpcResponseError" href="errors.html#new%2CtypeRpcResponseError%2Cint%2Csinkstring%2CsinkJsonString%2CRpcOrigin">errors: proc new(T: type RpcResponseError; code: int; msg: sink string;
+    data: sink JsonString = default(JsonString);
+    origin: RpcOrigin = RpcOrigin.rpcLocal): ref RpcResponseError</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="rpcproxy: proc new(T: type RpcProxy; listenAddresses: openArray[string]; cfg: ClientConfig;
     authHooks: seq[HttpAuthHook] = @[]): T:type" href="rpcproxy.html#new%2CtypeRpcProxy%2CopenArray%5Bstring%5D%2CClientConfig%2Cseq%5BHttpAuthHook%5D">rpcproxy: proc new(T: type RpcProxy; listenAddresses: openArray[string]; cfg: ClientConfig;
     authHooks: seq[HttpAuthHook] = @[]): T:type</a></li>
@@ -956,6 +962,10 @@
 <li><a class="reference external"
           data-doc-search-tag="errors: object RpcAddressUnresolvableError" href="errors.html#RpcAddressUnresolvableError">errors: object RpcAddressUnresolvableError</a></li>
           </ul></dd>
+<dt><a name="RpcApplicationError" href="#RpcApplicationError"><span>RpcApplicationError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcApplicationError" href="errors.html#RpcApplicationError">errors: object RpcApplicationError</a></li>
+          </ul></dd>
 <dt><a name="RpcBatchCallRef" href="#RpcBatchCallRef"><span>RpcBatchCallRef:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="client: type RpcBatchCallRef" href="client.html#RpcBatchCallRef">client: type RpcBatchCallRef</a></li>
@@ -992,6 +1002,30 @@
 <li><a class="reference external"
           data-doc-search-tag="httpserver: type RpcHttpServer" href="servers/httpserver.html#RpcHttpServer">httpserver: type RpcHttpServer</a></li>
           </ul></dd>
+<dt><a name="RpcInternalError" href="#RpcInternalError"><span>RpcInternalError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcInternalError" href="errors.html#RpcInternalError">errors: object RpcInternalError</a></li>
+          </ul></dd>
+<dt><a name="RpcInvalidParamsError" href="#RpcInvalidParamsError"><span>RpcInvalidParamsError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcInvalidParamsError" href="errors.html#RpcInvalidParamsError">errors: object RpcInvalidParamsError</a></li>
+          </ul></dd>
+<dt><a name="RpcInvalidRequestError" href="#RpcInvalidRequestError"><span>RpcInvalidRequestError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcInvalidRequestError" href="errors.html#RpcInvalidRequestError">errors: object RpcInvalidRequestError</a></li>
+          </ul></dd>
+<dt><a name="RpcMethodNotFoundError" href="#RpcMethodNotFoundError"><span>RpcMethodNotFoundError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcMethodNotFoundError" href="errors.html#RpcMethodNotFoundError">errors: object RpcMethodNotFoundError</a></li>
+          </ul></dd>
+<dt><a name="RpcOrigin" href="#RpcOrigin"><span>RpcOrigin:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: enum RpcOrigin" href="errors.html#RpcOrigin">errors: enum RpcOrigin</a></li>
+          </ul></dd>
+<dt><a name="RpcParseError" href="#RpcParseError"><span>RpcParseError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcParseError" href="errors.html#RpcParseError">errors: object RpcParseError</a></li>
+          </ul></dd>
 <dt><a name="RpcPostError" href="#RpcPostError"><span>RpcPostError:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="errors: object RpcPostError" href="errors.html#RpcPostError">errors: object RpcPostError</a></li>
@@ -1004,6 +1038,10 @@
 <li><a class="reference external"
           data-doc-search-tag="rpcproxy: type RpcProxy" href="rpcproxy.html#RpcProxy">rpcproxy: type RpcProxy</a></li>
           </ul></dd>
+<dt><a name="RpcResponseError" href="#RpcResponseError"><span>RpcResponseError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcResponseError" href="errors.html#RpcResponseError">errors: object RpcResponseError</a></li>
+          </ul></dd>
 <dt><a name="RpcRouter" href="#RpcRouter"><span>RpcRouter:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="router: object RpcRouter" href="router.html#RpcRouter">router: object RpcRouter</a></li>
@@ -1015,6 +1053,10 @@
 <dt><a name="RpcServer" href="#RpcServer"><span>RpcServer:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="server: type RpcServer" href="server.html#RpcServer">server: type RpcServer</a></li>
+          </ul></dd>
+<dt><a name="RpcServerError" href="#RpcServerError"><span>RpcServerError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="errors: object RpcServerError" href="errors.html#RpcServerError">errors: object RpcServerError</a></li>
           </ul></dd>
 <dt><a name="RpcSocketClient" href="#RpcSocketClient"><span>RpcSocketClient:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -1106,6 +1148,10 @@
           <li><a class="reference external"
           data-doc-search-tag="websocketserver: proc stop(server: RpcWebSocketServer)" href="servers/websocketserver.html#stop%2CRpcWebSocketServer">websocketserver: proc stop(server: RpcWebSocketServer)</a></li>
           </ul></dd>
+<dt><a name="toJsonError" href="#toJsonError"><span>toJsonError:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="client: proc toJsonError(e: ref RpcResponseError): string" href="client.html#toJsonError%2Cref.RpcResponseError">client: proc toJsonError(e: ref RpcResponseError): string</a></li>
+          </ul></dd>
 <dt><a name="toTx" href="#toTx"><span>toTx:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="jrpc_sys: proc toTx(params: RequestParamsRx): RequestParamsTx" href="private/jrpc_sys.html#toTx%2CRequestParamsRx">jrpc_sys: proc toTx(params: RequestParamsRx): RequestParamsTx</a></li>
@@ -1194,7 +1240,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-08-27 20:03:45 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-08-29 04:12:59 UTC</small>
       </div>
     </div>
   </div>

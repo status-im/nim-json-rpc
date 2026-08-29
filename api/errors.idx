@@ -10,5 +10,15 @@ nim	RpcAddressUnresolvableError	errors.html#RpcAddressUnresolvableError	object R
 nim	RequestDecodeError	errors.html#RequestDecodeError	object RequestDecodeError		41
 nim	ResultDecodeError	errors.html#ResultDecodeError	object ResultDecodeError		45
 nim	ParamsMismatchError	errors.html#ParamsMismatchError	object ParamsMismatchError		49
-nim	ApplicationError	errors.html#ApplicationError	object ApplicationError		53
-nim	InvalidRequest	errors.html#InvalidRequest	type InvalidRequest		61
+nim	RpcOrigin	errors.html#RpcOrigin	enum RpcOrigin		53
+nim	RpcResponseError	errors.html#RpcResponseError	object RpcResponseError		57
+nim	RpcParseError	errors.html#RpcParseError	object RpcParseError		63
+nim	RpcInvalidRequestError	errors.html#RpcInvalidRequestError	object RpcInvalidRequestError		65
+nim	RpcMethodNotFoundError	errors.html#RpcMethodNotFoundError	object RpcMethodNotFoundError		67
+nim	RpcInvalidParamsError	errors.html#RpcInvalidParamsError	object RpcInvalidParamsError		69
+nim	RpcInternalError	errors.html#RpcInternalError	object RpcInternalError		71
+nim	RpcServerError	errors.html#RpcServerError	object RpcServerError		73
+nim	RpcApplicationError	errors.html#RpcApplicationError	object RpcApplicationError		75
+nim	ApplicationError	errors.html#ApplicationError	object ApplicationError		81
+nim	InvalidRequest	errors.html#InvalidRequest	type InvalidRequest		85
+nim	new	errors.html#new,typeRpcResponseError,int,sinkstring,sinkJsonString,RpcOrigin	proc new(T: type RpcResponseError; code: int; msg: sink string;\n    data: sink JsonString = default(JsonString);\n    origin: RpcOrigin = RpcOrigin.rpcLocal): ref RpcResponseError		88

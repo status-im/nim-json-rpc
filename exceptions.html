@@ -179,23 +179,34 @@
 <p>JSON-RPC also allows for an error <code>data</code> property which may be a primitive value, array or object that provides more data regarding the error. The schema for this property is up to the application.</p>
 <h2 id="server-side-concerns"><a class="header" href="#server-side-concerns">Server-side concerns</a></h2>
 <p>The RPC server can return errors to the client by throwing an exception from the RPC method. If the RPC method was invoked using a JSON-RPC notification, the client is not expecting any response and the exception thrown from the server will be swallowed.</p>
-<p>The RPC method can raise an <code>ApplicationError</code> with a specific <code>code</code>, <code>data</code>, and <code>msg</code> (message). Any other exception thrown from an RPC method is assigned -32000 (Server error) for the JSON-RPC error <code>code</code> property. The exception <code>msg</code> field is used as the JSON-RPC error <code>data</code> property.</p>
+<p>The RPC method can raise an <code>RpcResponseError</code> with a specific <code>code</code>, <code>data</code>, and <code>msg</code> (message). Any other exception thrown from an RPC method is assigned -32000 (Server error) for the JSON-RPC error <code>code</code> property.</p>
 <p>RPC method error example:</p>
-<pre><code class="language-nim">proc teaPot(): void {.raises: [ApplicationError].} =
-  raise (ref ApplicationError)(
-    code: 418, data: Opt.none(JsonString), msg: "I'm a teapot"
+<pre><code class="language-nim">proc teaPot(): void {.raises: [RpcResponseError].} =
+  raise (ref RpcResponseError)(
+    code: 418, msg: "I'm a teapot"
   )
 </code></pre>
 <h2 id="client-side-concerns"><a class="header" href="#client-side-concerns">Client-side concerns</a></h2>
 <p>An invocation of an RPC method may throw several exceptions back at the client. The base exception <code>JsonRpcError</code> can be used to catch all RPC exceptions.</p>
-<p>These are the exceptions which the client should be prepared to handle: <code>RpcTransportError</code>, <code>InvalidResponse</code>, <code>RequestDecodeError</code>, and <code>JsonRpcError</code>.</p>
-<p>The JSON error object is assigned to the <code>msg</code> field of <code>JsonRpcError</code>, when it does not match the rest of exceptions.</p>
 <p>Error handling example:</p>
 <pre><code class="language-nim">try:
   discard await client.teaPot()
   doAssert false
+except RpcResponseError as err:
+  # Response error code
+  doAssert err.code == 418
+  doAssert err.msg == "I'm a teapot"
+  doAssert err.data == default(JsonString)
+except InvalidResponse as err:
+  # Invalid response violates the JSON-RPC protocol;
+  # you may want to convert the payload from seq[bytes] to string
+  doAssert false, err.msg &amp; "; payload: " &amp; $err.payload
+except RpcTransportError as err:
+  # Transport layer errors
+  doAssert false, err.msg
 except JsonRpcError as err:
-  doAssert err.msg == """{"code":418,"message":"I'm a teapot"}"""
+  # Any other error
+  doAssert false, err.msg
 </code></pre>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/exceptions.md">Edit this page on GitHub.</a></footer>
                     </main>

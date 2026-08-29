@@ -233,8 +233,21 @@ proc main() {.async.} =
   try:
     discard await client.teaPot()
     doAssert false
+  except RpcResponseError as err:
+    # Response error code
+    doAssert err.code == 418
+    doAssert err.msg == "I'm a teapot"
+    doAssert err.data == default(JsonString)
+  except InvalidResponse as err:
+    # Invalid response violates the JSON-RPC protocol;
+    # you may want to convert the payload from seq[bytes] to string
+    doAssert false, err.msg &amp; "; payload: " &amp; $err.payload
+  except RpcTransportError as err:
+    # Transport layer errors
+    doAssert false, err.msg
   except JsonRpcError as err:
-    doAssert err.msg == """{"code":418,"message":"I'm a teapot"}"""
+    # Any other error
+    doAssert false, err.msg
 
 when isMainModule:
   waitFor main()

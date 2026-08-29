@@ -12,9 +12,9 @@ nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer,string,Port	
 nim	newRpcSocketServer	servers/socketserver.html#newRpcSocketServer,StreamCallback2	proc newRpcSocketServer(processClientHook: StreamCallback2;\n                   framing = Framing.newLine()): RpcSocketServer		137
 nim	start	servers/socketserver.html#start,RpcSocketServer	proc start(server: RpcSocketServer)		144
 nim	stop	servers/socketserver.html#stop,RpcSocketServer	proc stop(server: RpcSocketServer)		154
-nim	close	servers/socketserver.html#close,RpcSocketServer	proc close(server: RpcSocketServer)		162
-nim	closeWait	servers/socketserver.html#closeWait,RpcSocketServer	proc closeWait(server: RpcSocketServer): InternalRaisesFuture[void, void]		167
-nim	localAddress	servers/socketserver.html#localAddress,RpcSocketServer	proc localAddress(server: RpcSocketServer): seq[TransportAddress]		172
+nim	close	servers/socketserver.html#close,RpcSocketServer	proc close(server: RpcSocketServer)		163
+nim	closeWait	servers/socketserver.html#closeWait,RpcSocketServer	proc closeWait(server: RpcSocketServer): InternalRaisesFuture[void, void]		168
+nim	localAddress	servers/socketserver.html#localAddress,RpcSocketServer	proc localAddress(server: RpcSocketServer): seq[TransportAddress]		173
 nimgrp	newrpcsocketserver	servers/socketserver.html#newRpcSocketServer-procs-all	proc		111
 nimgrp	addstreamservers	servers/socketserver.html#addStreamServers-procs-all	proc		70
 nimgrp	addstreamserver	servers/socketserver.html#addStreamServer-procs-all	proc		59
