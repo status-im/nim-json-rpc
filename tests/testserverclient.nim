@@ -348,3 +348,42 @@ suite "Websocket Bidirectional":
     waitFor srv.closeWait()
 
   notifyTest(router, client)
+
+suite "Remote error propagation":
+  setup:
+    var srv1 = newRpcWebSocketServer("127.0.0.1", Port(0))
+    var srv2 = newRpcWebSocketServer("127.0.0.1", Port(0))
+
+    srv2.rpc(JrpcConv):
+      proc rpcErr(): void {.raises: [RpcResponseError].} =
+        raise (ref RpcResponseError)(code: 123, msg: "my error")
+
+    srv1.rpc(JrpcFlavor):
+      proc rpcCall(): void {.async: (raises: [CancelledError, JsonRpcError]).} =
+        var c = newRpcWebSocketClient()
+        defer: await c.close()
+        await c.connect("ws://" & $srv2.localAddress())
+        discard await c.call("rpcErr", %[])
+        doAssert false
+
+    srv1.start()
+    srv2.start()
+    var client = newRpcWebSocketClient()
+    waitFor client.connect("ws://" & $srv1.localAddress())
+
+  teardown:
+    waitFor client.close()
+    srv1.stop()
+    srv2.stop()
+    waitFor srv1.closeWait()
+    waitFor srv2.closeWait()
+
+  test "client call errors within an rpc handler are not propagated":
+    try:
+      discard waitFor client.call("rpcCall", %[])
+      check false
+    except RpcResponseError as exc:
+      check:
+        exc.code == -32000
+        exc.msg == "`rpcCall` raised an exception"
+        exc.data == JsonString("\"server error\"")

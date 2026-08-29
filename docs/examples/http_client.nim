@@ -89,7 +89,7 @@ proc main() {.async.} =
     # Response error code
     doAssert err.code == 418
     doAssert err.msg == "I'm a teapot"
-    doAssert err.data == JsonString("")
+    doAssert err.data == default(JsonString)
   except InvalidResponse as err:
     # Invalid response violates the JSON-RPC protocol;
     # you may want to convert the payload from seq[bytes] to string
