@@ -17,7 +17,7 @@ license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 ### Dependencies
-requires "nim >= 1.6.0",
+requires "nim >= 2.0.14",
          "stew",
          "nimcrypto",
          "stint",
@@ -27,7 +27,8 @@ requires "nim >= 1.6.0",
          "websock >= 0.2.1 & < 0.5.0",
          "serialization >= 0.4.4",
          "json_serialization >= 0.4.2",
-         "unittest2"
+         "unittest2",
+         "asyncchannels"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
@@ -46,12 +47,14 @@ proc build(args, path: string) =
 proc run(args, path: string) =
   build args & " --mm:refc -r", path
   if (NimMajor, NimMinor) > (1, 6):
-    build args & " --mm:orc -r", path
+    # TODO https://github.com/nim-lang/Nim/issues/26014
+    build args & " --mm:orc -d:useMalloc -r", path
 
 proc buildOnly(args, path: string) =
   build args & " --mm:refc", path
   if (NimMajor, NimMinor) > (1, 6):
-    build args & " --mm:orc", path
+    # TODO https://github.com/nim-lang/Nim/issues/26014
+    build args & " --mm:orc -d:useMalloc", path
 
 task test, "run tests":
   for mode in ["", "-d:release"]:
