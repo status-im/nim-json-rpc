@@ -79,7 +79,7 @@ func respError(
     data: sink JsonString,
 ): ResponseTx =
   let data2 = if data != default(JsonString):
-    Opt[JsonString].ok(data)
+    Opt.some(data)
   else:
     Opt.none(JsonString)
   respError(req, code, msg, data2)
