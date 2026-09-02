@@ -43,6 +43,7 @@ type
     framing*: StdioFraming
     process*: AsyncProcessRef
     peerExitCode: Opt[int]
+    lastFailure: ref JsonRpcError
 
   StdioRecvMsg* = proc(input: StreamTransport, limit: int): Future[seq[byte]] {.
     async: (raises: [CancelledError, TransportError]), nimcall
@@ -83,12 +84,18 @@ proc recvMsgHttpHeader(
     input: StreamTransport, maxMessageSize: int
 ): Future[seq[byte]] {.async: (raises: [CancelledError, TransportError]).} =
   var buf {.noinit.}: array[1024, byte]
-  let
-    bytes = await input.readUntil(addr buf[0], buf.len, toBytes("\r\n\r\n"))
-    headers = parseHeaders(buf.toOpenArray(0, bytes - 1), true)
+  let bytes = await input.readUntil(addr buf[0], buf.len, toBytes("\r\n\r\n"))
+
+  let headers = parseHeaders(buf.toOpenArray(0, bytes - 1), true)
+  if headers.failed():
+    raise (ref TransportError)(msg: "Malformed message header")
 
   let len = headers.contentLength()
-  if len <= 0 or len > maxMessageSize:
+  if len < 0:
+    raise (ref TransportError)(msg: "Malformed content length")
+  if len > maxMessageSize:
+    raise (ref TransportLimitError)(msg: "Maximum length exceeded: " & $len)
+  if len == 0:
     return
 
   result = newSeqUninit[byte](len)
@@ -273,12 +280,18 @@ proc processMessages(client: RpcStdioClient) {.async: (raises: []).} =
 
       if resp.len > 0:
         await client.framing.sendMsg(client.output, resp)
+    except TransportIncompleteError as exc:
+      debug "Stdio connection ended", err = exc.msg, remote = client.remote
+      break
     except CatchableError as exc:
       lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
       break
 
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
+  else:
+    error "Stdio connection failed", err = lastError.msg, remote = client.remote
+    client.lastFailure = lastError
 
   # Prevent new requests
   let
@@ -434,6 +447,9 @@ method close*(client: RpcStdioClient) {.async: (raises: []).} =
     except AsyncProcessError, CancelledError:
       discard
     await process.closeWait()
+
+proc failure*(client: RpcStdioClient): ref JsonRpcError =
+  client.lastFailure
 
 proc exitCode*(client: RpcStdioClient): Opt[int] =
   ## Exit status of the spawned peer, once it has one - after `close`, or once

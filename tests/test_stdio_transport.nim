@@ -13,6 +13,8 @@
 
 import
   std/[json, os],
+  stew/byteutils,
+  chronos/asyncproc,
   chronos/unittest2/asynctests,
   ../json_rpc/[rpcclient, rpcserver],
   ../json_rpc/clients/stdioclient,
@@ -171,6 +173,75 @@ suite "JSON-RPC over stdio, peer is an RpcStdioClient on its own stdio":
     check (await client.call("askClient", %[%"are you there?"])).string == "true"
     check await answered.wait().withTimeout(2.seconds)
     check await roundTripped.wait().withTimeout(2.seconds)
+
+suite "malformed framing":
+  proc runPeer(input: string): int =
+    proc run(): Future[int] {.async.} =
+      let p = await startProcess(
+        peerExe(),
+        arguments = @["server", "http"],
+        stdinHandle = AsyncProcess.Pipe,
+        stdoutHandle = AsyncProcess.Pipe,
+      )
+      try:
+        if input.len > 0:
+          await p.stdinStream.write(input)
+        await p.stdinStream.tsource.closeWait()
+        # Drain stdout so the peer never blocks writing to a full pipe.
+        let
+          outFut = p.stdoutStream.read()
+          code = await p.waitForExit(30.seconds)
+        await allFutures(outFut)
+        code
+      finally:
+        await p.closeWait()
+
+    waitFor run()
+
+  const
+    Request =
+      """{"jsonrpc":"2.0","id":1,"method":"hello","params":{"input":"world"}}"""
+    Framed = "Content-Length: " & $Request.len & "\r\n\r\n" & Request
+
+  template checkFails(input: string, reason: string) =
+    check runPeer(input) != 0
+
+  template checkEndsCleanly(input: string) =
+    check runPeer(input) == 0
+
+  test "a well framed request is served, then the peer exits cleanly":
+    check runPeer(Framed) == 0
+
+  test "a peer that is closed without being spoken to exits cleanly":
+    check runPeer("") == 0
+
+  test "a negative content length fails":
+    checkFails("Content-Length: -5\r\n\r\nxxxxx", "Malformed content length")
+
+  test "a content length that is not a number fails":
+    checkFails("Content-Length: abc\r\n\r\nxxxxx", "Malformed content length")
+
+  test "a content length beyond the maximum message size fails":
+    checkFails("Content-Length: 999999999\r\n\r\nshort", "Maximum length exceeded")
+
+  test "a header that cannot be parsed fails":
+    checkFails("total nonsense here\r\n\r\n", "Malformed message header")
+
+  test "an unframed message ends the session":
+    checkEndsCleanly(Request)
+
+  test "a header that is never terminated ends the session":
+    checkEndsCleanly("Content-Length: 47")
+
+  test "a body shorter than the declared length ends the session":
+    checkEndsCleanly("Content-Length: 500\r\n\r\n" & Request)
+
+  test "a header longer than the limit fails":
+    checkFails(repeat('A', 5000), "Limit reached!")
+
+  test "a valid request after a broken frame is not served":
+    # The stream cannot be resynchronised, so the peer stops at the bad frame.
+    checkFails("Content-Length: -5\r\n\r\n" & Framed, "Malformed content length")
 
 suite "stdio transport errors":
   test "connecting to a command that does not exist":

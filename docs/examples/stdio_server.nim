@@ -27,17 +27,14 @@ proc setupServer(srv: RpcStdioServer) =
     proc hello(input: string): string =
       "Hello " & input
 
-proc main() {.raises: [].} =
+proc main() {.raises: [CancelledError, JsonRpcError].} =
   # ANCHOR: ServerConnect
-  # `Content-Length` framing is what LSP and MCP peers speak over stdio
   let srv = newRpcStdioServer(framing = StdioFraming.httpHeader())
   # ANCHOR_END: ServerConnect
 
   srv.setupServer()
 
   # ANCHOR: ServerStart
-  # Serves until the peer closes standard input, which is the whole lifetime
-  # of a process launched to speak JSON-RPC over stdio
   waitFor srv.serve()
   # ANCHOR_END: ServerStart
 

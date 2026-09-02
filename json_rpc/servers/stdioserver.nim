@@ -75,17 +75,21 @@ proc start*(server: RpcStdioServer) {.raises: [JsonRpcError].} =
   server.connections.incl(connection)
   server.loop = connection.attach(input, output, "stdio")
 
-proc serve*(server: RpcStdioServer) {.async: (raises: []).} =
+proc serve*(
+    server: RpcStdioServer
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
   if server.connection == nil:
-    try:
-      server.start()
-    except JsonRpcError as exc:
-      error "Unable to serve standard input/output", err = exc.msg
-      return
+    server.start()
 
   await server.loop
-  server.connections.excl(server.connection)
+
+  let connection = server.connection
+  server.connections.excl(connection)
   server.connection = nil
+
+  let failure = connection.failure
+  if failure != nil:
+    raise failure
 
 proc stop*(server: RpcStdioServer) {.async: (raises: []).} =
   if server.loop != nil:
