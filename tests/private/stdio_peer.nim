@@ -75,7 +75,7 @@ when isMainModule:
     except CatchableError:
       discard
 
-  proc runServer(framingName: string) {.raises: [].} =
+  proc runServer(framingName: string) {.raises: [CatchableError].} =
     let srv = newRpcStdioServer(framing = framingByName(framingName))
     peerServer = srv
 
@@ -132,12 +132,11 @@ when isMainModule:
       await srv.notify("client/event", default(RequestParamsTx))
       %true
 
-    try:
-      waitFor srv.serve()
-    except CatchableError:
-      discard
+    # Not caught: a broken stream has to reach the exit code, otherwise a
+    # failure is indistinguishable from a peer that was closed cleanly.
+    waitFor srv.serve()
 
-  proc runClient(framingName: string) {.raises: [].} =
+  proc runClient(framingName: string) {.raises: [CatchableError].} =
     ## The same connection type the test uses, but attached to this process'
     ## own descriptors instead of a spawned peer's.
     var router = new RpcRouter
@@ -158,15 +157,14 @@ when isMainModule:
     let c = newRpcStdioClient(router = router, framing = framingByName(framingName))
     peerClient = c
 
-    try:
-      c.connect()
-    except JsonRpcError:
-      quit(1)
+    c.connect()
+    waitFor c.loop
 
-    try:
-      waitFor c.loop
-    except CatchableError:
-      discard
+    # `loop` never fails, it records why it stopped - surface that the way
+    # `serve` does.
+    let failure = c.failure
+    if failure != nil:
+      raise failure
 
   let
     mode = if paramCount() >= 1: paramStr(1) else: "server"
