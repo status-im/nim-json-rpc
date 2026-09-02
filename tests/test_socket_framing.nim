@@ -101,10 +101,10 @@ suite "Socket framing/httpHeader":
   test "Truncated payload":
     check framingError(framing, "Content-Length: 100\r\n\r\nabc") == "Data incomplete!"
 
-  test "Missing content length is an orderly close":
+  test "Missing content length is treated as close":
     check framingError(framing, "Foo: bar\r\n\r\n") == "Connection closed"
 
-  test "Zero content length is an orderly close":
+  test "Zero content length is treated as close":
     check framingError(framing, "Content-Length: 0\r\n\r\n") == "Connection closed"
 
 suite "Socket framing/lengthHeaderBE32":
