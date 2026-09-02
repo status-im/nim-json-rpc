@@ -61,8 +61,6 @@ type
 # ---------------------------------------------------------------------------
 
 proc init*(T: type StdioFraming, recvMsg: StdioRecvMsg, sendMsg: StdioSendMsg): T =
-  ## Build a framing of your own, for a peer that delimits messages in a way
-  ## the framings below do not cover - newline-delimited JSON, for example.
   T(recvMsg: recvMsg, sendMsg: sendMsg)
 
 proc recvMsgNewLine(

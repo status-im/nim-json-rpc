@@ -7,7 +7,7 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-## End-to-end test of the stdio transport, using two real processes: the peer
+## End-to-end test of the stdio transport, using two processes: the peer
 ## is `private/stdio_peer`, a program that serves JSON-RPC over its own
 ## standard input/output, and the test drives it with an `RpcStdioClient`.
 
@@ -95,6 +95,46 @@ template stdioTests(framingName: static string) =
     asyncTest "server notifies the client":
       discard await client.call("notifyClient", %[])
       check await notified.wait().withTimeout(2.seconds)
+
+    asyncTest "a burst far larger than the pipe buffer, unread until the end":
+      const
+        Count = 2048
+        Size = 4096
+      let payload = repeat('x', Size)
+      var futs: seq[Future[JsonString]]
+      for i in 0 ..< Count:
+        futs.add client.call("echoBytes", %[%payload])
+
+      var got = 0
+      for i in 0 ..< Count:
+        let resp = await futs[i].withTimeout(30.seconds)
+        check resp
+        if not resp:
+          break
+        check futs[i].read().string.len == Size + 2 # quotes
+        inc got
+      check got == Count
+
+    asyncTest "the peer floods us with notifications while we keep requesting":
+      const
+        Count = 512
+        Size = 2048
+      var
+        seen = 0
+        allSeen = newAsyncEvent()
+      router[].rpc("client/flood") do(i: int, payload: string) -> void:
+        inc seen
+        if seen == Count:
+          allSeen.fire()
+
+      let flooding = client.call("flood", %[%Count, %Size])
+      # Keep our own requests going while the flood is in flight.
+      for i in 0 ..< 64:
+        check (await client.call("hello", %[%($i)])).string == "\"Hello " & $i & "\""
+
+      check await flooding.withTimeout(30.seconds)
+      check await allSeen.wait().withTimeout(30.seconds)
+      check seen == Count
 
 stdioTests("http")
 stdioTests("be32")

@@ -25,6 +25,7 @@ import
   std/[json, os, strutils],
   stew/byteutils,
   ../../json_rpc/[rpcclient, rpcserver],
+  ../../json_rpc/private/shared_wrapper,
   ../../json_rpc/clients/stdioclient,
   ../../json_rpc/servers/stdioserver,
   ./helpers
@@ -33,8 +34,6 @@ export stdioclient, stdioserver
 
 const PeerExeName* = "stdio_peer"
 
-# A framing defined outside the library, the way an MCP peer would: messages
-# are newline-delimited JSON rather than Content-Length framed.
 proc recvMsgJsonLines(
     input: StreamTransport, maxMessageSize: int
 ): Future[seq[byte]] {.async: (raises: [CancelledError, TransportError]).} =
@@ -106,6 +105,25 @@ when isMainModule:
         conn = peerServer.connection
       asyncSpawn askClientAsync(conn, question)
       %true
+
+    srv.rpc("echoBytes") do(payload: string):
+      # Echo the payload back, so a burst of these puts the same volume in
+      # flight in both directions at once.
+      %payload
+
+    srv.rpc("flood") do(count: int, size: int):
+      # Push `count` unsolicited notifications at the peer without waiting for
+      # it to read any of them: the server's writes have to survive a stdout
+      # pipe that the client is not draining yet.
+      var srv: RpcStdioServer
+      {.cast(gcsafe).}:
+        srv = peerServer
+      let chunk = repeat('x', size)
+      for i in 0 ..< count:
+        await srv.notify(
+          "client/flood", paramsTx(%*{"i": i, "payload": chunk}, JrpcConv)
+        )
+      %count
 
     srv.rpc("notifyClient") do():
       var srv: RpcStdioServer
