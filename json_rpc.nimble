@@ -17,17 +17,17 @@ license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 ### Dependencies
-requires "nim >= 1.6.0",
-         "stew",
-         "nimcrypto",
-         "stint",
+requires "nim >= 2.0.10",
+         "chronicles >= 0.12.0",
          "chronos >= 4.0.3 & < 5.0.0",
          "httputils >= 0.3.0",
-         "chronicles",
-         "websock >= 0.2.1 & < 0.5.0",
-         "serialization >= 0.4.4",
          "json_serialization >= 0.4.2",
-         "unittest2"
+         "nimcrypto >= 0.7.0",
+         "serialization >= 0.4.4",
+         "stew >= 0.5.0",
+         "stint >= 0.9.0",
+         "unittest2 >= 0.2.0",
+         "websock >= 0.2.1 & < 0.5.0"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
@@ -45,13 +45,11 @@ proc build(args, path: string) =
 
 proc run(args, path: string) =
   build args & " --mm:refc -r", path
-  if (NimMajor, NimMinor) > (1, 6):
-    build args & " --mm:orc -r", path
+  build args & " --mm:orc -r", path
 
 proc buildOnly(args, path: string) =
   build args & " --mm:refc", path
-  if (NimMajor, NimMinor) > (1, 6):
-    build args & " --mm:orc", path
+  build args & " --mm:orc", path
 
 task test, "run tests":
   for mode in ["", "-d:release"]:
