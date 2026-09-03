@@ -12,7 +12,7 @@
 ## standard input/output, and the test drives it with an `RpcStdioClient`.
 
 import
-  std/[json, os],
+  std/[json, os, osproc],
   stew/byteutils,
   chronos/asyncproc,
   chronos/unittest2/asynctests,
@@ -22,10 +22,19 @@ import
 
 suite "stdio transport fixture":
   test "the peer program has been built":
-    check fileExists(peerExe())
-    if not fileExists(peerExe()):
-      echo "build it with: nim c -d:\"chronicles_sinks=textlines[stderr]\" -o:",
-        peerExe(), " tests/private/stdio_peer.nim"
+    const mode =
+      when defined(release):
+        "-d:release"
+      elif defined(danger):
+        "-d:danger"
+      else:
+        ""
+    const flags = "--threads:on -d:chronicles_log_level=ERROR -d:\"chronicles_sinks=textlines[stderr]\""
+    const path = "tests" / "private" / "stdio_peer.nim"
+    let res = execCmdEx("nim c " & mode & " " & flags & " " & path)
+    if res.exitCode != 0:
+      checkpoint "stdio_peer build output: " & res.output
+      fail()
 
 template stdioTests(framingName: static string) =
   suite "JSON-RPC over stdio (" & framingName & " framing)":

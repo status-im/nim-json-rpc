@@ -55,9 +55,6 @@ proc buildOnly(args, path: string) =
 
 task test, "run tests":
   for mode in ["", "-d:release"]:
-    # The peer program the stdio transport test spawns: its stdout carries the
-    # protocol, so it is the one binary that has to log to stderr.
-    buildOnly mode & " -d:\"chronicles_sinks=textlines[stderr]\" -o:tests/private/stdio_peer", "tests/private/stdio_peer"
     run mode, "tests/all"
 
   when not defined(windows):

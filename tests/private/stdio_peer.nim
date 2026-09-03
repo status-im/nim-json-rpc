@@ -22,10 +22,9 @@
 ## the `isMainModule` part below runs the peer.
 
 import
-  std/[json, os, strutils],
+  std/[os],
   stew/byteutils,
   ../../json_rpc/[rpcclient, rpcserver],
-  ../../json_rpc/private/shared_wrapper,
   ../../json_rpc/clients/stdioclient,
   ../../json_rpc/servers/stdioserver,
   ./helpers
