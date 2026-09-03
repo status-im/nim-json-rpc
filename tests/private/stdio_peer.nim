@@ -132,8 +132,6 @@ when isMainModule:
       await srv.notify("client/event", default(RequestParamsTx))
       %true
 
-    # Not caught: a broken stream has to reach the exit code, otherwise a
-    # failure is indistinguishable from a peer that was closed cleanly.
     waitFor srv.serve()
 
   proc runClient(framingName: string) {.raises: [CatchableError].} =
@@ -170,7 +168,13 @@ when isMainModule:
     mode = if paramCount() >= 1: paramStr(1) else: "server"
     framing = if paramCount() >= 2: paramStr(2) else: "http"
 
-  case mode
-  of "client": runClient(framing)
-  else: runServer(framing)
+  try:
+    case mode
+    of "client":
+      runClient(framing)
+    else:
+      runServer(framing)
+  except JsonRpcError as exc:
+    echo "stdio_peer error: " & exc.msg
+    quit(1)
   quit(0)
