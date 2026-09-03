@@ -29,7 +29,14 @@ suite "stdio transport fixture":
         "-d:danger"
       else:
         ""
-    const flags = "--threads:on -d:chronicles_log_level=ERROR -d:\"chronicles_sinks=textlines[stderr]\""
+    # The peer has to be built the way this test was, or the two ends of the
+    # connection would not be exercising the same transport - and a trace of
+    # only one end of a stall is half a diagnosis.
+    const bridge =
+      when defined(jsonRpcStdioBridge): " -d:jsonRpcStdioBridge" else: ""
+    const trace =
+      when defined(jsonRpcStdioTrace): " -d:jsonRpcStdioTrace" else: ""
+    const flags = "--threads:on -d:chronicles_log_level=ERROR -d:\"chronicles_sinks=textlines[stderr]\"" & bridge & trace
     const path = "tests" / "private" / "stdio_peer.nim"
     let res = execCmdEx("nim c -f " & mode & " " & flags & " " & path)
     if res.exitCode != 0:
