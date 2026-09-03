@@ -27,6 +27,7 @@ import
   ../../json_rpc/[rpcclient, rpcserver],
   ../../json_rpc/clients/stdioclient,
   ../../json_rpc/servers/stdioserver,
+  ../../json_rpc/private/shared_wrapper,
   ./helpers
 
 export stdioclient, stdioserver
@@ -59,7 +60,7 @@ when isMainModule:
     chronicles_sinks == "textlines[stderr]"
 
   when not logsToStderr():
-    {.error: "the peer needs -d:\"chronicles_sinks=textlines[stderr]\": its stdout carries the protocol".}
+    {.error: "stdio_peer requires -d:\"chronicles_sinks=textlines[stderr]\" to avoid printing logs to stdin".}
 
   var
     peerServer: RpcStdioServer
