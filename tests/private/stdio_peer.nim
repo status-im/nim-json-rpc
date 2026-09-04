@@ -168,7 +168,6 @@ when isMainModule:
     mode = if paramCount() >= 1: paramStr(1) else: "server"
     framing = if paramCount() >= 2: paramStr(2) else: "http"
 
-  var code = 0
   try:
     case mode
     of "client":
@@ -176,16 +175,6 @@ when isMainModule:
     else:
       runServer(framing)
   except JsonRpcError as exc:
-    # Never `echo`: standard output carries the protocol, and a diagnosis
-    # written into it would reach the parent as a malformed message.
-    stderr.writeLine "stdio_peer error: " & exc.msg
-    code = 1
-
-  # Not a `finally`: `quit` does not run those, and both paths above end in
-  # one. The bridge's pumps are detached threads that `quit` cuts off wherever
-  # they happen to be, so whatever the connection wrote on its way out has only
-  # really reached standard output once this returns.
-  stdioTrace("peer: draining before exit")
-  flushStdioBridge()
-  stdioTrace("peer: exiting with " & $code)
-  quit(code)
+    echo "stdio_peer error: " & exc.msg
+    quit(1)
+  quit(0)

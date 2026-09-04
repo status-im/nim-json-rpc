@@ -19,22 +19,11 @@ import
   ../[client, errors, router],
   ../private/jrpc_sys
 
-const stdioBridge* = defined(windows) or defined(jsonRpcStdioBridge)
-  ## Whether the standard descriptors reach the event loop through a pipe pair
-  ## fed by a pair of blocking pump threads, instead of being handed to it
-  ## directly. Always so on Windows, whose standard handles cannot be used for
-  ## overlapped IO; `-d:jsonRpcStdioBridge` turns the same machinery on for
-  ## POSIX, so that the Windows code path can be run and debugged on a POSIX
-  ## host.
-
 when defined(windows):
   import chronos/osdefs
-else:
-  from std/posix import nil
 
-when stdioBridge:
   when not compileOption("threads"):
-    {.error: "the stdio transport bridge needs --threads:on".}
+    {.error: "the stdio transport needs --threads:on on Windows".}
 
 export client, errors, asyncproc
 
@@ -45,47 +34,6 @@ when not declared(newSeqUninit): # nim 2.2+
 logScope:
   topics = "jsonrpc client stdio"
 
-const DefaultPeerExitTimeout* = 30.seconds
-  ## How long `close` gives a spawned peer to exit after its standard input has
-  ## been closed, before killing it.
-
-const stdioTraceEnabled* = defined(jsonRpcStdioTrace)
-  ## Trace the lifecycle of the stdio transport on stderr, for diagnosing a
-  ## connection that stops making progress. Built with `-d:jsonRpcStdioTrace`.
-  ##
-  ## This deliberately bypasses chronicles: the pump threads run outside the
-  ## event loop, and a hang leaves anything buffered unwritten - which is
-  ## exactly the output that would have said where it hung. Each line is a
-  ## single unbuffered write to the standard error descriptor instead, so lines
-  ## survive a hang and cannot interleave with each other.
-
-when stdioTraceEnabled:
-  let stdioTraceStart = Moment.now()
-
-  proc stdioProcessId(): int =
-    when defined(windows):
-      int(getCurrentProcessId())
-    else:
-      int(posix.getpid())
-
-  proc stdioTraceWrite*(msg: string) {.gcsafe, raises: [].} =
-    let line =
-      "[stdio pid=" & $stdioProcessId() & " +" &
-      $(Moment.now() - stdioTraceStart).milliseconds & "ms] " & msg & "\n"
-    when defined(windows):
-      var written = DWORD(0)
-      discard writeFile(
-        getStdHandle(STD_ERROR_HANDLE), unsafeAddr line[0], DWORD(len(line)),
-        addr written, nil,
-      )
-    else:
-      discard posix.write(cint(2), unsafeAddr line[0], len(line))
-
-template stdioTrace*(msg: untyped) =
-  ## No-op, argument included, unless `-d:jsonRpcStdioTrace` is set.
-  when stdioTraceEnabled:
-    stdioTraceWrite(msg)
-
 type
   RpcStdioClient* = ref object of RpcConnection
     ## Bidirectional connection over a pair of pipes
@@ -94,9 +42,6 @@ type
     loop*: Future[void]
     framing*: StdioFraming
     process*: AsyncProcessRef
-    peerExitTimeout*: Duration
-      ## How long `close` waits for a spawned peer to exit on its own before
-      ## killing it. `DefaultPeerExitTimeout` when left at zero.
     peerExitCode: Opt[int]
     lastFailure: ref JsonRpcError
 
@@ -238,12 +183,7 @@ proc new*(
     router = default(RpcRouterCallback),
     framing = StdioFraming.httpHeader(),
 ): T =
-  T(
-    maxMessageSize: maxMessageSize,
-    router: router,
-    framing: framing,
-    peerExitTimeout: DefaultPeerExitTimeout,
-  )
+  T(maxMessageSize: maxMessageSize, router: router, framing: framing)
 
 proc new*(
     T: type RpcStdioClient,
@@ -310,12 +250,10 @@ proc processMessages(client: RpcStdioClient) {.async: (raises: []).} =
   let maxMessageSize =
     if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
 
-  stdioTrace("loop: started for " & client.remote)
   var lastError: ref JsonRpcError
   while not client.input.atEof():
     try:
       let data = await client.framing.recvMsg(client.input, maxMessageSize)
-      stdioTrace("loop: received " & $data.len & " bytes")
       if data.len == 0:
         break
 
@@ -341,9 +279,7 @@ proc processMessages(client: RpcStdioClient) {.async: (raises: []).} =
           raise exc
 
       if resp.len > 0:
-        stdioTrace("loop: sending " & $resp.len & " bytes")
         await client.framing.sendMsg(client.output, resp)
-        stdioTrace("loop: sent " & $resp.len & " bytes")
     except TransportIncompleteError as exc:
       debug "Stdio connection ended", err = exc.msg, remote = client.remote
       break
@@ -363,10 +299,8 @@ proc processMessages(client: RpcStdioClient) {.async: (raises: []).} =
     output = move(client.output)
   client.clearPending(lastError)
 
-  stdioTrace("loop: ended (" & lastError.msg & "), closing the transports")
   await input.closeWait()
   await output.closeWait()
-  stdioTrace("loop: the transports are closed")
 
   if not client.onDisconnect.isNil:
     client.onDisconnect()
@@ -386,106 +320,42 @@ proc attach*(
 # Connecting
 # ---------------------------------------------------------------------------
 
-when stdioBridge:
+when defined(windows):
   const BridgeBufSize = 8192
 
-  when defined(windows):
-    type PumpFd = HANDLE
-  else:
-    type PumpFd = cint
-
   type PumpCtx = object
-    src, dst: PumpFd
-    name: cstring
-      ## A literal, not a `string`: this crosses a thread boundary.
+    src, dst: HANDLE
 
   var
     stdinPump: Thread[PumpCtx]
     stdoutPump: Thread[PumpCtx]
-    bridgeActive = false
-
-  proc readOnce(fd: PumpFd, data: pointer, size: int): int =
-    ## Bytes read; zero at end of stream, negative on error.
-    when defined(windows):
-      var count = DWORD(0)
-      if readFile(fd, data, DWORD(size), addr count, nil) == FALSE:
-        -1
-      else:
-        int(count)
-    else:
-      handleEintr(posix.read(fd, data, size))
-
-  proc writeOnce(fd: PumpFd, data: pointer, size: int): int =
-    ## Bytes written; anything but a positive count means the far end is gone.
-    when defined(windows):
-      var count = DWORD(0)
-      if writeFile(fd, data, DWORD(size), addr count, nil) == FALSE:
-        -1
-      else:
-        int(count)
-    else:
-      handleEintr(posix.write(fd, data, size))
-
-  proc closePumpFd(fd: PumpFd) =
-    when defined(windows):
-      discard closeHandle(fd)
-    else:
-      discard closeFd(fd)
 
   proc pump(ctx: PumpCtx) {.thread.} =
-    ## Copy `src` to `dst` with blocking reads and writes until either end goes
-    ## away - what the event loop itself cannot do to a standard descriptor.
-    let name = $ctx.name
-    stdioTrace("pump " & name & ": started")
-    var
-      buf {.noinit.}: array[BridgeBufSize, byte]
-      total = 0
+    var buf {.noinit.}: array[BridgeBufSize, byte]
     block copy:
       while true:
-        let count = readOnce(ctx.src, addr buf[0], len(buf))
-        if count <= 0:
-          stdioTrace(
-            "pump " & name & ": read ended, count=" & $count & " err=" &
-            $int(osLastError()) & " total=" & $total
-          )
+        var count = DWORD(0)
+        if readFile(ctx.src, addr buf[0], DWORD(len(buf)), addr count, nil) == FALSE:
+          break copy
+        if count == 0:
           break copy
         var sent = 0
-        while sent < count:
-          let written = writeOnce(ctx.dst, addr buf[sent], count - sent)
-          if written <= 0:
-            stdioTrace(
-              "pump " & name & ": write ended, written=" & $written & " err=" &
-              $int(osLastError()) & " total=" & $total
-            )
-            break copy
-          sent += written
-        total += sent
-    closePumpFd(ctx.dst)
-    stdioTrace("pump " & name & ": closed its output and is exiting, total=" & $total)
-
-  proc stdioFds(): tuple[input, output: PumpFd] {.raises: [JsonRpcError].} =
-    when defined(windows):
-      let
-        inHandle = getStdHandle(STD_INPUT_HANDLE)
-        outHandle = getStdHandle(STD_OUTPUT_HANDLE)
-      if inHandle == INVALID_HANDLE_VALUE or outHandle == INVALID_HANDLE_VALUE:
-        raise (ref RpcTransportError)(msg: "Unable to obtain the standard handles")
-      result.input = inHandle
-      result.output = outHandle
-    else:
-      # The pumps read and write these from a thread, so a parent that handed
-      # us non-blocking descriptors would leave them spinning on EAGAIN.
-      for fd in [cint(0), cint(1)]:
-        setDescriptorBlocking(fd, true).isOkOr:
-          raise (ref RpcTransportError)(
-            msg: "Unable to switch standard descriptor " & $fd &
-              " to blocking mode: " & osErrorMsg(error)
+        while sent < int(count):
+          var written = DWORD(0)
+          let ok = writeFile(
+            ctx.dst, addr buf[sent], DWORD(int(count) - sent), addr written, nil
           )
-      result.input = cint(0)
-      result.output = cint(1)
+          if ok == FALSE or written == 0:
+            break copy
+          sent += int(written)
+    discard closeHandle(ctx.dst)
 
   proc bridgeStdio(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError].} =
-    let (inHandle, outHandle) = stdioFds()
+    let
+      inHandle = getStdHandle(STD_INPUT_HANDLE)
+      outHandle = getStdHandle(STD_OUTPUT_HANDLE)
+    if inHandle == INVALID_HANDLE_VALUE or outHandle == INVALID_HANDLE_VALUE:
+      raise (ref RpcTransportError)(msg: "Unable to obtain the standard handles")
 
     const
       loopEnd = {DescriptorFlag.CloseOnExec, DescriptorFlag.NonBlock}
@@ -501,14 +371,8 @@ when stdioBridge:
         )
 
     try:
-      createThread(
-        stdinPump, pump, PumpCtx(src: inHandle, dst: inPipe.write, name: "stdin")
-      )
-      createThread(
-        stdoutPump, pump, PumpCtx(src: outPipe.read, dst: outHandle, name: "stdout")
-      )
-      bridgeActive = true
-      stdioTrace("bridge: both pumps running")
+      createThread(stdinPump, pump, PumpCtx(src: inHandle, dst: inPipe.write))
+      createThread(stdoutPump, pump, PumpCtx(src: outPipe.read, dst: outHandle))
     except ResourceExhaustedError as exc:
       raise (ref RpcTransportError)(
         msg: "Unable to start the standard input/output bridge: " & exc.msg,
@@ -521,7 +385,7 @@ when stdioBridge:
       raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
 
 proc stdioTransports*(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError]} =
-  when stdioBridge:
+  when defined(windows):
     bridgeStdio()
   else:
     let
@@ -534,31 +398,10 @@ proc stdioTransports*(): tuple[input, output: StreamTransport] {.raises: [JsonRp
             " to non-blocking mode: " & osErrorMsg(error)
         )
 
-    stdioTrace("transports: using the standard descriptors directly")
     try:
       (fromPipe(inFd), fromPipe(outFd))
     except TransportOsError as exc:
       raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
-
-proc flushStdioBridge*() =
-  ## Wait for the outbound pump to finish copying whatever the event loop wrote
-  ## into the bridge out to the real standard output, then let it exit.
-  ##
-  ## Call this after the connection has closed and before `quit`. The pumps are
-  ## detached threads, so `quit` would otherwise cut the outbound one off mid
-  ## copy and the last message written - typically the reply the peer was asked
-  ## for - would never leave the process. A no-op when the transport is not
-  ## bridged, and safe to call more than once.
-  ##
-  ## The pump only ends once the loop's end of the bridge is closed, which is
-  ## what tells it there is nothing more to copy; that happens when the
-  ## connection's message loop finishes, so this must come after it.
-  when stdioBridge:
-    if bridgeActive:
-      bridgeActive = false
-      stdioTrace("bridge: waiting for the outbound pump to drain")
-      joinThread(stdoutPump)
-      stdioTrace("bridge: the outbound pump has drained")
 
 proc connect*(client: RpcStdioClient) {.raises: [JsonRpcError].} =
   let (input, output) = stdioTransports()
@@ -593,48 +436,17 @@ method close*(client: RpcStdioClient) {.async: (raises: []).} =
   ## Close the connection and, if this client spawned the peer, wait for it to
   ## exit. The child sees end of file on its standard input, which is how a
   ## well behaved server is asked to shut down.
-  ##
-  ## A peer that does not take the hint is killed after `peerExitTimeout`
-  ## rather than waited on forever: a peer that will not exit is a bug, and it
-  ## is worth a great deal to have it show up as one failed call with a
-  ## diagnosis attached instead of a whole test run that never finishes.
   if client.loop != nil:
-    stdioTrace("close: cancelling the message loop")
     let loop = move(client.loop)
     await loop.cancelAndWait()
-    stdioTrace("close: the message loop has stopped")
 
   if client.process != nil:
-    let
-      process = move(client.process)
-      timeout =
-        if client.peerExitTimeout <= ZeroDuration:
-          DefaultPeerExitTimeout
-        else:
-          client.peerExitTimeout
-
-    stdioTrace(
-      "close: waiting up to " & $timeout.milliseconds & "ms for the peer to exit"
-    )
-    let deadline = Moment.now() + timeout
+    let process = move(client.process)
     try:
-      # `waitForExit` kills the peer itself once the timeout elapses, and then
-      # reports whatever status that produced - it does not report the timeout.
-      # A peer that had to be killed is a bug, so name it rather than let it
-      # pass for an ordinary exit.
-      let code = await process.waitForExit(timeout)
-      client.peerExitCode = Opt.some(code)
-      if Moment.now() >= deadline:
-        warn "Peer had to be killed: it never exited after its standard input " &
-          "was closed", remote = client.remote, timeout, exitCode = code
-        stdioTrace("close: the peer outlasted the timeout and was killed, code=" & $code)
-      else:
-        stdioTrace("close: the peer exited with " & $code)
+      client.peerExitCode = Opt.some(await process.waitForExit(InfiniteDuration))
     except AsyncProcessError, CancelledError:
-      stdioTrace("close: gave up waiting for the peer")
-
+      discard
     await process.closeWait()
-    stdioTrace("close: done")
 
 proc failure*(client: RpcStdioClient): ref JsonRpcError =
   client.lastFailure
