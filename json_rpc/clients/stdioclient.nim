@@ -408,13 +408,13 @@ proc connect*(client: RpcStdioClient) {.raises: [JsonRpcError].} =
   client.loop = client.attach(input, output, "stdio")
 
 # XXX workaround https://github.com/status-im/nim-chronos/pull/729
+# https://github.com/status-im/nim-json-rpc/pull/296/changes/b22d388f13956c06bd469c8ac6295abad1e6bf17
 proc closePipeEnd(fd: AsyncFD) =
   when defined(windows):
     discard closeFd(HANDLE(fd))
   else:
     discard closeFd(cint(fd))
 
-# XXX workaround https://github.com/status-im/nim-chronos/pull/729
 proc peerStdinPipe(): tuple[ours: StreamTransport, theirs: AsyncFD] {.
     raises: [JsonRpcError].} =
   const
