@@ -49,6 +49,14 @@ const DefaultPeerExitTimeout* = 30.seconds
   ## How long `close` gives a spawned peer to exit after its standard input has
   ## been closed, before killing it.
 
+const PeerExitPollInterval = 25.milliseconds
+  ## How often `close` asks the operating system directly whether the peer has
+  ## exited, alongside waiting to be told.
+
+const PeerExitNotifyGrace = 1.seconds
+  ## How far the event loop's notification may lag the operating system before
+  ## the lag is itself the bug worth reporting. Normal latency is microseconds.
+
 const stdioTraceEnabled* = defined(jsonRpcStdioTrace)
   ## Trace the lifecycle of the stdio transport on stderr, for diagnosing a
   ## connection that stops making progress. Built with `-d:jsonRpcStdioTrace`.
@@ -589,6 +597,71 @@ proc connect*(
   client.process = process
   client.loop = client.attach(process.stdoutStream.tsource, process.stdinStream.tsource, command)
 
+proc peerHasExited(process: AsyncProcessRef): bool =
+  ## Ask the operating system directly whether the peer is gone.
+  ##
+  ## Windows only, and deliberately: there `peekExitCode` is
+  ## `GetExitCodeProcess`, a side effect free query. The POSIX one is
+  ## `waitpid(WNOHANG)`, which *reaps* the child, and reaping it behind
+  ## `waitForExit`'s back can leave that waiting on a notification for a child
+  ## that no longer exists.
+  when defined(windows):
+    let res = process.peekExitCode()
+    res.isOk() and res.get() >= 0
+  else:
+    false
+
+proc awaitPeerExit(
+    client: RpcStdioClient, process: AsyncProcessRef, timeout: Duration
+) {.async: (raises: []).} =
+  ## Wait for a spawned peer to exit.
+  ##
+  ## `waitForExit` is the event loop's answer and stays the only source of the
+  ## exit status. On Windows it is shadowed by a poll that only *observes*,
+  ## because the two failures behind a peer that will not go away are
+  ## indistinguishable from the outside and want opposite fixes: a peer that is
+  ## genuinely still running, and a peer that exited without the loop ever
+  ## being told.
+  let
+    started = Moment.now()
+    waiter = process.waitForExit(timeout)
+  var exitSeenAt = Opt.none(Moment)
+
+  while not waiter.finished():
+    if exitSeenAt.isNone() and peerHasExited(process):
+      exitSeenAt = Opt.some(Moment.now())
+      stdioTrace(
+        "close: the operating system says the peer exited after " &
+        $(Moment.now() - started).milliseconds & "ms"
+      )
+    try:
+      if await waiter.withTimeout(PeerExitPollInterval):
+        break
+    except CancelledError:
+      break
+
+  try:
+    let code = await waiter
+    client.peerExitCode = Opt.some(code)
+    let elapsed = Moment.now() - started
+
+    if exitSeenAt.isSome() and Moment.now() - exitSeenAt.get() >= PeerExitNotifyGrace:
+      # The peer was already gone and the event loop went on waiting for it -
+      # so the timeout above killed a process that had exited long before.
+      error "Peer exited well before the event loop was notified",
+        remote = client.remote, exitCode = code,
+        exitedAfter = exitSeenAt.get() - started, notifiedAfter = elapsed
+    elif elapsed >= timeout:
+      # `waitForExit` kills the peer once the timeout elapses and then reports
+      # whatever status that produced - it does not report the timeout itself.
+      error "Peer had to be killed: it never exited after its standard input " &
+        "was closed", remote = client.remote, timeout, exitCode = code
+      stdioTrace("close: the peer outlasted the timeout and was killed, code=" & $code)
+    else:
+      stdioTrace("close: the peer exited with " & $code)
+  except AsyncProcessError, CancelledError:
+    stdioTrace("close: gave up waiting for the peer")
+
 method close*(client: RpcStdioClient) {.async: (raises: []).} =
   ## Close the connection and, if this client spawned the peer, wait for it to
   ## exit. The child sees end of file on its standard input, which is how a
@@ -616,22 +689,7 @@ method close*(client: RpcStdioClient) {.async: (raises: []).} =
     stdioTrace(
       "close: waiting up to " & $timeout.milliseconds & "ms for the peer to exit"
     )
-    let deadline = Moment.now() + timeout
-    try:
-      # `waitForExit` kills the peer itself once the timeout elapses, and then
-      # reports whatever status that produced - it does not report the timeout.
-      # A peer that had to be killed is a bug, so name it rather than let it
-      # pass for an ordinary exit.
-      let code = await process.waitForExit(timeout)
-      client.peerExitCode = Opt.some(code)
-      if Moment.now() >= deadline:
-        warn "Peer had to be killed: it never exited after its standard input " &
-          "was closed", remote = client.remote, timeout, exitCode = code
-        stdioTrace("close: the peer outlasted the timeout and was killed, code=" & $code)
-      else:
-        stdioTrace("close: the peer exited with " & $code)
-    except AsyncProcessError, CancelledError:
-      stdioTrace("close: gave up waiting for the peer")
+    await client.awaitPeerExit(process, timeout)
 
     await process.closeWait()
     stdioTrace("close: done")
