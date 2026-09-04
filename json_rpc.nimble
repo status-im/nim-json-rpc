@@ -21,13 +21,14 @@ requires "nim >= 1.6.0",
          "stew",
          "nimcrypto",
          "stint",
-         "chronos >= 4.0.3 & < 5.0.0",
+#         "chronos >= 4.0.3 & < 5.0.0",
          "httputils >= 0.3.0",
          "chronicles",
          "websock >= 0.2.1 & < 0.5.0",
          "serialization >= 0.4.4",
          "json_serialization >= 0.4.2",
          "unittest2"
+requires "https://github.com/nitely/nim-chronos#79a89e627c0af37ea62de7a8e2aec08146e32ded"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
