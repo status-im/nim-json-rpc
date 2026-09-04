@@ -3,19 +3,12 @@
 
 {.push gcsafe, raises: [].}
 
-# ANCHOR: ServerLogging
-# Standard output carries the protocol, so chronicles must not write there.
-# Checking the setting here turns a corrupted message stream into a build
-# error - build this program with:
-#
-#   -d:"chronicles_sinks=textlines[stderr]"
 proc logsToStderr(): bool =
   const chronicles_sinks {.strdefine.} = ""
   chronicles_sinks == "textlines[stderr]"
 
 when not logsToStderr():
   {.error: "stdio transport requires -d:chronicles_sinks=textlines[stderr]".}
-# ANCHOR_END: ServerLogging
 
 import json_rpc/servers/stdioserver
 import ./rpc_format
