@@ -147,16 +147,16 @@ template stdioTests(framingName: string): untyped =
     check await allSeen.wait().withTimeout(30.seconds)
     check seen == Count
 
-suite "JSON-RPC over stdio (http framing)":
+suite "stdio http framing":
   stdioTests("http")
 
-suite "JSON-RPC over stdio (be32 framing)":
+suite "stdio be32 framing":
   stdioTests("be32")
 
-suite "JSON-RPC over stdio (lines framing)":
+suite "stdio lines framing":
   stdioTests("lines")
 
-suite "JSON-RPC over stdio, peer is an RpcStdioClient on its own stdio":
+suite "stdio bidirectional":
   setup:
     var
       router = new RpcRouter
