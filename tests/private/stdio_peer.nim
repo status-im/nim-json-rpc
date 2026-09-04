@@ -46,9 +46,14 @@ proc sendMsgJsonLines(
 
 proc framingByName*(name: string): StdioFraming =
   case name
-  of "be32": StdioFraming.lengthHeaderBE32()
-  of "lines": StdioFraming.init(recvMsgJsonLines, sendMsgJsonLines)
-  else: StdioFraming.httpHeader()
+  of "be32":
+    StdioFraming.lengthHeaderBE32()
+  of "lines":
+    StdioFraming.init(recvMsgJsonLines, sendMsgJsonLines)
+  of "http":
+    StdioFraming.httpHeader()
+  else:
+    raiseAssert "framing not found: " & name
 
 proc peerExe*(): string =
   ## The fixture binary, built next to this source by the `test` task.

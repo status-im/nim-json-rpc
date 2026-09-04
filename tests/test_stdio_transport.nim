@@ -21,6 +21,7 @@ import
   ./private/[helpers, stdio_peer]
 
 suite "stdio transport fixture":
+  # Required for the rest of tests
   test "the peer program has been built":
     const mode =
       when defined(release):
@@ -36,120 +37,124 @@ suite "stdio transport fixture":
       checkpoint "stdio_peer build output: " & res.output
       fail()
 
-template stdioTests(framingName: static string) =
-  suite "JSON-RPC over stdio (" & framingName & " framing)":
-    setup:
-      var
-        router = new RpcRouter
-        answered = newAsyncEvent()
-        notified = newAsyncEvent()
-        client = newRpcStdioClient(
-          router = router, framing = framingByName(framingName)
-        )
+template stdioTests(framingName: string): untyped =
+  setup:
+    var
+      router = new RpcRouter
+      answered = newAsyncEvent()
+      notified = newAsyncEvent()
+      client = newRpcStdioClient(
+        router = router, framing = framingByName(framingName)
+      )
 
-      router[].rpc("client/answer") do(question: string):
-        answered.fire()
-        %("re: " & question)
+    router[].rpc("client/answer") do(question: string):
+      answered.fire()
+      %("re: " & question)
 
-      router[].rpc("client/event") do() -> void:
-        notified.fire()
+    router[].rpc("client/event") do() -> void:
+      notified.fire()
 
-      waitFor client.connect(peerExe(), @["server", framingName])
+    waitFor client.connect(peerExe(), @["server", framingName])
 
-    teardown:
-      waitFor client.close()
+  teardown:
+    waitFor client.close()
 
-    asyncTest "call and response":
-      let r = await client.call("hello", %[%"stdio"])
-      check r.string == "\"Hello stdio\""
-      check client.pendingRequests.len == 0
+  asyncTest "call and response":
+    let r = await client.call("hello", %[%"stdio"])
+    check r.string == "\"Hello stdio\""
+    check client.pendingRequests.len == 0
 
-    asyncTest "message larger than the pipe buffer":
-      # 1 MB in one message: the framing has to reassemble it from many reads,
-      # and the write has to survive a full pipe.
-      let r = await client.call("bigPayload", %[%(1024 * 1024)])
-      check r.string.len == 1024 * 1024 + 2 # quotes
+  asyncTest "message larger than the pipe buffer":
+    # 1 MB in one message: the framing has to reassemble it from many reads,
+    # and the write has to survive a full pipe.
+    let r = await client.call("bigPayload", %[%(1024 * 1024)])
+    check r.string.len == 1024 * 1024 + 2 # quotes
 
-    asyncTest "pipelined requests are answered concurrently and correlated":
-      var futs: seq[Future[JsonString]]
-      for i in 0 ..< 200:
-        futs.add client.call("hello", %[%($i)])
-      for i in 0 ..< 200:
-        check (await futs[i]).string == "\"Hello " & $i & "\""
+  asyncTest "pipelined requests are answered concurrently and correlated":
+    var futs: seq[Future[JsonString]]
+    for i in 0 ..< 200:
+      futs.add client.call("hello", %[%($i)])
+    for i in 0 ..< 200:
+      check (await futs[i]).string == "\"Hello " & $i & "\""
 
-    asyncTest "requests are answered in order":
-      # json_rpc's read loop processes one message at a time - the socket
-      # transport included - so a slow request delays the ones queued behind
-      # it, and every answer still arrives, correctly correlated.
-      let slow = client.call("slow", %[%200, %"slow"])
-      let fast = client.call("hello", %[%"fast"])
-      check (await slow).string == "\"slow\""
-      check (await fast).string == "\"Hello fast\""
+  asyncTest "requests are answered in order":
+    # json_rpc's read loop processes one message at a time - the socket
+    # transport included - so a slow request delays the ones queued behind
+    # it, and every answer still arrives, correctly correlated.
+    let slow = client.call("slow", %[%200, %"slow"])
+    let fast = client.call("hello", %[%"fast"])
+    check (await slow).string == "\"slow\""
+    check (await fast).string == "\"Hello fast\""
 
-    asyncTest "server error is reported to the caller":
-      expect(JsonRpcError):
-        discard await client.call("boom", %[])
-      # the connection survives it
-      check (await client.call("hello", %[%"again"])).string == "\"Hello again\""
+  asyncTest "server error is reported to the caller":
+    expect(JsonRpcError):
+      discard await client.call("boom", %[])
+    # the connection survives it
+    check (await client.call("hello", %[%"again"])).string == "\"Hello again\""
 
-    asyncTest "server calls back into the client":
-      var roundTripped = newAsyncEvent()
-      router[].rpc("client/answered") do() -> void:
-        roundTripped.fire()
+  asyncTest "server calls back into the client":
+    var roundTripped = newAsyncEvent()
+    router[].rpc("client/answered") do() -> void:
+      roundTripped.fire()
 
-      check (await client.call("askClient", %[%"are you there?"])).string == "true"
-      # the client's handler ran ...
-      check await answered.wait().withTimeout(2.seconds)
-      # ... and its response made it back to the server
-      check await roundTripped.wait().withTimeout(2.seconds)
+    check (await client.call("askClient", %[%"are you there?"])).string == "true"
+    # the client's handler ran ...
+    check await answered.wait().withTimeout(2.seconds)
+    # ... and its response made it back to the server
+    check await roundTripped.wait().withTimeout(2.seconds)
 
-    asyncTest "server notifies the client":
-      discard await client.call("notifyClient", %[])
-      check await notified.wait().withTimeout(2.seconds)
+  asyncTest "server notifies the client":
+    discard await client.call("notifyClient", %[])
+    check await notified.wait().withTimeout(2.seconds)
 
-    asyncTest "a burst far larger than the pipe buffer, unread until the end":
-      const
-        Count = 2048
-        Size = 4096
-      let payload = repeat('x', Size)
-      var futs: seq[Future[JsonString]]
-      for i in 0 ..< Count:
-        futs.add client.call("echoBytes", %[%payload])
+  asyncTest "a burst far larger than the pipe buffer, unread until the end":
+    const
+      Count = 2048
+      Size = 4096
+    let payload = repeat('x', Size)
+    var futs: seq[Future[JsonString]]
+    for i in 0 ..< Count:
+      futs.add client.call("echoBytes", %[%payload])
 
-      var got = 0
-      for i in 0 ..< Count:
-        let resp = await futs[i].withTimeout(30.seconds)
-        check resp
-        if not resp:
-          break
-        check futs[i].read().string.len == Size + 2 # quotes
-        inc got
-      check got == Count
+    var got = 0
+    for i in 0 ..< Count:
+      let resp = await futs[i].withTimeout(30.seconds)
+      check resp
+      if not resp:
+        break
+      check futs[i].read().string.len == Size + 2 # quotes
+      inc got
+    check got == Count
 
-    asyncTest "the peer floods us with notifications while we keep requesting":
-      const
-        Count = 512
-        Size = 2048
-      var
-        seen = 0
-        allSeen = newAsyncEvent()
-      router[].rpc("client/flood") do(i: int, payload: string) -> void:
-        inc seen
-        if seen == Count:
-          allSeen.fire()
+  asyncTest "the peer floods us with notifications while we keep requesting":
+    const
+      Count = 512
+      Size = 2048
+    var
+      seen = 0
+      allSeen = newAsyncEvent()
+    router[].rpc("client/flood") do(i: int, payload: string) -> void:
+      inc seen
+      if seen == Count:
+        allSeen.fire()
 
-      let flooding = client.call("flood", %[%Count, %Size])
-      # Keep our own requests going while the flood is in flight.
-      for i in 0 ..< 64:
-        check (await client.call("hello", %[%($i)])).string == "\"Hello " & $i & "\""
+    let flooding = client.call("flood", %[%Count, %Size])
+    # Keep our own requests going while the flood is in flight.
+    for i in 0 ..< 64:
+      check (await client.call("hello", %[%($i)])).string == "\"Hello " & $i & "\""
 
-      check await flooding.withTimeout(30.seconds)
-      check await allSeen.wait().withTimeout(30.seconds)
-      check seen == Count
+    check await flooding.withTimeout(30.seconds)
+    check await allSeen.wait().withTimeout(30.seconds)
+    check seen == Count
 
-stdioTests("http")
-stdioTests("be32")
-stdioTests("lines")
+suite "JSON-RPC over stdio (http framing)":
+  stdioTests("http")
+
+suite "JSON-RPC over stdio (be32 framing)":
+  stdioTests("be32")
+
+suite "JSON-RPC over stdio (lines framing)":
+  stdioTests("lines")
 
 suite "JSON-RPC over stdio, peer is an RpcStdioClient on its own stdio":
   setup:
@@ -199,7 +204,7 @@ suite "malformed framing":
         # Drain stdout so the peer never blocks writing to a full pipe.
         let
           outFut = p.stdoutStream.read()
-          code = await p.waitForExit(30.seconds)
+          code = await p.waitForExit(5.seconds)
         await allFutures(outFut)
         code
       finally:
@@ -208,49 +213,42 @@ suite "malformed framing":
     waitFor run()
 
   const
-    Request =
+    jsonRequest =
       """{"jsonrpc":"2.0","id":1,"method":"hello","params":{"input":"world"}}"""
-    Framed = "Content-Length: " & $Request.len & "\r\n\r\n" & Request
-
-  template checkFails(input: string, reason: string) =
-    check runPeer(input) != 0
-
-  template checkEndsCleanly(input: string) =
-    check runPeer(input) == 0
+    jsonFrame = "Content-Length: " & $jsonRequest.len & "\r\n\r\n" & jsonRequest
 
   test "a well framed request is served, then the peer exits cleanly":
-    check runPeer(Framed) == 0
+    check runPeer(jsonFrame) == 0
 
   test "a peer that is closed without being spoken to exits cleanly":
     check runPeer("") == 0
 
   test "a negative content length fails":
-    checkFails("Content-Length: -5\r\n\r\nxxxxx", "Malformed content length")
+    check runPeer("Content-Length: -5\r\n\r\nxxxxx") != 0
 
   test "a content length that is not a number fails":
-    checkFails("Content-Length: abc\r\n\r\nxxxxx", "Malformed content length")
+    check runPeer("Content-Length: abc\r\n\r\nxxxxx") != 0
 
   test "a content length beyond the maximum message size fails":
-    checkFails("Content-Length: 999999999\r\n\r\nshort", "Maximum length exceeded")
+    check runPeer("Content-Length: 999999999\r\n\r\nshort") != 0
 
   test "a header that cannot be parsed fails":
-    checkFails("total nonsense here\r\n\r\n", "Malformed message header")
+    check runPeer("total nonsense here\r\n\r\n") != 0
 
   test "an unframed message ends the session":
-    checkEndsCleanly(Request)
+    check runPeer(jsonRequest) == 0
 
   test "a header that is never terminated ends the session":
-    checkEndsCleanly("Content-Length: 47")
+    check runPeer("Content-Length: 47") == 0
 
   test "a body shorter than the declared length ends the session":
-    checkEndsCleanly("Content-Length: 500\r\n\r\n" & Request)
+    check runPeer("Content-Length: 500\r\n\r\n" & jsonRequest) == 0
 
   test "a header longer than the limit fails":
-    checkFails(repeat('A', 5000), "Limit reached!")
+    check runPeer(repeat('A', 5000)) != 0
 
   test "a valid request after a broken frame is not served":
-    # The stream cannot be resynchronised, so the peer stops at the bad frame.
-    checkFails("Content-Length: -5\r\n\r\n" & Framed, "Malformed content length")
+    check runPeer("Content-Length: -5\r\n\r\n" & jsonFrame) != 0
 
 suite "stdio transport errors":
   test "connecting to a command that does not exist":
