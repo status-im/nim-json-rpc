@@ -407,6 +407,30 @@ proc connect*(client: RpcStdioClient) {.raises: [JsonRpcError].} =
   let (input, output) = stdioTransports()
   client.loop = client.attach(input, output, "stdio")
 
+# XXX workaround https://github.com/status-im/nim-chronos/pull/729
+proc closePipeEnd(fd: AsyncFD) =
+  when defined(windows):
+    discard closeFd(HANDLE(fd))
+  else:
+    discard closeFd(cint(fd))
+
+# XXX workaround https://github.com/status-im/nim-chronos/pull/729
+proc peerStdinPipe(): tuple[ours: StreamTransport, theirs: AsyncFD] {.
+    raises: [JsonRpcError].} =
+  const
+    theirEnd = {DescriptorFlag.NonBlock}
+    ourEnd = {DescriptorFlag.NonBlock, DescriptorFlag.CloseOnExec}
+  let pipe = createOsPipe(theirEnd, ourEnd).valueOr:
+    raise (ref RpcTransportError)(
+      msg: "Unable to create the peer's standard input pipe: " & osErrorMsg(error)
+    )
+  try:
+    (ours: fromPipe(AsyncFD(pipe.write)), theirs: AsyncFD(pipe.read))
+  except TransportOsError as exc:
+    closePipeEnd(AsyncFD(pipe.read))
+    closePipeEnd(AsyncFD(pipe.write))
+    raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+
 proc connect*(
     client: RpcStdioClient,
     command: string,
@@ -415,6 +439,8 @@ proc connect*(
     environment: StringTableRef = nil,
     options: set[AsyncProcessOption] = {},
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  let (ourStdin, theirStdin) = peerStdinPipe()
+
   let process =
     try:
       await startProcess(
@@ -423,14 +449,22 @@ proc connect*(
         arguments = arguments,
         environment = environment,
         options = options,
-        stdinHandle = AsyncProcess.Pipe,
+        stdinHandle = ProcessStreamHandle.init(theirStdin),
         stdoutHandle = AsyncProcess.Pipe,
       )
     except AsyncProcessError as exc:
+      closePipeEnd(theirStdin)
+      await ourStdin.closeWait()
       raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+    except CancelledError as exc:
+      closePipeEnd(theirStdin)
+      await ourStdin.closeWait()
+      raise exc
+
+  closePipeEnd(theirStdin)
 
   client.process = process
-  client.loop = client.attach(process.stdoutStream.tsource, process.stdinStream.tsource, command)
+  client.loop = client.attach(process.stdoutStream.tsource, ourStdin, command)
 
 method close*(client: RpcStdioClient) {.async: (raises: []).} =
   ## Close the connection and, if this client spawned the peer, wait for it to
