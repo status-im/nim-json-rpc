@@ -1,0 +1,378 @@
+# json-rpc
+# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Licensed under either of
+#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
+# at your option.
+# This file may not be copied, modified, or distributed except according to
+# those terms.
+
+{.push raises: [], gcsafe.}
+
+import
+  std/strtabs,
+  chronicles,
+  chronicles/options,
+  chronos/asyncproc,
+  chronos/osutils,
+  ./shared/framing,
+  ../[client, errors, router],
+  ../private/jrpc_sys
+
+export client, errors, asyncproc, framing
+
+when defined(windows):
+  import chronos/osdefs
+
+  when not compileOption("threads"):
+    {.error: "the stdio transport needs --threads:on on Windows".}
+
+proc logsToStdout(): bool {.compileTime.} =
+  for stream in config.streams:
+    for sink in stream.sinks:
+      for destination in sink.destinations:
+        if destination.kind == OutputDeviceKind.oStdOut:
+          return true
+  false
+
+when loggingEnabled and logsToStdout():
+  {.error: "stdio transport requires chronicles log to stderr; ex: `-d:\"chronicles_sinks=textlines[stderr]\"`".}
+
+logScope:
+  topics = "jsonrpc client stdio"
+
+type
+  RpcStdioClient* = ref object of RpcConnection
+    ## Bidirectional connection over a pair of pipes
+    input*: StreamTransport
+    output*: StreamTransport
+    loop*: Future[void]
+    framing*: Framing
+    process*: AsyncProcessRef
+    peerExitCode: Opt[int]
+    lastFailure: ref JsonRpcError
+
+# ---------------------------------------------------------------------------
+# Construction
+# ---------------------------------------------------------------------------
+
+proc new*(
+    T: type RpcStdioClient,
+    maxMessageSize = defaultMaxMessageSize,
+    router = default(RpcRouterCallback),
+    framing = Framing.httpHeader(),
+): T =
+  T(maxMessageSize: maxMessageSize, router: router, framing: framing)
+
+proc new*(
+    T: type RpcStdioClient,
+    maxMessageSize = defaultMaxMessageSize,
+    router = default(ref RpcRouter),
+    framing = Framing.httpHeader(),
+): T =
+  let router =
+    if router != nil:
+      proc(
+          request: RequestBatchRx
+      ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
+        router[].route(request)
+    else:
+      nil
+  T.new(maxMessageSize, router, framing)
+
+proc newRpcStdioClient*(
+    maxMessageSize = defaultMaxMessageSize,
+    router = default(ref RpcRouter),
+    framing = Framing.httpHeader(),
+): RpcStdioClient =
+  ## Creates a new client instance.
+  RpcStdioClient.new(maxMessageSize, router, framing)
+
+# ---------------------------------------------------------------------------
+# Sending
+# ---------------------------------------------------------------------------
+
+method send*(
+    client: RpcStdioClient, reqData: seq[byte]
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  if client.output.isNil:
+    raise newException(
+      RpcTransportError, "Transport is not initialised (missing a call to connect?)"
+    )
+  try:
+    await client.framing.sendMsg(client.output, reqData)
+  except TransportError as exc:
+    raise (ref RpcPostError)(msg: exc.msg, parent: exc)
+
+method request(
+    client: RpcStdioClient, reqData: seq[byte], id: int
+): Future[ResponseBatchRx] {.async: (raises: [CancelledError, JsonRpcError]).} =
+  ## Remotely calls the specified RPC method.
+  if client.output.isNil:
+    raise newException(
+      RpcTransportError, "Transport is not initialised (missing a call to connect?)"
+    )
+
+  client.withPendingFut(fut, id):
+    try:
+      await client.framing.sendMsg(client.output, reqData)
+    except TransportError as exc:
+      raise (ref RpcPostError)(msg: exc.msg, parent: exc)
+
+    await fut
+
+# ---------------------------------------------------------------------------
+# Message loop
+# ---------------------------------------------------------------------------
+
+proc processMessages(client: RpcStdioClient) {.async: (raises: []).} =
+  let maxMessageSize =
+    if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
+
+  var lastError: ref JsonRpcError
+  while not client.input.atEof():
+    try:
+      let data = await client.framing.recvMsg(client.input, maxMessageSize)
+      if data.len == 0:
+        break
+
+      let fallback = client.callOnProcessMessage(data).valueOr:
+        lastError = (ref RequestDecodeError)(msg: error, payload: data)
+        break
+
+      if not fallback:
+        continue
+
+      let resp =
+        try:
+          await client.processMessage(data)
+        except InvalidResponse as exc:
+          raise exc
+        except JsonRpcError as exc:
+          try:
+            await client.framing.sendMsg(
+              client.output, wrapError(router.INVALID_REQUEST, exc.msg)
+            )
+          except TransportError:
+            discard
+          raise exc
+
+      if resp.len > 0:
+        await client.framing.sendMsg(client.output, resp)
+    except TransportIncompleteError as exc:
+      debug "Stdio connection ended", err = exc.msg, remote = client.remote
+      break
+    except CatchableError as exc:
+      lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
+      break
+
+  if lastError == nil:
+    lastError = (ref RpcTransportError)(msg: "Connection closed")
+  else:
+    error "Stdio connection failed", err = lastError.msg, remote = client.remote
+    client.lastFailure = lastError
+
+  # Prevent new requests
+  let
+    input = move(client.input)
+    output = move(client.output)
+  client.clearPending(lastError)
+
+  await input.closeWait()
+  await output.closeWait()
+
+  if not client.onDisconnect.isNil:
+    client.onDisconnect()
+
+proc attach*(
+    client: RpcStdioClient,
+    input, output: StreamTransport,
+    remote: string,
+) {.async: (raises: [], raw: true).} =
+  client.input = input
+  client.output = output
+  client.remote = remote
+
+  processMessages(client)
+
+# ---------------------------------------------------------------------------
+# Connecting
+# ---------------------------------------------------------------------------
+
+when defined(windows):
+  const BridgeBufSize = 8192
+
+  type PumpCtx = object
+    src, dst: HANDLE
+
+  var
+    stdinPump: Thread[PumpCtx]
+    stdoutPump: Thread[PumpCtx]
+
+  proc pump(ctx: PumpCtx) {.thread.} =
+    var buf {.noinit.}: array[BridgeBufSize, byte]
+    block copy:
+      while true:
+        var count = DWORD(0)
+        if readFile(ctx.src, addr buf[0], DWORD(len(buf)), addr count, nil) == FALSE:
+          break copy
+        if count == 0:
+          break copy
+        var sent = 0
+        while sent < int(count):
+          var written = DWORD(0)
+          let ok = writeFile(
+            ctx.dst, addr buf[sent], DWORD(int(count) - sent), addr written, nil
+          )
+          if ok == FALSE or written == 0:
+            break copy
+          sent += int(written)
+    discard closeHandle(ctx.dst)
+
+  proc bridgeStdio(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError].} =
+    let
+      inHandle = getStdHandle(STD_INPUT_HANDLE)
+      outHandle = getStdHandle(STD_OUTPUT_HANDLE)
+    if inHandle == INVALID_HANDLE_VALUE or outHandle == INVALID_HANDLE_VALUE:
+      raise (ref RpcTransportError)(msg: "Unable to obtain the standard handles")
+
+    const
+      loopEnd = {DescriptorFlag.CloseOnExec, DescriptorFlag.NonBlock}
+      threadEnd = {DescriptorFlag.CloseOnExec}
+    let
+      inPipe = createOsPipe(loopEnd, threadEnd).valueOr:
+        raise (ref RpcTransportError)(
+          msg: "Unable to create the standard input bridge: " & osErrorMsg(error)
+        )
+      outPipe = createOsPipe(threadEnd, loopEnd).valueOr:
+        raise (ref RpcTransportError)(
+          msg: "Unable to create the standard output bridge: " & osErrorMsg(error)
+        )
+
+    try:
+      createThread(stdinPump, pump, PumpCtx(src: inHandle, dst: inPipe.write))
+      createThread(stdoutPump, pump, PumpCtx(src: outPipe.read, dst: outHandle))
+    except ResourceExhaustedError as exc:
+      raise (ref RpcTransportError)(
+        msg: "Unable to start the standard input/output bridge: " & exc.msg,
+        parent: exc,
+      )
+
+    try:
+      (fromPipe(AsyncFD(inPipe.read)), fromPipe(AsyncFD(outPipe.write)))
+    except TransportOsError as exc:
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+
+proc stdioTransports*(): tuple[input, output: StreamTransport] {.raises: [JsonRpcError]} =
+  when defined(windows):
+    bridgeStdio()
+  else:
+    let
+      inFd = AsyncFD(0)
+      outFd = AsyncFD(1)
+    for fd in [cint(0), cint(1)]:
+      setDescriptorBlocking(fd, false).isOkOr:
+        raise (ref RpcTransportError)(
+          msg: "Unable to switch standard descriptor " & $fd &
+            " to non-blocking mode: " & osErrorMsg(error)
+        )
+
+    try:
+      (fromPipe(inFd), fromPipe(outFd))
+    except TransportOsError as exc:
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+
+proc connect*(client: RpcStdioClient) {.raises: [JsonRpcError].} =
+  let (input, output) = stdioTransports()
+  client.loop = client.attach(input, output, "stdio")
+
+# XXX workaround https://github.com/status-im/nim-chronos/pull/729
+# https://github.com/status-im/nim-json-rpc/pull/296/changes/b22d388f13956c06bd469c8ac6295abad1e6bf17
+proc closePipeEnd(fd: AsyncFD) =
+  when defined(windows):
+    discard closeFd(HANDLE(fd))
+  else:
+    discard closeFd(cint(fd))
+
+proc peerStdinPipe(): tuple[ours: StreamTransport, theirs: AsyncFD] {.
+    raises: [JsonRpcError].} =
+  const
+    theirEnd = {DescriptorFlag.NonBlock}
+    ourEnd = {DescriptorFlag.NonBlock, DescriptorFlag.CloseOnExec}
+  let pipe = createOsPipe(theirEnd, ourEnd).valueOr:
+    raise (ref RpcTransportError)(
+      msg: "Unable to create the peer's standard input pipe: " & osErrorMsg(error)
+    )
+  try:
+    (ours: fromPipe(AsyncFD(pipe.write)), theirs: AsyncFD(pipe.read))
+  except TransportOsError as exc:
+    closePipeEnd(AsyncFD(pipe.read))
+    closePipeEnd(AsyncFD(pipe.write))
+    raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+
+proc connect*(
+    client: RpcStdioClient,
+    command: string,
+    arguments: seq[string] = @[],
+    workingDir = "",
+    environment: StringTableRef = nil,
+    options: set[AsyncProcessOption] = {},
+) {.async: (raises: [CancelledError, JsonRpcError]).} =
+  let (ourStdin, theirStdin) = peerStdinPipe()
+
+  let process =
+    try:
+      await startProcess(
+        command,
+        workingDir = workingDir,
+        arguments = arguments,
+        environment = environment,
+        options = options,
+        stdinHandle = ProcessStreamHandle.init(theirStdin),
+        stdoutHandle = AsyncProcess.Pipe,
+      )
+    except AsyncProcessError as exc:
+      closePipeEnd(theirStdin)
+      await ourStdin.closeWait()
+      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+    except CancelledError as exc:
+      closePipeEnd(theirStdin)
+      await ourStdin.closeWait()
+      raise exc
+
+  closePipeEnd(theirStdin)
+
+  client.process = process
+  client.loop = client.attach(process.stdoutStream.tsource, ourStdin, command)
+
+method close*(client: RpcStdioClient) {.async: (raises: []).} =
+  ## Close the connection and, if this client spawned the peer, wait for it to
+  ## exit. The child sees end of file on its standard input, which is how a
+  ## well behaved server is asked to shut down.
+  if client.loop != nil:
+    let loop = move(client.loop)
+    await loop.cancelAndWait()
+
+  if client.process != nil:
+    let process = move(client.process)
+    try:
+      client.peerExitCode = Opt.some(await process.waitForExit(InfiniteDuration))
+    except AsyncProcessError, CancelledError:
+      discard
+    await process.closeWait()
+
+proc failure*(client: RpcStdioClient): ref JsonRpcError =
+  client.lastFailure
+
+proc exitCode*(client: RpcStdioClient): Opt[int] =
+  ## Exit status of the spawned peer, once it has one - after `close`, or once
+  ## a peer that exited on its own has been reaped.
+  if client.peerExitCode.isSome():
+    client.peerExitCode
+  elif client.process == nil:
+    Opt.none(int)
+  else:
+    let res = client.process.peekExitCode()
+    if res.isOk() and res.get() >= 0: Opt.some(res.get()) else: Opt.none(int)
+
+{.pop.}

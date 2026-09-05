@@ -24,3 +24,11 @@ import
   testproxy,
   testrpcmacro,
   testserverclient
+
+proc logsToStderr(): bool =
+  const chronicles_sinks {.strdefine.} = ""
+  chronicles_sinks == "textlines[stderr]"
+
+when logsToStderr():
+  # stdio requires logging to stderr
+  import test_stdio_transport
