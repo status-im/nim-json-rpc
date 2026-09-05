@@ -7,18 +7,6 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-## A JSON-RPC server that serves a single connection over standard
-## input/output - the transport an LSP or MCP server is launched with.
-##
-## Like `RpcSocketServer`, this is the transport's bidirectional connection -
-## an `RpcStdioClient` - with the server's router plugged in: incoming requests
-## are routed, and the connection is registered in `connections` so
-## `server.notify(...)` reaches the peer. There is no accept loop, because a
-## process has exactly one standard input.
-##
-## Anything written to stdout other than protocol messages will corrupt the
-## stream, so send logs to stderr or a file.
-
 {.push raises: [], gcsafe.}
 
 import
