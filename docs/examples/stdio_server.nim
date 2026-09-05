@@ -15,7 +15,7 @@ proc setupServer(srv: RpcStdioServer) =
 
 proc main() {.raises: [CancelledError, JsonRpcError].} =
   # ANCHOR: ServerConnect
-  let srv = newRpcStdioServer(framing = StdioFraming.httpHeader())
+  let srv = newRpcStdioServer(framing = Framing.httpHeader())
   # ANCHOR_END: ServerConnect
 
   srv.setupServer()

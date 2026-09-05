@@ -14,9 +14,10 @@ import
   chronos,
   ../[errors, server],
   ../private/jrpc_sys,
+  ../clients/shared/framing,
   ../clients/stdioclient
 
-export errors, server, StdioFraming, lengthHeaderBE32, httpHeader, newLine
+export errors, server, framing
 
 logScope:
   topics = "jsonrpc server stdio"
@@ -25,12 +26,12 @@ type RpcStdioServer* = ref object of RpcServer
   connection: RpcStdioClient
   loop: Future[void].Raising([])
   maxMessageSize: int
-  framing: StdioFraming
+  framing: Framing
 
 proc new*(
     T: type RpcStdioServer,
     maxMessageSize = defaultMaxMessageSize,
-    framing = StdioFraming.httpHeader(),
+    framing = Framing.httpHeader(),
 ): T =
   T(
     router: RpcRouter.init(),
@@ -39,7 +40,7 @@ proc new*(
   )
 
 proc newRpcStdioServer*(
-    maxMessageSize = defaultMaxMessageSize, framing = StdioFraming.httpHeader()
+    maxMessageSize = defaultMaxMessageSize, framing = Framing.httpHeader()
 ): RpcStdioServer =
   RpcStdioServer.new(maxMessageSize, framing)
 

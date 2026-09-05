@@ -69,7 +69,7 @@ Stdio:
 ```nim
 import json_rpc/clients/stdioclient
 
-const framing = StdioFraming.httpHeader()
+const framing = Framing.httpHeader()
 
 let client = newRpcStdioClient(framing = framing)
 client.connect()

@@ -35,14 +35,14 @@ proc sendMsgJsonLines(
 ) {.async: (raises: [CancelledError, TransportError]).} =
   discard await output.write(msg & toBytes("\n"))
 
-proc framingByName*(name: string): StdioFraming =
+proc framingByName*(name: string): Framing =
   case name
   of "be32":
-    StdioFraming.lengthHeaderBE32()
+    Framing.lengthHeaderBE32()
   of "lines":
-    StdioFraming.init(recvMsgJsonLines, sendMsgJsonLines)
+    Framing.init(recvMsgJsonLines, sendMsgJsonLines)
   of "http":
-    StdioFraming.httpHeader()
+    Framing.httpHeader()
   else:
     raiseAssert "framing not found: " & name
 
