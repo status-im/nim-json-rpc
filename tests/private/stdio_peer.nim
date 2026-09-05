@@ -7,19 +7,10 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-## The peer process for `test_stdio_transport`: a JSON-RPC program whose
-## transport is its own standard input/output, which is the way an LSP or MCP
-## server is launched. The test spawns it and drives it with an
-## `RpcStdioClient`.
+## Usage:
 ##
 ##   stdio_peer server <framing>   the peer is an RpcStdioServer
 ##   stdio_peer client <framing>   the peer is an RpcStdioClient with a router
-##
-## Its standard output carries the protocol, so it must be built with
-##   -d:"chronicles_sinks=textlines[stderr]"
-##
-## The module is also imported by the test itself, for `framingByName`; only
-## the `isMainModule` part below runs the peer.
 
 import
   std/[os],
@@ -60,13 +51,6 @@ proc peerExe*(): string =
   currentSourcePath().parentDir() / PeerExeName.addFileExt(ExeExt)
 
 when isMainModule:
-  proc logsToStderr(): bool =
-    const chronicles_sinks {.strdefine.} = ""
-    chronicles_sinks == "textlines[stderr]"
-
-  when not logsToStderr():
-    {.error: "stdio_peer requires -d:\"chronicles_sinks=textlines[stderr]\" to avoid printing logs to stdin".}
-
   var
     peerServer: RpcStdioServer
     peerClient: RpcStdioClient

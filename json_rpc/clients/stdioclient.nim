@@ -13,11 +13,14 @@ import
   std/strtabs,
   stew/[arrayops, byteutils, endians2],
   chronicles,
+  chronicles/options,
   chronos/asyncproc,
   chronos/osutils,
   httputils,
   ../[client, errors, router],
   ../private/jrpc_sys
+
+export client, errors, asyncproc
 
 when defined(windows):
   import chronos/osdefs
@@ -25,7 +28,16 @@ when defined(windows):
   when not compileOption("threads"):
     {.error: "the stdio transport needs --threads:on on Windows".}
 
-export client, errors, asyncproc
+proc logsToStdout(): bool {.compileTime.} =
+  for stream in config.streams:
+    for sink in stream.sinks:
+      for destination in sink.destinations:
+        if destination.kind == OutputDeviceKind.oStdOut:
+          return true
+  false
+
+when loggingEnabled and logsToStdout():
+  {.error: "stdio transport requires chronicles log to stderr; ex: `-d:\"chronicles_sinks=textlines[stderr]\"`".}
 
 when not declared(newSeqUninit): # nim 2.2+
   template newSeqUninit[T: byte](len: int): seq[byte] =

@@ -40,6 +40,8 @@ let cfg =
   " --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
   " --threads:on -d:chronicles_log_level=ERROR"
 
+let stderrLog = " -d:\"chronicles_sinks=textlines[stderr]\" "
+
 proc build(args, path: string) =
   exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path
 
@@ -56,6 +58,7 @@ proc buildOnly(args, path: string) =
 task test, "run tests":
   for mode in ["", "-d:release"]:
     run mode, "tests/all"
+    run mode & stderrLog, "tests/test_stdio_transport"
 
   when not defined(windows):
     # on windows, socker server build failed
@@ -65,6 +68,7 @@ task test_asan, "run tests with asan":
   # CI runs without leak detection: ASAN_OPTIONS=detect_leaks=0
   if (NimMajor, NimMinor) >= (2, 2) and defined(linux) and defined(amd64):
     build " -d:release --mm:orc -d:useMalloc --cc:clang --passc:-fsanitize=address --passl:-fsanitize=address --debugger:native -r", "tests/all"
+    build " -d:release --mm:orc -d:useMalloc --cc:clang --passc:-fsanitize=address --passl:-fsanitize=address --debugger:native -r" & stderrLog, "tests/test_stdio_transport"
 
 task examples, "Run examples":
   # Run book examples
@@ -72,13 +76,13 @@ task examples, "Run examples":
     if file.endsWith("_sigs_def.nim"):
       continue
     elif file.endsWith("stdio_server.nim"):
-      # Avoid serve forever; stdout carries the protocol, so logs go to stderr
-      buildOnly "--threads:on -d:\"chronicles_sinks=textlines[stderr]\"", file
+      # Avoid serve forever
+      buildOnly stderrLog, file
     elif file.endsWith("_server.nim"):
       # Avoid serve forever
-      buildOnly "--threads:on", file
+      buildOnly "", file
     elif file.endsWith(".nim"):
-      run "--threads:on", file
+      run "", file
 
 task docs, "Generate API documentation":
   exec "mdbook build docs"

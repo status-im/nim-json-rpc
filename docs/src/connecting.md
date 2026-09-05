@@ -10,7 +10,7 @@ A JSON-RPC connection communicates over an existing transport, such as HTTP, Soc
   - `Framing.lengthHeaderBE32`: Big-endian, 32-bit binary prefix - most efficient option.
 - Websockets, via [websock](https://github.com/status-im/nim-websock): bidirectional, persistent connection.
 
-Note Stdio requires sending log messages to stderr instead of stdout to avoid corrupting the stream messages.
+Note Stdio requires sending log messages to stderr instead of stdout to avoid corrupting the stream messages, including chronicles logs; ex: `-d:"chronicles_sinks=textlines[stderr]"`.
 
 ## Server (and possibly client also)
 

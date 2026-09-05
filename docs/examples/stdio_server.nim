@@ -3,13 +3,6 @@
 
 {.push gcsafe, raises: [].}
 
-proc logsToStderr(): bool =
-  const chronicles_sinks {.strdefine.} = ""
-  chronicles_sinks == "textlines[stderr]"
-
-when not logsToStderr():
-  {.error: "stdio transport requires -d:chronicles_sinks=textlines[stderr]".}
-
 import json_rpc/servers/stdioserver
 import ./rpc_format
 
