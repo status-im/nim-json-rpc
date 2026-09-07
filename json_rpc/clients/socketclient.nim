@@ -63,12 +63,18 @@ proc recvMsgHttpHeader(
     transport: StreamTransport, maxMessageSize: int
 ): Future[seq[byte]] {.async: (raises: [CancelledError, TransportError]).} =
   var buf {.noinit.}: array[1024, byte]
-  let
-    bytes = await transport.readUntil(addr buf[0], buf.len, toBytes("\r\n\r\n"))
-    headers = parseHeaders(buf.toOpenArray(0, bytes - 1), true)
+  let bytes = await transport.readUntil(addr buf[0], buf.len, toBytes("\r\n\r\n"))
+
+  let headers = parseHeaders(buf.toOpenArray(0, bytes - 1), true)
+  if headers.failed():
+    raise (ref TransportError)(msg: "Malformed message header")
 
   let len = headers.contentLength()
-  if len <= 0 or len > maxMessageSize:
+  if len < 0:
+    raise (ref TransportError)(msg: "Malformed content length")
+  if len > maxMessageSize:
+    raise (ref TransportLimitError)(msg: "Maximum length exceeded: " & $len)
+  if len == 0:
     return
 
   result = newSeqUninit[byte](len)
@@ -103,6 +109,8 @@ proc recvMsgLengthHeaderBE32(
 
   proc predicate(data: openArray[byte]): tuple[consumed: int, done: bool] =
     if data.len == 0:
+      if pos > 0 or payload.len > 0:
+        error = (ref TransportIncompleteError)(msg: "Incomplete message")
       return (0, true)
 
     var dataPos = 0
