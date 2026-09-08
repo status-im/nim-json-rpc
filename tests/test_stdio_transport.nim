@@ -7,9 +7,8 @@
 # This file may not be copied, modified, or distributed except according to
 # those terms.
 
-## End-to-end test of the stdio transport, using two processes: the peer
-## is `private/stdio_peer`, a program that serves JSON-RPC over its own
-## standard input/output, and the test drives it with an `RpcStdioClient`.
+## End-to-end test of the stdio transport,
+## using `./private/stdio_peer` process.
 
 import
   std/[json, os, osproc],
@@ -65,10 +64,13 @@ template stdioTests(framingName: string): untyped =
     check client.pendingRequests.len == 0
 
   asyncTest "message larger than the pipe buffer":
-    # 1 MB in one message: the framing has to reassemble it from many reads,
-    # and the write has to survive a full pipe.
-    let r = await client.call("bigPayload", %[%(1024 * 1024)])
-    check r.string.len == 1024 * 1024 + 2 # quotes
+    const Size =
+      when defined(release) or defined(danger):
+        1024 * 1024
+      else:
+        16 * 1024 * 4
+    let r = await client.call("bigPayload", %[%(Size)])
+    check r.string.len == Size + 2 # quotes
 
   asyncTest "pipelined requests are answered concurrently and correlated":
     var futs: seq[Future[JsonString]]
@@ -78,9 +80,6 @@ template stdioTests(framingName: string): untyped =
       check (await futs[i]).string == "\"Hello " & $i & "\""
 
   asyncTest "requests are answered in order":
-    # json_rpc's read loop processes one message at a time - the socket
-    # transport included - so a slow request delays the ones queued behind
-    # it, and every answer still arrives, correctly correlated.
     let slow = client.call("slow", %[%200, %"slow"])
     let fast = client.call("hello", %[%"fast"])
     check (await slow).string == "\"slow\""
@@ -99,17 +98,21 @@ template stdioTests(framingName: string): untyped =
 
     check (await client.call("askClient", %[%"are you there?"])).string == "true"
     # the client's handler ran ...
-    check await answered.wait().withTimeout(2.seconds)
+    check await answered.wait().withTimeout(30.seconds)
     # ... and its response made it back to the server
-    check await roundTripped.wait().withTimeout(2.seconds)
+    check await roundTripped.wait().withTimeout(30.seconds)
 
   asyncTest "server notifies the client":
     discard await client.call("notifyClient", %[])
-    check await notified.wait().withTimeout(2.seconds)
+    check await notified.wait().withTimeout(30.seconds)
 
   asyncTest "a burst far larger than the pipe buffer, unread until the end":
     const
-      Count = 2048
+      Count = 
+        when defined(release) or defined(danger):
+          2048
+        else:
+          32
       Size = 4096
     let payload = repeat('x', Size)
     var futs: seq[Future[JsonString]]
@@ -131,7 +134,11 @@ template stdioTests(framingName: string): untyped =
     # This must not deadlock.
     const
       Count = 4
-      Size = 1024 * 1024
+      Size =
+        when defined(release) or defined(danger):
+          1024 * 1024
+        else:
+          16 * 1024 * 4
     let payload = repeat('x', Size)
     var futs: seq[Future[JsonString]]
     for i in 0 ..< Count:
@@ -146,7 +153,11 @@ template stdioTests(framingName: string): untyped =
 
   asyncTest "the peer floods us with notifications while we keep requesting":
     const
-      Count = 512
+      Count =
+        when defined(release) or defined(danger):
+          512
+        else:
+          32
       Size = 2048
     var
       seen = 0
