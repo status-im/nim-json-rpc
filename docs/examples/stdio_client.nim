@@ -39,7 +39,7 @@ proc buildStdioServer() =
       ""
   const flags = "--threads:on -d:chronicles_log_level=ERROR -d:\"chronicles_sinks=textlines[stderr]\""
   let res = try:
-    execCmdEx("nim c -f " & mode & " " & flags & " " & serverPath)
+    execCmdEx("nim c " & mode & " " & flags & " " & serverPath)
   except CatchableError as err:
     raiseAssert "Failed to build server: " & err.msg
   doAssert res.exitCode == 0, "Failed to build server: " & res.output

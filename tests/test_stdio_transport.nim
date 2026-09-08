@@ -31,7 +31,7 @@ suite "stdio transport fixture":
         ""
     const flags = "--threads:on -d:chronicles_log_level=ERROR -d:\"chronicles_sinks=textlines[stderr]\""
     const path = "tests" / "private" / "stdio_peer.nim"
-    let res = execCmdEx("nim c -f " & mode & " " & flags & " " & path)
+    let res = execCmdEx("nim c " & mode & " " & flags & " " & path)
     if res.exitCode != 0:
       checkpoint "stdio_peer build output: " & res.output
       fail()
@@ -108,7 +108,7 @@ template stdioTests(framingName: string): untyped =
 
   asyncTest "a burst far larger than the pipe buffer, unread until the end":
     const
-      Count = 
+      Count =
         when defined(release) or defined(danger):
           2048
         else:
