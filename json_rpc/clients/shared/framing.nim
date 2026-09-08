@@ -14,26 +14,22 @@ import
   chronos,
   httputils
 
-export chronos
-
 when not declared(newSeqUninit): # nim 2.2+
   template newSeqUninit[T: byte](len: int): seq[byte] =
     newSeqUninitialized[byte](len)
 
 type
-  RecvMsg* = proc(transport: StreamTransport, limit: int): Future[seq[byte]] {.
+  FramingRecvMsg* = proc(transport: StreamTransport, limit: int): Future[seq[byte]] {.
     async: (raises: [CancelledError, TransportError]), nimcall
   .}
-
-  SendMsg* = proc(transport: StreamTransport, msg: seq[byte]) {.
+  FramingSendMsg* = proc(transport: StreamTransport, sendMsg: seq[byte]) {.
     async: (raises: [CancelledError, TransportError]), nimcall
   .}
-
   Framing* = object
-    recvMsg*: RecvMsg
-    sendMsg*: SendMsg
+    recvMsg*: FramingRecvMsg
+    sendMsg*: FramingSendMsg
 
-proc init*(T: type Framing, recvMsg: RecvMsg, sendMsg: SendMsg): T =
+proc init*(T: type Framing, recvMsg: FramingRecvMsg, sendMsg: FramingSendMsg): T =
   T(recvMsg: recvMsg, sendMsg: sendMsg)
 
 proc recvMsgNewLine(
@@ -106,6 +102,8 @@ proc recvMsgLengthHeaderBE32(
 
   proc predicate(data: openArray[byte]): tuple[consumed: int, done: bool] =
     if data.len == 0:
+      if pos > 0 or payload.len > 0:
+        error = (ref TransportIncompleteError)(msg: "Incomplete message")
       return (0, true)
 
     var dataPos = 0
@@ -155,5 +153,3 @@ proc sendMsgLengthHeaderBE32(
 proc lengthHeaderBE32*(T: type Framing): T =
   ## Framing using a big-endian 32-bit length prefix.
   T(recvMsg: recvMsgLengthHeaderBE32, sendMsg: sendMsgLengthHeaderBE32)
-
-{.pop.}
