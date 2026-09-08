@@ -11,6 +11,8 @@
 ##
 ##   stdio_peer <framing>   the peer is an RpcStdioServer
 
+{.push gcsafe, raises: [].}
+
 import
   std/[os],
   stew/byteutils,
