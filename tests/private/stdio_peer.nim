@@ -50,8 +50,6 @@ proc peerExe*(): string =
   currentSourcePath().parentDir() / PeerExeName.addFileExt(ExeExt)
 
 when isMainModule:
-  var peerServer: RpcStdioServer
-
   proc askClientAsync(conn: RpcConnection, question: string) {.async: (raises: []).} =
     ## Ask the peer something, then tell it what came back.
     try:
@@ -63,60 +61,51 @@ when isMainModule:
 
   proc runServer(framingName: string) {.raises: [CatchableError].} =
     let srv = newRpcStdioServer(framing = framingByName(framingName))
-    peerServer = srv
 
-    srv.rpc("hello") do(name: string):
-      %("Hello " & name)
+    srv.rpc(JrpcConv):
+      proc hello(name: string): string =
+        "Hello " & name
 
-    srv.rpc("bigPayload") do(size: int):
-      %repeat('x', size)
+      proc bigPayload(size: int): string =
+        repeat('x', size)
 
-    srv.rpc("slow") do(ms: int, tag: string):
-      await sleepAsync(ms.milliseconds)
-      %tag
+      proc slow(ms: int, tag: string): string {.async: (raises: [CancelledError]).} =
+        await sleepAsync(ms.milliseconds)
+        tag
 
-    srv.rpc("boom") do():
-      raise (ref ValueError)(msg: "boom")
+      proc boom(): void {.raises: [ValueError].} =
+        raise (ref ValueError)(msg: "boom")
 
-    srv.rpc("askClient") do(question: string):
-      # Server -> client request over the same connection: this is what makes
-      # the transport bidirectional rather than a request/response pipe.
-      #
-      # It is dispatched rather than awaited here because json_rpc's read loop
-      # handles one message at a time (the socket transport behaves the same
-      # way): awaiting the peer's answer inside a handler would deadlock, since
-      # that answer can only be read once the handler has returned.
-      var conn: RpcConnection
-      {.cast(gcsafe).}:
-        conn = peerServer.connection
-      asyncSpawn askClientAsync(conn, question)
-      %true
+      proc askClient(question: string): bool =
+        # Server -> client request over the same connection: this is what makes
+        # the transport bidirectional rather than a request/response pipe.
+        #
+        # It is dispatched rather than awaited here because json_rpc's read loop
+        # handles one message at a time (the socket transport behaves the same
+        # way): awaiting the peer's answer inside a handler would deadlock, since
+        # that answer can only be read once the handler has returned.
+        asyncSpawn askClientAsync(srv.connection, question)
+        true
 
-    srv.rpc("echoBytes") do(payload: string):
-      # Echo the payload back, so a burst of these puts the same volume in
-      # flight in both directions at once.
-      %payload
+      proc echoBytes(payload: string): string =
+        # Echo the payload back, so a burst of these puts the same volume in
+        # flight in both directions at once.
+        payload
 
-    srv.rpc("flood") do(count: int, size: int):
-      # Push `count` unsolicited notifications at the peer without waiting for
-      # it to read any of them: the server's writes have to survive a stdout
-      # pipe that the client is not draining yet.
-      var srv: RpcStdioServer
-      {.cast(gcsafe).}:
-        srv = peerServer
-      let chunk = repeat('x', size)
-      for i in 0 ..< count:
-        await srv.notify(
-          "client/flood", paramsTx(%*{"i": i, "payload": chunk}, JrpcConv)
-        )
-      %count
+      proc flood(count: int, size: int): int {.async: (raises: [CancelledError]).} =
+        # Push `count` unsolicited notifications at the peer without waiting for
+        # it to read any of them: the server's writes have to survive a stdout
+        # pipe that the client is not draining yet.
+        let chunk = repeat('x', size)
+        for i in 0 ..< count:
+          await srv.notify(
+            "client/flood", paramsTx(%*{"i": i, "payload": chunk}, JrpcConv)
+          )
+        count
 
-    srv.rpc("notifyClient") do():
-      var srv: RpcStdioServer
-      {.cast(gcsafe).}:
-        srv = peerServer
-      await srv.notify("client/event", default(RequestParamsTx))
-      %true
+      proc notifyClient(): bool {.async: (raises: [CancelledError]).} =
+        await srv.notify("client/event", default(RequestParamsTx))
+        true
 
     waitFor srv.serve()
 
