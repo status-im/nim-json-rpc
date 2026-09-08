@@ -123,7 +123,7 @@ template withPendingFut*(client, fut, id, body: untyped): untyped =
   finally:
     client.pendingRequests.del(id)
 
-method send(
+method send*(
     client: RpcClient, data: seq[byte]
 ) {.base, async: (raises: [CancelledError, JsonRpcError]).} =
   raiseAssert("`RpcClient.send` not implemented")

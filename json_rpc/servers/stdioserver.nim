@@ -22,11 +22,38 @@ export errors, server, framing
 logScope:
   topics = "jsonrpc server stdio"
 
-type RpcStdioServer* = ref object of RpcServer
-  connection: RpcStdioClient
-  loop: Future[void].Raising([])
-  maxMessageSize: int
-  framing: Framing
+type
+  RpcStdioServer* = ref object of RpcServer
+    connection: RpcStdioClient
+    loop: Future[void].Raising([])
+    maxMessageSize: int
+    framing: Framing
+    processClientHook: RpcProcessClient
+
+  RpcProcessClient* = proc(
+    server: RpcStdioServer, input, output: StreamTransport
+  ): Future[void] {.async: (raises: []), gcsafe.}
+    ## Takes over the connection, like the socket server's hook of the same
+    ## name - called once with the transports to serve, rather than once per
+    ## accepted connection.
+
+proc processClient(
+    server: RpcStdioServer, input, output: StreamTransport
+) {.async: (raises: []).} =
+  ## Serve the connection with the server's own router - the default hook.
+  let connection = RpcStdioClient.new(
+    maxMessageSize = server.maxMessageSize,
+    framing = server.framing,
+    router = proc(
+        request: RequestBatchRx
+    ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
+      server.router.route(request),
+  )
+
+  server.connection = connection
+  server.connections.incl(connection)
+
+  await connection.attach(input, output, "stdio")
 
 proc new*(
     T: type RpcStdioServer,
@@ -37,6 +64,7 @@ proc new*(
     router: RpcRouter.init(),
     maxMessageSize: maxMessageSize,
     framing: framing,
+    processClientHook: processClient,
   )
 
 proc newRpcStdioServer*(
@@ -44,35 +72,42 @@ proc newRpcStdioServer*(
 ): RpcStdioServer =
   RpcStdioServer.new(maxMessageSize, framing)
 
+proc newRpcStdioServer*(
+    processClientHook: RpcProcessClient,
+    maxMessageSize = defaultMaxMessageSize,
+    framing = Framing.httpHeader(),
+): RpcStdioServer =
+  ## Create new server with custom processClientHook.
+  result = RpcStdioServer.new(maxMessageSize, framing)
+  result.processClientHook = processClientHook
+
+proc start*(
+    server: RpcStdioServer, input, output: StreamTransport
+) {.raises: [JsonRpcError].} =
+  if server.loop != nil:
+    raise (ref RpcBindError)(msg: "The server is already serving a connection")
+
+  server.loop = server.processClientHook(server, input, output)
+
 proc start*(server: RpcStdioServer) {.raises: [JsonRpcError].} =
-  if server.connection != nil:
-    raise (ref RpcBindError)(msg: "Standard input/output is already being served")
-
-  let
-    (input, output) = stdioTransports()
-    connection = RpcStdioClient.new(
-      maxMessageSize = server.maxMessageSize,
-      framing = server.framing,
-      router = proc(
-          request: RequestBatchRx
-      ): Future[seq[byte]] {.async: (raises: [], raw: true).} =
-        server.router.route(request),
-    )
-
+  let (input, output) = stdioTransports()
   info "Starting JSON-RPC stdio server"
-  server.connection = connection
-  server.connections.incl(connection)
-  server.loop = connection.attach(input, output, "stdio")
+  server.start(input, output)
 
 proc serve*(
     server: RpcStdioServer
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
-  if server.connection == nil:
+  if server.loop == nil:
     server.start()
 
   await server.loop
+  server.loop = nil
 
+  # A custom hook owns its connection, and leaves this one nil
   let connection = server.connection
+  if connection == nil:
+    return
+
   server.connections.excl(connection)
   server.connection = nil
 
