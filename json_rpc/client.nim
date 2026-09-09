@@ -67,6 +67,7 @@ type
     router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
     pendingRequests*: Table[int, ResponseFut]
+    lastError*: ref JsonRpcError
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 
@@ -123,7 +124,7 @@ template withPendingFut*(client, fut, id, body: untyped): untyped =
   finally:
     client.pendingRequests.del(id)
 
-method send(
+method send*(
     client: RpcClient, data: seq[byte]
 ) {.base, async: (raises: [CancelledError, JsonRpcError]).} =
   raiseAssert("`RpcClient.send` not implemented")
@@ -205,6 +206,13 @@ proc processMessage*(
   of BidiMessageKind.bmResponse:
     processMessageResponse(client, bm.response)
     makeResponse(default(seq[byte]))
+
+proc setLastError*(client: RpcConnection, exc: ref JsonRpcError) =
+  client.lastError =
+    if exc of RequestDecodeError:
+      (ref RequestDecodeError)(msg: exc.msg)
+    else:
+      (ref RpcTransportError)(msg: exc.msg)
 
 proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
   for fut in client.pendingRequests.values:
