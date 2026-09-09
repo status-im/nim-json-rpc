@@ -127,7 +127,7 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
   else:
-    client.lastError = lastError
+    client.setLastError(lastError)
 
   # Prevent new requests
   let transport = move(client.transport)

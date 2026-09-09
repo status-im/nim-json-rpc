@@ -207,6 +207,13 @@ proc processMessage*(
     processMessageResponse(client, bm.response)
     makeResponse(default(seq[byte]))
 
+proc setLastError*(client: RpcConnection, exc: ref JsonRpcError) =
+  client.lastError =
+    if exc of RequestDecodeError:
+      (ref RequestDecodeError)(msg: exc.msg)
+    else:
+      (ref RpcTransportError)(msg: exc.msg)
+
 proc clearPending*(client: RpcConnection, exc: ref JsonRpcError) =
   for fut in client.pendingRequests.values:
     if not fut.finished():
