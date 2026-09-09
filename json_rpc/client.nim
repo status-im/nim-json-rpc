@@ -52,7 +52,8 @@ type
 
   RpcClient* = ref object of RootRef
     lastId: int
-    onDisconnect*: proc() {.gcsafe, raises: [].}
+    onDisconnect* {.deprecated.}: proc() {.gcsafe, raises: [].}
+    onDisconnect2*: proc(exc: ref JsonRpcError) {.gcsafe, raises: [].}
     onProcessMessage* {.deprecated.}: proc(client: RpcClient, line: string):
       Result[bool, string] {.gcsafe, raises: [].}
     remote*: string

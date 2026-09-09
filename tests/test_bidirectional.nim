@@ -31,7 +31,9 @@ createRpcSigsFromNim(RpcClient, JrpcFlavor):
 template checkInvalidRequest(client: untyped, req, expectedErr: string): untyped =
   # check sending `req` terminates the connection with `expectedErr` error
   var disconnFut = newFuture[void]()
-  client.onDisconnect = proc () {.gcsafe, raises: [].} =
+  client.onDisconnect2 = proc (exc: ref JsonRpcError) {.gcsafe, raises: [].} =
+    doAssert exc.parent != nil
+    doAssert exc.parent.msg == expectedErr
     disconnFut.complete()
   let fut1 = client.send(req.toBytes)
   let fut2 = client.rets("foobar")

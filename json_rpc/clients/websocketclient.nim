@@ -143,6 +143,8 @@ proc processMessages(client: RpcWebSocketClient) {.async: (raises: []).} =
 
   if not client.onDisconnect.isNil:
     client.onDisconnect()
+  if not client.onDisconnect2.isNil:
+    client.onDisconnect2(lastError)
 
 proc addExtraHeaders(
     headers: var HttpTable, client: RpcWebSocketClient, extraHeaders: HttpTable
