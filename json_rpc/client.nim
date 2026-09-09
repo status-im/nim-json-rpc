@@ -67,6 +67,7 @@ type
     router*: RpcRouterCallback
       ## Router used for transports that support bidirectional communication
     pendingRequests*: Table[int, ResponseFut]
+    lastError*: ref JsonRpcError
 
   GetJsonRpcRequestHeaders* = proc(): seq[(string, string)] {.gcsafe, raises: [].}
 

@@ -49,7 +49,6 @@ type
     framing*: Framing
     process*: AsyncProcessRef
     peerExitCode: Opt[int]
-    lastFailure: ref JsonRpcError
 
 # ---------------------------------------------------------------------------
 # Construction
@@ -168,7 +167,7 @@ proc processMessages(client: RpcStdioClient) {.async: (raises: []).} =
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
   else:
-    client.lastFailure = lastError
+    client.lastError = lastError
 
   # Prevent new requests
   let
@@ -352,9 +351,6 @@ method close*(client: RpcStdioClient) {.async: (raises: []).} =
     except AsyncProcessError, CancelledError:
       discard
     await process.closeWait()
-
-proc failure*(client: RpcStdioClient): ref JsonRpcError =
-  client.lastFailure
 
 proc exitCode*(client: RpcStdioClient): Opt[int] =
   ## Exit status of the spawned peer, once it has one - after `close`, or once

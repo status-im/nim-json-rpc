@@ -24,7 +24,6 @@ logScope:
 
 type
   RpcStdioServer* = ref object of RpcServer
-    connection: RpcStdioClient
     loop: Future[void].Raising([])
     maxMessageSize: int
     framing: Framing
@@ -50,7 +49,6 @@ proc processClient(
       server.router.route(request),
   )
 
-  server.connection = connection
   server.connections.incl(connection)
 
   await connection.attach(input, output, "stdio")
@@ -81,6 +79,12 @@ proc newRpcStdioServer*(
   result = RpcStdioServer.new(maxMessageSize, framing)
   result.processClientHook = processClientHook
 
+proc connection*(server: RpcStdioServer): RpcConnection =
+  ## The connection being served, nil before `start` and after it ends.
+  for connection in server.connections:
+    return connection
+  nil
+
 proc start*(
     server: RpcStdioServer, input, output: StreamTransport
 ) {.raises: [JsonRpcError].} =
@@ -103,15 +107,14 @@ proc serve*(
   await server.loop
   server.loop = nil
 
-  # A custom hook owns its connection, and leaves this one nil
+  # A hook that unregisters its own connection reports its own failures
   let connection = server.connection
   if connection == nil:
     return
 
   server.connections.excl(connection)
-  server.connection = nil
 
-  let failure = connection.failure
+  let failure = connection.lastError
   if failure != nil:
     raise failure
 
@@ -119,14 +122,9 @@ proc stop*(server: RpcStdioServer) {.async: (raises: []).} =
   if server.loop != nil:
     let loop = move(server.loop)
     await loop.cancelAndWait()
-  if server.connection != nil:
-    server.connections.excl(server.connection)
-    server.connection = nil
+  server.connections.clear()
 
 proc closeWait*(server: RpcStdioServer) {.async: (raises: []).} =
   await server.stop()
-
-proc connection*(server: RpcStdioServer): RpcConnection =
-  server.connection
 
 {.pop.}
