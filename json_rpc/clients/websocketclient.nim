@@ -97,6 +97,7 @@ proc processMessages(client: RpcWebSocketClient) {.async: (raises: []).} =
   let maxMessageSize =
     if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
 
+  client.lastError = nil
   var lastError: ref JsonRpcError
   while client.transport.readyState != ReadyState.Closed:
     try:
