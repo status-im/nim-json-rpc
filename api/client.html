@@ -77,7 +77,8 @@
   maxMessageSize*: int">RpcClient</a></li>
 <li><a class="reference" href="#RpcConnection" title="RpcConnection = ref object of RpcClient
   router*: RpcRouterCallback ## Router used for transports that support bidirectional communication
-  pendingRequests*: Table[int, ResponseFut]">RpcConnection</a></li>
+  pendingRequests*: Table[int, ResponseFut]
+  lastError*: ref JsonRpcError">RpcConnection</a></li>
 <li><a class="reference" href="#RpcRouterCallback" title="RpcRouterCallback = proc (request: RequestBatchRx): Future[seq[byte]] {.
     async: (raises: []).}">RpcRouterCallback</a></li>
 
@@ -263,8 +264,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L71" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L71" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L72" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L72" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -332,7 +333,8 @@
 <div id="RpcConnection">
   <dt><pre><a href="client.html#RpcConnection"><span class="Identifier">RpcConnection</span></a> <span class="Other">=</span> <span class="Keyword">ref</span> <span class="Keyword">object</span> <span class="Keyword">of</span> <a href="client.html#RpcClient"><span class="Identifier">RpcClient</span></a>
   <span class="Identifier">router</span><span class="Operator">*</span><span class="Other">:</span> <a href="client.html#RpcRouterCallback"><span class="Identifier">RpcRouterCallback</span></a> <span class="Comment">## Router used for transports that support bidirectional communication</span>
-  <span class="Identifier">pendingRequests</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Table</span><span class="Other">[</span><span class="Identifier">int</span><span class="Other">,</span> <a href="client.html#ResponseFut"><span class="Identifier">ResponseFut</span></a><span class="Other">]</span></pre></dt>
+  <span class="Identifier">pendingRequests</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">Table</span><span class="Other">[</span><span class="Identifier">int</span><span class="Other">,</span> <a href="client.html#ResponseFut"><span class="Identifier">ResponseFut</span></a><span class="Other">]</span>
+  <span class="Identifier">lastError</span><span class="Operator">*</span><span class="Other">:</span> <span class="Keyword">ref</span> <a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a></pre></dt>
   <dd>
     
     
@@ -382,8 +384,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L295" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L295" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L296" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L296" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -395,8 +397,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L290" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L290" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L291" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L291" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -407,8 +409,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L258" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L258" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L259" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L259" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -421,8 +423,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L131" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L131" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L132" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L132" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -435,8 +437,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L209" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L209" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L210" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L210" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -448,8 +450,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L73" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L73" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L74" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L74" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -477,8 +479,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L233" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L233" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L234" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L234" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -491,8 +493,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L76" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L76" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L77" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L77" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -505,8 +507,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L298" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L298" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L299" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L299" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -520,8 +522,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L176" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L176" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L177" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L177" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -534,8 +536,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L102" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L102" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L103" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L103" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -550,8 +552,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L304" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L304" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L305" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L305" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -564,8 +566,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L423" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L423" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L424" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L424" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -585,8 +587,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L228" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L228" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L229" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L229" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -605,8 +607,8 @@
   <dd>
     
     Takes a file of forward declarations in Nim and builds them into RPC calls, based on their parameters. Inputs are marshalled to json, and results are put into the signature's Nim type.
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L380" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L380" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L381" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L381" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -618,8 +620,8 @@
   <dd>
     
     Takes a list of forward declarations in Nim and builds them into RPC calls, based on their parameters. Inputs are marshalled to json, and results are put into the signature's Nim type.
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L413" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L413" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L414" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L414" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -632,8 +634,8 @@
   <dd>
     
     Takes a string of forward declarations in Nim and builds them into RPC calls, based on their parameters. Inputs are marshalled to json, and results are put into the signature's Nim type.
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L390" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L390" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L391" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L391" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -646,8 +648,8 @@
   <dd>
     
     Takes a single forward declarations in Nim and builds them into RPC calls, based on their parameters. Inputs are marshalled to json, and results are put into the signature's Nim type.
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L400" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L400" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L401" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L401" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -665,8 +667,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L387" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L387" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L388" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L388" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -678,8 +680,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L420" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L420" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L421" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L421" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -691,8 +693,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L397" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L397" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L398" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L398" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -705,8 +707,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L410" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L410" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L411" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L411" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -718,8 +720,8 @@
   <dd>
     
     
-    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L116" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L116" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/status-im/nim-json-rpc/tree/master/json_rpc/client.nim#L117" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/status-im/nim-json-rpc/edit/devel/json_rpc/client.nim#L117" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -741,7 +743,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-09-11 22:04:49 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-09-28 15:41:50 UTC</small>
       </div>
     </div>
   </div>
