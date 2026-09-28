@@ -46,6 +46,7 @@ template checkInvalidRequest(client: untyped, req, expectedErr: string): untyped
   # following requests won't work
   expect RpcTransportError:
     discard waitFor client.rets("foobar")
+  check client.lastError.msg == expectedErr
 
 template allTests(client: untyped) =
   test "Successful RPC call":

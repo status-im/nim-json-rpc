@@ -230,6 +230,7 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
   let maxMessageSize =
     if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
 
+  client.lastError = nil
   var lastError: ref JsonRpcError
   while not client.transport.atEof():
     try:
@@ -263,6 +264,8 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
 
   if lastError == nil:
     lastError = (ref RpcTransportError)(msg: "Connection closed")
+  else:
+    client.lastError = (ref RpcTransportError)(msg: lastError.msg)
 
   # Prevent new requests
   let transport = move(client.transport)
