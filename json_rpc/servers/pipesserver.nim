@@ -27,9 +27,9 @@ type
     loop*: Future[void].Raising([])
     maxMessageSize*: int
     framing*: Framing
-    processClientHook*: RpcProcessClient
+    processClientHook*: RpcPipesProcessClient
 
-  RpcProcessClient* = proc(
+  RpcPipesProcessClient* = proc(
     server: RpcPipesServer, input, output: StreamTransport
   ): Future[void] {.async: (raises: []), gcsafe.}
 
@@ -68,7 +68,7 @@ proc newRpcPipesServer*(
   RpcPipesServer.new(maxMessageSize, framing)
 
 proc newRpcPipesServer*(
-    processClientHook: RpcProcessClient,
+    processClientHook: RpcPipesProcessClient,
     maxMessageSize = defaultMaxMessageSize,
     framing = Framing.httpHeader(),
 ): RpcPipesServer =
