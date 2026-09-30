@@ -97,7 +97,8 @@ proc stop*(server: RpcPipesServer) {.async: (raises: []).} =
   let loop = server.loop
   server.loop = nil
   server.connections.clear()
-  if connection of RpcPipesClient:
+  if connection != nil:
+    doAssert connection of RpcPipesClient
     let connection = RpcPipesClient(connection)
     if connection.output != nil:
       await connection.output.closeWait()
@@ -119,17 +120,10 @@ proc serve*(
   except CancelledError as exc:
     await server.stop()
     raise exc
-  server.loop = nil
-
-  let connection = server.connection
-  if connection == nil:
-    return
-
-  server.connections.excl(connection)
-
-  let failure = connection.lastError
-  if failure != nil:
-    raise failure
+  let conn = server.connection
+  await server.stop()
+  if conn != nil and conn.lastError != nil:
+    raise conn.lastError
 
 proc closeWait*(server: RpcPipesServer) {.async: (raises: []).} =
   await server.stop()
