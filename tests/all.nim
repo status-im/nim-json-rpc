@@ -16,6 +16,7 @@ import
   test_callsigs,
   test_client_hook,
   test_jrpc_sys,
+  test_pipes_server,
   test_router_rpc,
   test_socket_framing,
   test_spec_examples,

@@ -261,6 +261,25 @@ suite "Websocket Server/Client RPC with Compression":
 
   callTests(client)
 
+suite "Pipes Server/Client":
+  setup:
+    const framing = Framing.lengthHeaderBE32()
+    let
+      toServer = newPipe()
+      toClient = newPipe()
+    var srv = newRpcPipesServer(framing = framing)
+    var client = newRpcPipesClient(framing = framing)
+
+    srv.setupServer()
+    srv.start(toServer.read, toClient.write)
+    client.connect(toClient.read, toServer.write)
+
+  teardown:
+    waitFor client.close()
+    waitFor srv.closeWait()
+
+  callTests(client)
+
 suite "Custom processClient":
   test "Should be able to use custom processClient":
     var wasCalled: bool = false

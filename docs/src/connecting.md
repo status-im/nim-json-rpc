@@ -2,13 +2,13 @@
 
 ## Transports
 
-A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets and pipes, and Websockets:
+A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets, Pipes, and Websockets:
 
 - HTTP POST: unidirectional, one request/response pair per call.
-- Sockets and pipes, via [chronos](https://github.com/status-im/nim-chronos)' `StreamTransport`: bidirectional, persistent connection, custom message framing.
+- Sockets, Pipes via [chronos](https://github.com/status-im/nim-chronos)' `StreamTransport`: bidirectional, persistent connection, custom message framing.
   - `Framing.httpHeader`: `Content-Length` prefix specifying the length of the payload, compatible with [vscode-jsonrpc](https://www.npmjs.com/package/vscode-jsonrpc).
   - `Framing.lengthHeaderBE32`: Big-endian, 32-bit binary prefix - most efficient option.
-- Websockets: bidirectional, persistent connection.
+- Websockets, via [websock](https://github.com/status-im/nim-websock): bidirectional, persistent connection.
 
 ## Server (and possibly client also)
 
@@ -24,6 +24,12 @@ Sockets:
 
 ```nim
 {{#shiftinclude auto:../examples/socket_server.nim:ServerConnect}}
+```
+
+Pipes:
+
+```nim
+{{#shiftinclude auto:../examples/pipes_server_client.nim:ServerPipes}}
 ```
 
 Websockets:
@@ -54,6 +60,12 @@ Sockets:
 
 ```nim
 {{#shiftinclude auto:../examples/socket_client.nim:ClientConnect}}
+```
+
+Pipes:
+
+```nim
+{{#shiftinclude auto:../examples/pipes_server_client.nim:ClientPipes}}
 ```
 
 Websockets:

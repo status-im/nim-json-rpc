@@ -8,5 +8,5 @@
 # those terms.
 
 import client
-import clients/[socketclient, httpclient, websocketclient]
-export client, socketclient, httpclient, websocketclient
+import clients/[socketclient, httpclient, websocketclient, pipesclient]
+export client, socketclient, httpclient, websocketclient, pipesclient

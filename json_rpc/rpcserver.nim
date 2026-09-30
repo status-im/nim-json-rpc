@@ -8,5 +8,5 @@
 # those terms.
 
 import server
-import servers/[socketserver, httpserver, websocketserver]
-export server, socketserver, httpserver, websocketserver
+import servers/[socketserver, httpserver, websocketserver, pipesserver]
+export server, socketserver, httpserver, websocketserver, pipesserver
