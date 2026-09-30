@@ -16,9 +16,8 @@ import
 
 proc newPipe*(): tuple[read, write: StreamTransport] =
   ## A pipe with both ends as transports
-  let pipe = createOsPipe(
-    {DescriptorFlag.NonBlock}, {DescriptorFlag.NonBlock}
-  ).expect("pipe")
+  const flags = {DescriptorFlag.NonBlock, DescriptorFlag.CloseOnExec}
+  let pipe = createOsPipe(flags, flags).expect("pipe")
   (
     read: fromPipe2(AsyncFD(pipe.read)).expect("pipe read end"),
     write: fromPipe2(AsyncFD(pipe.write)).expect("pipe write end"),

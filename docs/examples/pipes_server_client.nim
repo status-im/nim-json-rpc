@@ -13,7 +13,8 @@ createRpcSigsFromNim(RpcClient, RpcConv):
 
 proc newPipe(): tuple[read, write: StreamTransport] =
   ## A pipe with both ends as transports
-  let pipe = createOsPipe({DescriptorFlag.NonBlock}, {DescriptorFlag.NonBlock}).valueOr:
+  const flags = {DescriptorFlag.NonBlock, DescriptorFlag.CloseOnExec}
+  let pipe = createOsPipe(flags, flags).valueOr:
     raiseAssert "Unable to create a pipe: " & osErrorMsg(error)
   let
     read = fromPipe2(AsyncFD(pipe.read)).valueOr:
