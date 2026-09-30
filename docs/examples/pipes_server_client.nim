@@ -29,14 +29,17 @@ proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
     srvPipe = newPipe()
     clientPipe = newPipe()
 
+  # ANCHOR: ServerPipes
   let srv = newRpcPipesServer(framing = Framing.httpHeader())
+  # ANCHOR_END: ServerPipes
+
   srv.rpc(RpcConv):
     proc hello(input: string): string =
       "Hello " & input
 
-  # ANCHOR: ServerPipes
+  # ANCHOR: ServerPipesStart
   srv.start(srvPipe.read, clientPipe.write)
-  # ANCHOR_END: ServerPipes
+  # ANCHOR_END: ServerPipesStart
   defer: await srv.closeWait()
 
   # ANCHOR: ClientPipes
