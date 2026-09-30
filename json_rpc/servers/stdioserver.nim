@@ -42,7 +42,12 @@ logScope:
 # The standard input and output can only be served once
 var stdioStarted = false
 
-type RpcStdioServer* = ref object of RpcPipesServer
+type
+  RpcStdioServer* = ref object of RpcPipesServer
+
+  RpcStdioProcessClient* = proc(
+    server: RpcStdioServer, input, output: StreamTransport
+  ): Future[void] {.async: (raises: []), gcsafe.}
 
 proc new*(
     T: type RpcStdioServer,
@@ -69,6 +74,21 @@ proc newRpcStdioServer*(
   ## Create new server with custom processClientHook.
   result = RpcStdioServer.new(maxMessageSize, framing)
   result.processClientHook = processClientHook
+
+proc newRpcStdioServer*(
+    processClientHook: RpcStdioProcessClient,
+    maxMessageSize = defaultMaxMessageSize,
+    framing = Framing.httpHeader(),
+): RpcStdioServer =
+  ## Create new server with custom processClientHook.
+  newRpcStdioServer(
+    proc(
+        server: RpcPipesServer, input, output: StreamTransport
+    ): Future[void] {.async: (raises: [], raw: true).} =
+      processClientHook(RpcStdioServer(server), input, output),
+    maxMessageSize,
+    framing,
+  )
 
 when defined(windows):
   const BridgeBufSize = 8192
