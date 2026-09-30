@@ -278,6 +278,21 @@ suite "malformed framing":
     check code == 0
     check output.count("\"result\"") == Count
 
+suite "stdio server hook":
+  test "a hook taking the stdio server serves the connection":
+    var client = newRpcStdioClient()
+    waitFor client.connect(peerExe(), @["http", "hook"])
+    check (waitFor client.call("hooked", %[])).string == "true"
+    check (waitFor client.call("hello", %[%"hook"])).string == "\"Hello hook\""
+    waitFor client.close()
+    check client.exitCode() == Opt.some(0)
+
+  test "without a hook":
+    var client = newRpcStdioClient()
+    waitFor client.connect(peerExe(), @["http"])
+    check (waitFor client.call("hooked", %[])).string == "false"
+    waitFor client.close()
+
 suite "stdio transport errors":
   test "connecting to a command that does not exist":
     var client = newRpcStdioClient()

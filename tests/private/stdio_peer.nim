@@ -9,7 +9,8 @@
 
 ## Usage:
 ##
-##   stdio_peer <framing>   the peer is an RpcStdioServer
+##   stdio_peer <framing>        the peer is an RpcStdioServer
+##   stdio_peer <framing> hook   same, created with a processClientHook
 
 {.push gcsafe, raises: [].}
 
@@ -31,8 +32,20 @@ when isMainModule:
     except CatchableError:
       discard
 
-  proc runServer(framingName: string) {.raises: [CatchableError].} =
-    let srv = newRpcStdioServer(framing = framingByName(framingName))
+  proc runServer(framingName: string, hook: bool) {.raises: [CatchableError].} =
+    var hookedServer: RpcStdioServer
+    let srv =
+      if hook:
+        newRpcStdioServer(
+          proc(
+              server: RpcStdioServer, input, output: StreamTransport
+          ): Future[void] {.async: (raises: [], raw: true).} =
+            hookedServer = server
+            processClient(server, input, output),
+          framing = framingByName(framingName),
+        )
+      else:
+        newRpcStdioServer(framing = framingByName(framingName))
 
     srv.rpc(JrpcConv):
       proc hello(name: string): string =
@@ -79,16 +92,22 @@ when isMainModule:
         await srv.notify("client/event", default(RequestParamsTx))
         true
 
+      proc hooked(): bool =
+        # Whether the hook was given this server
+        hookedServer != nil and hookedServer == srv
+
       proc stopServer(): void =
         # `stop` waits for the read loop, which waits for this handler
         asyncSpawn srv.stop()
 
     waitFor srv.serve()
 
-  let framing = if paramCount() >= 1: paramStr(1) else: "http"
+  let
+    framing = if paramCount() >= 1: paramStr(1) else: "http"
+    hook = paramCount() >= 2 and paramStr(2) == "hook"
 
   try:
-    runServer(framing)
+    runServer(framing, hook)
   except JsonRpcError as exc:
     error "stdio_peer error", err = exc.msg
     quit(1)
