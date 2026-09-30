@@ -11,33 +11,41 @@
 
 import
   chronicles,
+  chronos,
   ./shared/framing,
   ../[client, errors, router],
   ../private/jrpc_sys
 
 export client, errors, framing
 
+logScope:
+  topics = "jsonrpc client pipes"
+
 type
-  RpcSocketClient* = ref object of RpcConnection
-    ## StreamTransport-based bidirectional connection with pluggable framing
-    ## options for delineating messages.
-    transport*: StreamTransport
+  RpcPipesClient* = ref object of RpcConnection
+    ## Bidirectional connection over a pair of pipes
+    input*: StreamTransport
+    output*: StreamTransport
     loop*: Future[void]
     framing*: Framing
 
+# ---------------------------------------------------------------------------
+# Construction
+# ---------------------------------------------------------------------------
+
 proc new*(
-    T: type RpcSocketClient,
+    T: type RpcPipesClient,
     maxMessageSize = defaultMaxMessageSize,
     router = default(RpcRouterCallback),
-    framing = Framing.newLine(),
+    framing = Framing.httpHeader(),
 ): T =
   T(maxMessageSize: maxMessageSize, router: router, framing: framing)
 
 proc new*(
-    T: type RpcSocketClient,
+    T: type RpcPipesClient,
     maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
-    framing = Framing.newLine(),
+    framing = Framing.httpHeader(),
 ): T =
   let router =
     if router != nil:
@@ -49,55 +57,60 @@ proc new*(
       nil
   T.new(maxMessageSize, router, framing)
 
-proc newRpcSocketClient*(
+proc newRpcPipesClient*(
     maxMessageSize = defaultMaxMessageSize,
     router = default(ref RpcRouter),
-    framing = Framing.newLine(),
-): RpcSocketClient =
+    framing = Framing.httpHeader(),
+): RpcPipesClient =
   ## Creates a new client instance.
-  RpcSocketClient.new(maxMessageSize, router, framing)
+  RpcPipesClient.new(maxMessageSize, router, framing)
+
+# ---------------------------------------------------------------------------
+# Sending
+# ---------------------------------------------------------------------------
 
 method send*(
-    client: RpcSocketClient, reqData: seq[byte]
+    client: RpcPipesClient, reqData: seq[byte]
 ) {.async: (raises: [CancelledError, JsonRpcError]).} =
-  if client.transport.isNil:
+  if client.output.isNil:
     raise newException(
       RpcTransportError, "Transport is not initialised (missing a call to connect?)"
     )
   try:
-    await client.framing.sendMsg(client.transport, reqData)
+    await client.framing.sendMsg(client.output, reqData)
   except TransportError as exc:
     raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
 method request(
-    client: RpcSocketClient, reqData: seq[byte], id: int
+    client: RpcPipesClient, reqData: seq[byte], id: int
 ): Future[ResponseBatchRx] {.async: (raises: [CancelledError, JsonRpcError]).} =
   ## Remotely calls the specified RPC method.
-  let transport = client.transport
-  if transport.isNil:
+  if client.output.isNil:
     raise newException(
       RpcTransportError, "Transport is not initialised (missing a call to connect?)"
     )
 
   client.withPendingFut(fut, id):
     try:
-      await client.framing.sendMsg(client.transport, reqData)
+      await client.framing.sendMsg(client.output, reqData)
     except TransportError as exc:
       raise (ref RpcPostError)(msg: exc.msg, parent: exc)
 
     await fut
 
-proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
-  # Provide backwards compat with consumers that don't set a max message size
-  # for example by constructing RpcWebSocketHandler without going through init
+# ---------------------------------------------------------------------------
+# Message loop
+# ---------------------------------------------------------------------------
+
+proc processMessages(client: RpcPipesClient) {.async: (raises: []).} =
   let maxMessageSize =
     if client.maxMessageSize == 0: defaultMaxMessageSize else: client.maxMessageSize
 
   client.lastError = nil
   var lastError: ref JsonRpcError
-  while not client.transport.atEof():
+  while not client.input.atEof():
     try:
-      let data = await client.framing.recvMsg(client.transport, maxMessageSize)
+      let data = await client.framing.recvMsg(client.input, maxMessageSize)
       if data.len == 0:
         break
 
@@ -108,19 +121,25 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
       if not fallback:
         continue
 
-      let resp = try:
-        await client.processMessage(data)
-      except InvalidResponse as exc:
-        raise exc
-      except JsonRpcError as exc:
+      let resp =
         try:
-          await client.framing.sendMsg(client.transport, wrapError(router.INVALID_REQUEST, exc.msg))
-        except TransportError:
-          discard
-        raise exc
+          await client.processMessage(data)
+        except InvalidResponse as exc:
+          raise exc
+        except JsonRpcError as exc:
+          try:
+            await client.framing.sendMsg(
+              client.output, wrapError(router.INVALID_REQUEST, exc.msg)
+            )
+          except TransportError:
+            discard
+          raise exc
 
       if resp.len > 0:
-        await client.framing.sendMsg(client.transport, resp)
+        await client.framing.sendMsg(client.output, resp)
+    except TransportIncompleteError as exc:
+      debug "Pipes connection ended", err = exc.msg, remote = client.remote
+      break
     except CatchableError as exc:
       lastError = (ref RpcTransportError)(msg: exc.msg, parent: exc)
       break
@@ -131,45 +150,38 @@ proc processMessages(client: RpcSocketClient) {.async: (raises: []).} =
     client.lastError = (ref RpcTransportError)(msg: lastError.msg)
 
   # Prevent new requests
-  let transport = move(client.transport)
+  let
+    input = move(client.input)
+    output = move(client.output)
   client.clearPending(lastError)
 
-  await transport.closeWait()
+  await input.closeWait()
+  await output.closeWait()
 
   if not client.onDisconnect.isNil:
     client.onDisconnect()
 
 proc attach*(
-    client: RpcSocketClient, transport: StreamTransport, remote: string
+    client: RpcPipesClient,
+    input, output: StreamTransport,
+    remote: string,
 ) {.async: (raises: [], raw: true).} =
-  client.transport = transport
+  client.input = input
+  client.output = output
   client.remote = remote
 
   processMessages(client)
 
-proc connect*(
-    client: RpcSocketClient, address: TransportAddress
-) {.async: (raises: [CancelledError, JsonRpcError]).} =
-  let transport =
-    try:
-      await connect(address)
-    except TransportError as exc:
-      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
-
-  client.loop = client.attach(transport, $address)
+# ---------------------------------------------------------------------------
+# Connecting
+# ---------------------------------------------------------------------------
 
 proc connect*(
-    client: RpcSocketClient, address: string, port: Port
-) {.async: (raises: [CancelledError, JsonRpcError]).} =
-  let addresses =
-    try:
-      resolveTAddress(address, port)
-    except TransportError as exc:
-      raise (ref RpcTransportError)(msg: exc.msg, parent: exc)
+    client: RpcPipesClient, input, output: StreamTransport, remote = "pipes"
+) =
+  client.loop = client.attach(input, output, remote)
 
-  await client.connect(addresses[0])
-
-method close*(client: RpcSocketClient) {.async: (raises: []).} =
+method close*(client: RpcPipesClient) {.async: (raises: []).} =
   if client.loop != nil:
     let loop = move(client.loop)
     await loop.cancelAndWait()
