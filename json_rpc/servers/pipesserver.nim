@@ -31,7 +31,7 @@ type
 
   RpcPipesProcessClient* = proc(
     server: RpcPipesServer, input, output: StreamTransport
-  ): Future[void] {.async: (raises: []), gcsafe.}
+  ): Future[void] {.async: (raises: []).}
 
 proc processClient*(
     server: RpcPipesServer, input, output: StreamTransport
