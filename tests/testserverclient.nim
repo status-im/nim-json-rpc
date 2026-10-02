@@ -18,6 +18,9 @@ proc setupServer*(srv: RpcServer) =
   srv.rpc("myProc") do(input: string, data: array[0..3, int]):
     %("Hello " & input & " data: " & $data)
 
+  srv.rpc("myEcho") do(payload: string) -> string:
+    payload
+
   srv.rpc("myError") do(input: string, data: array[0..3, int]):
     raise (ref ValueError)(msg: "someMessage")
 
@@ -175,6 +178,20 @@ template callTests(client: untyped): untyped =
     for i, r in calls.pairs():
       checked += int(r.read().string == "\"Hello " & $i & " data: [1, 2, 3, 4]\"")
     check calls.len == checked
+
+  test "RPC call with big payload":
+    const size =
+      when defined(release) or defined(danger):
+        1024 * 1024 * 8
+      else:
+        256 * 1024
+    let payload = block:
+      var s = newString(size)
+      for i in 0 ..< s.len:
+        s[i] = 'x'
+      s
+    let r = waitFor client.call("myEcho", %[%payload])
+    check r == JsonString($(%payload))
 
 suite "Socket Server/Client RPC/newLine":
   setup:

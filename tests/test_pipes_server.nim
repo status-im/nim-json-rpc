@@ -43,7 +43,7 @@ suite "pipes server stop":
 
   asyncTest "stop ends serve":
     let serving = srv.serve()
-    check (await client.call("hello", %[%"x"])).string == "\"Hello x\""
+    check (await client.call("hello", %[%"x"])) == JsonString("\"Hello x\"")
     check srv.connections.len == 1
 
     await srv.stop()
@@ -53,7 +53,7 @@ suite "pipes server stop":
 
   asyncTest "cancelling serve stops the connection":
     let serving = srv.serve()
-    check (await client.call("hello", %[%"x"])).string == "\"Hello x\""
+    check (await client.call("hello", %[%"x"])) == JsonString("\"Hello x\"")
 
     await serving.cancelAndWait()
     check serving.cancelled()
@@ -133,3 +133,64 @@ suite "pipes server stop race":
     await clientOutput.closeWait()
     await clientInput.closeWait()
     await srv.closeWait()
+
+suite "pipes server stress":
+  # Notification floods larger than the pipe buffer (64 KiB on Linux), so the
+  # server has to wait for the client to drain the pipe.
+  setup:
+    const
+      reqCount =
+        when defined(release) or defined(danger):
+          2048
+        else:
+          64
+    let
+      toServer = newPipe()
+      toClient = newPipe()
+      srv = newRpcPipesServer()
+      floodSeen = newAsyncEvent()
+    var
+      clientRouter = new(RpcRouter)
+      seen = 0
+    clientRouter[] = RpcRouter.init()
+    clientRouter[].rpc("flooded", JrpcConv) do(i: int, payload: string) -> void:
+      inc seen
+      if seen == reqCount:
+        floodSeen.fire()
+
+    srv.rpc(JrpcConv):
+      proc hello(name: string): string =
+        "Hello " & name
+
+      proc flood(count: int, size: int): int {.async: (raises: [CancelledError]).} =
+        # Notifications the client has not read yet fill the pipe to it
+        let payload = block:
+          var s = newString(size)
+          for i in 0 ..< s.len:
+            s[i] = 'x'
+          s
+        for i in 0 ..< count:
+          await srv.notify(
+            "flooded",
+            RequestParamsTx(
+              kind: rpPositional,
+              positional: @[JsonString($i), JsonString($(%payload))]
+            ),
+          )
+        count
+
+    let client = newRpcPipesClient(router = clientRouter)
+    srv.start(toServer.read, toClient.write)
+    client.connect(toClient.read, toServer.write, "server")
+
+  teardown:
+    waitFor client.close()
+    waitFor srv.closeWait()
+
+  asyncTest "the server floods the client with notifications while it keeps requesting":
+    let flooding = client.call("flood", %[%reqCount, %2048])
+    for i in 0 ..< 64:
+      check (await client.call("hello", %[%($i)])) == JsonString("\"Hello " & $i & "\"")
+    check await flooding.withTimeout(30.seconds)
+    check await floodSeen.wait().withTimeout(30.seconds)
+    check seen == reqCount
