@@ -76,7 +76,7 @@ proc newRpcPipesServer*(
   result = RpcPipesServer.new(maxMessageSize, framing)
   result.processClientHook = processClientHook
 
-proc connection*(server: RpcPipesServer): RpcConnection =
+proc connection(server: RpcPipesServer): RpcConnection =
   ## The connection being served, nil before `start` and after it ends.
   for connection in server.connections:
     return connection

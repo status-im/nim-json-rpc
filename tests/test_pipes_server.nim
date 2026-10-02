@@ -44,12 +44,12 @@ suite "pipes server stop":
   asyncTest "stop ends serve":
     let serving = srv.serve()
     check (await client.call("hello", %[%"x"])).string == "\"Hello x\""
-    check srv.connection != nil
+    check srv.connections.len == 1
 
     await srv.stop()
     check await serving.withTimeout(5.seconds)
     check serving.completed()
-    check srv.connection == nil
+    check srv.connections.len == 0
 
   asyncTest "cancelling serve stops the connection":
     let serving = srv.serve()
@@ -57,7 +57,7 @@ suite "pipes server stop":
 
     await serving.cancelAndWait()
     check serving.cancelled()
-    check srv.connection == nil
+    check srv.connections.len == 0
     # The client sees the end of the stream
     check await client.loop.join().withTimeout(5.seconds)
 
@@ -97,13 +97,13 @@ suite "pipes server stop":
   asyncTest "stop without serve":
     discard await client.call("hello", %[%"x"])
     await srv.stop()
-    check srv.connection == nil
+    check srv.connections.len == 0
     check await client.loop.join().withTimeout(5.seconds)
 
   asyncTest "stop twice":
     await srv.stop()
     await srv.stop()
-    check srv.connection == nil
+    check srv.connections.len == 0
 
 suite "pipes server stop race":
   asyncTest "stop from a message handled while starting":
@@ -128,7 +128,7 @@ suite "pipes server stop race":
 
     # The server closes its output
     check await clientInput.read().withTimeout(5.seconds)
-    check srv.connection == nil
+    check srv.connections.len == 0
 
     await clientOutput.closeWait()
     await clientInput.closeWait()
