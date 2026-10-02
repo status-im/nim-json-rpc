@@ -69,11 +69,13 @@ task examples, "Run examples":
   for file in listFiles("docs/examples"):
     if file.endsWith("_sigs_def.nim"):
       continue
+    elif file.endsWith("test_server.nim"):
+      run "", file
     elif file.endsWith("_server.nim"):
-      # Avoid serve forever
-      buildOnly "--threads:on", file
+      # Avoid serve forever; the clients import them
+      continue
     elif file.endsWith(".nim"):
-      run "--threads:on", file
+      run "", file
 
 task docs, "Generate API documentation":
   exec "mdbook build docs"

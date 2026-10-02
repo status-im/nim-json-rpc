@@ -185,3 +185,22 @@ suite "Test bidirectional websocket server/client":
     waitFor srv.closeWait()
 
   allTests(client)
+
+suite "Test bidirectional pipes server/client":
+  setup:
+    const framing = Framing.lengthHeaderBE32()
+    let
+      toServer = newPipe()
+      toClient = newPipe()
+    var srv = newRpcPipesServer(framing = framing)
+    var client = newRpcPipesClient(framing = framing)
+
+    srv.setupServer()
+    srv.start(toServer.read, toClient.write)
+    client.connect(toClient.read, toServer.write)
+
+  teardown:
+    waitFor client.close()
+    waitFor srv.closeWait()
+
+  allTests(client)

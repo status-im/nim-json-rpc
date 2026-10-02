@@ -10,7 +10,18 @@
 {.used.}
 
 import
+  chronos,
+  chronos/osutils,
   ../../json_rpc/router
+
+proc newPipe*(): tuple[read, write: StreamTransport] =
+  ## A pipe with both ends as transports
+  const flags = {DescriptorFlag.NonBlock, DescriptorFlag.CloseOnExec}
+  let pipe = createOsPipe(flags, flags).expect("pipe")
+  (
+    read: fromPipe2(AsyncFD(pipe.read)).expect("pipe read end"),
+    write: fromPipe2(AsyncFD(pipe.write)).expect("pipe write end"),
+  )
 
 converter toStr*(value: distinct (string|JsonString)): string = string(value)
 
