@@ -173,7 +173,7 @@
                     <main>
                         <h1 id="establishing-a-json-rpc-connection"><a class="header" href="#establishing-a-json-rpc-connection">Establishing a JSON-RPC connection</a></h1>
 <h2 id="transports"><a class="header" href="#transports">Transports</a></h2>
-<p>A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets and pipes, and Websockets:</p>
+<p>A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets, Pipes, and Websockets:</p>
 <ul>
 <li>HTTP POST: unidirectional, one request/response pair per call.</li>
 <li>Sockets and pipes, via <a href="https://github.com/status-im/nim-chronos">chronos</a>' <code>StreamTransport</code>: bidirectional, persistent connection, custom message framing.
@@ -182,7 +182,7 @@
 <li><code>Framing.lengthHeaderBE32</code>: Big-endian, 32-bit binary prefix - most efficient option.</li>
 </ul>
 </li>
-<li>Websockets: bidirectional, persistent connection.</li>
+<li>Websockets, via <a href="https://github.com/status-im/nim-websock">websock</a>: bidirectional, persistent connection.</li>
 </ul>
 <h2 id="server-and-possibly-client-also"><a class="header" href="#server-and-possibly-client-also">Server (and possibly client also)</a></h2>
 <p>Create the server instance using one of the available transports:</p>
@@ -193,13 +193,20 @@
 <pre><code class="language-nim">const framing = Framing.lengthHeaderBE32()
 let srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
 </code></pre>
+<p>Pipes:</p>
+<pre><code class="language-nim">let srv = newRpcPipesServer(framing = Framing.httpHeader())
+</code></pre>
 <p>Websockets:</p>
 <pre><code class="language-nim">let srv = newRpcWebSocketServer("127.0.0.1", Port(0))
 </code></pre>
 <p>After <a href="./receiving_requests.html">registering the RPC methods</a>, the server can start serving clients:</p>
 <pre><code class="language-nim">srv.start()
 </code></pre>
+<p>A pipes server is given its pipe ends when it starts:</p>
+<pre><code class="language-nim">srv.start(srvPipe.read, clientPipe.write)
+</code></pre>
 <p>Then usually <code>runForever()</code> or <code>waitFor</code> a program termination signal <code>waitSignal(SIGINT)</code>. This will run the Chronos async event loop until the program is terminated.</p>
+<p>A pipes server can instead <code>await srv.serve()</code>, which returns once the connection ends.</p>
 <h2 id="client"><a class="header" href="#client">Client</a></h2>
 <p>Create the client instance using one of the available transports:</p>
 <p>HTTP:</p>
@@ -210,6 +217,10 @@ await client.connect("http://" &amp; $srv.localAddress()[0])
 <pre><code class="language-nim">const framing = Framing.lengthHeaderBE32()
 let client = newRpcSocketClient(framing = framing)
 await client.connect(srv.localAddress()[0])
+</code></pre>
+<p>Pipes:</p>
+<pre><code class="language-nim">let client = newRpcPipesClient(framing = Framing.httpHeader())
+client.connect(clientPipe.read, srvPipe.write)
 </code></pre>
 <p>Websockets:</p>
 <pre><code class="language-nim">let client = newRpcWebSocketClient()

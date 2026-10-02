@@ -1,0 +1,8 @@
+nimTitle	framing	clients/shared/framing.html	module json_rpc/clients/shared/framing		0
+nim	FramingRecvMsg	clients/shared/framing.html#FramingRecvMsg	type FramingRecvMsg		22
+nim	FramingSendMsg	clients/shared/framing.html#FramingSendMsg	type FramingSendMsg		25
+nim	Framing	clients/shared/framing.html#Framing	object Framing		28
+nim	init	clients/shared/framing.html#init,typeFraming,FramingRecvMsg,FramingSendMsg	proc init(T: type Framing; recvMsg: FramingRecvMsg; sendMsg: FramingSendMsg): T:type		32
+nim	newLine	clients/shared/framing.html#newLine,typeFraming	proc newLine(T: type Framing): T:type		46
+nim	httpHeader	clients/shared/framing.html#httpHeader,typeFraming	proc httpHeader(T: type Framing): T:type		84
+nim	lengthHeaderBE32	clients/shared/framing.html#lengthHeaderBE32,typeFraming	proc lengthHeaderBE32(T: type Framing): T:type		153

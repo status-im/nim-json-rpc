@@ -1,0 +1,10 @@
+nimTitle	pipesclient	clients/pipesclient.html	module json_rpc/clients/pipesclient		0
+nim	RpcPipesClient	clients/pipesclient.html#RpcPipesClient	type RpcPipesClient		25
+nim	new	clients/pipesclient.html#new,typeRpcPipesClient	proc new(T: type RpcPipesClient; maxMessageSize = defaultMaxMessageSize;\n    router = default(RpcRouterCallback); framing = Framing.httpHeader()): T:type		36
+nim	new	clients/pipesclient.html#new,typeRpcPipesClient_2	proc new(T: type RpcPipesClient; maxMessageSize = defaultMaxMessageSize;\n    router = default(ref RpcRouter); framing = Framing.httpHeader()): T:type		44
+nim	newRpcPipesClient	clients/pipesclient.html#newRpcPipesClient	proc newRpcPipesClient(maxMessageSize = defaultMaxMessageSize;\n                  router = default(ref RpcRouter);\n                  framing = Framing.httpHeader()): RpcPipesClient		60
+nim	send	clients/pipesclient.html#send.e,RpcPipesClient,seq[byte]	method send(client: RpcPipesClient; reqData: seq[byte]): InternalRaisesFuture[void,\n    (CancelledError, JsonRpcError)]		74
+nim	attach	clients/pipesclient.html#attach,RpcPipesClient,StreamTransport,StreamTransport,string	proc attach(client: RpcPipesClient; input, output: StreamTransport; remote: string): InternalRaisesFuture[\n    void, void]		168
+nim	connect	clients/pipesclient.html#connect,RpcPipesClient,StreamTransport,StreamTransport,string	proc connect(client: RpcPipesClient; input, output: StreamTransport; remote = "pipes")		179
+nim	close	clients/pipesclient.html#close.e,RpcPipesClient	method close(client: RpcPipesClient): InternalRaisesFuture[void, void]		184
+nimgrp	new	clients/pipesclient.html#new-procs-all	proc		36

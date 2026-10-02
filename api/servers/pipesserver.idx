@@ -1,0 +1,12 @@
+nimTitle	pipesserver	servers/pipesserver.html	module json_rpc/servers/pipesserver		0
+nim	RpcPipesServer	servers/pipesserver.html#RpcPipesServer	type RpcPipesServer		26
+nim	RpcPipesProcessClient	servers/pipesserver.html#RpcPipesProcessClient	type RpcPipesProcessClient		32
+nim	processClient	servers/pipesserver.html#processClient,RpcPipesServer,StreamTransport,StreamTransport	proc processClient(server: RpcPipesServer; input, output: StreamTransport): InternalRaisesFuture[\n    void, void]		38
+nim	new	servers/pipesserver.html#new,typeRpcPipesServer	proc new(T: type RpcPipesServer; maxMessageSize = defaultMaxMessageSize;\n    framing = Framing.httpHeader()): T:type		53
+nim	newRpcPipesServer	servers/pipesserver.html#newRpcPipesServer	proc newRpcPipesServer(maxMessageSize = defaultMaxMessageSize;\n                  framing = Framing.httpHeader()): RpcPipesServer		65
+nim	newRpcPipesServer	servers/pipesserver.html#newRpcPipesServer,RpcPipesProcessClient	proc newRpcPipesServer(processClientHook: RpcPipesProcessClient;\n                  maxMessageSize = defaultMaxMessageSize;\n                  framing = Framing.httpHeader()): RpcPipesServer		70
+nim	start	servers/pipesserver.html#start,RpcPipesServer,StreamTransport,StreamTransport	proc start(server: RpcPipesServer; input, output: StreamTransport)		85
+nim	stop	servers/pipesserver.html#stop,RpcPipesServer	proc stop(server: RpcPipesServer): InternalRaisesFuture[void, void]		93
+nim	serve	servers/pipesserver.html#serve,RpcPipesServer	proc serve(server: RpcPipesServer): InternalRaisesFuture[void,\n    (CancelledError, JsonRpcError)]		112
+nim	closeWait	servers/pipesserver.html#closeWait,RpcPipesServer	proc closeWait(server: RpcPipesServer): InternalRaisesFuture[void, void]		128
+nimgrp	newrpcpipesserver	servers/pipesserver.html#newRpcPipesServer-procs-all	proc		65

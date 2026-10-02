@@ -25,7 +25,7 @@
   <div class="document" id="documentId">
     <div class="container">
       <h1 class="title">Index</h1>
-      Modules: <a href="client.html">client</a>, <a href="clients/httpclient.html">clients/httpclient</a>, <a href="clients/socketclient.html">clients/socketclient</a>, <a href="clients/websocketclient.html">clients/websocketclient</a>, <a href="errors.html">errors</a>, <a href="jsonmarshal.html">jsonmarshal</a>, <a href="private/client_handler_wrapper.html">private/client_handler_wrapper</a>, <a href="private/jrpc_sys.html">private/jrpc_sys</a>, <a href="private/server_handler_wrapper.html">private/server_handler_wrapper</a>, <a href="private/shared_wrapper.html">private/shared_wrapper</a>, <a href="private/utils.html">private/utils</a>, <a href="router.html">router</a>, <a href="rpcclient.html">rpcclient</a>, <a href="rpcproxy.html">rpcproxy</a>, <a href="rpcserver.html">rpcserver</a>, <a href="server.html">server</a>, <a href="servers/httpserver.html">servers/httpserver</a>, <a href="servers/socketserver.html">servers/socketserver</a>, <a href="servers/websocketserver.html">servers/websocketserver</a>.<br/><p /><h2>API symbols</h2>
+      Modules: <a href="client.html">client</a>, <a href="clients/httpclient.html">clients/httpclient</a>, <a href="clients/pipesclient.html">clients/pipesclient</a>, <a href="clients/shared/framing.html">clients/shared/framing</a>, <a href="clients/socketclient.html">clients/socketclient</a>, <a href="clients/websocketclient.html">clients/websocketclient</a>, <a href="errors.html">errors</a>, <a href="jsonmarshal.html">jsonmarshal</a>, <a href="private/client_handler_wrapper.html">private/client_handler_wrapper</a>, <a href="private/jrpc_sys.html">private/jrpc_sys</a>, <a href="private/server_handler_wrapper.html">private/server_handler_wrapper</a>, <a href="private/shared_wrapper.html">private/shared_wrapper</a>, <a href="private/utils.html">private/utils</a>, <a href="router.html">router</a>, <a href="rpcclient.html">rpcclient</a>, <a href="rpcproxy.html">rpcproxy</a>, <a href="rpcserver.html">rpcserver</a>, <a href="server.html">server</a>, <a href="servers/httpserver.html">servers/httpserver</a>, <a href="servers/pipesserver.html">servers/pipesserver</a>, <a href="servers/socketserver.html">servers/socketserver</a>, <a href="servers/websocketserver.html">servers/websocketserver</a>.<br/><p /><h2>API symbols</h2>
 <dl><dt><a name="%60%24%60" href="#%60%24%60"><span>`$`:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="jrpc_sys: proc `$`(x: RequestId): string" href="private/jrpc_sys.html#%24%2CRequestId">jrpc_sys: proc `$`(x: RequestId): string</a></li>
@@ -116,6 +116,10 @@
           </ul></dd>
 <dt><a name="attach" href="#attach"><span>attach:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
+          data-doc-search-tag="pipesclient: proc attach(client: RpcPipesClient; input, output: StreamTransport; remote: string): InternalRaisesFuture[
+    void, void]" href="clients/pipesclient.html#attach%2CRpcPipesClient%2CStreamTransport%2CStreamTransport%2Cstring">pipesclient: proc attach(client: RpcPipesClient; input, output: StreamTransport; remote: string): InternalRaisesFuture[
+    void, void]</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="socketclient: proc attach(client: RpcSocketClient; transport: StreamTransport; remote: string): InternalRaisesFuture[
     void, void]" href="clients/socketclient.html#attach%2CRpcSocketClient%2CStreamTransport%2Cstring">socketclient: proc attach(client: RpcSocketClient; transport: StreamTransport; remote: string): InternalRaisesFuture[
     void, void]</a></li>
@@ -210,6 +214,8 @@
           <li><a class="reference external"
           data-doc-search-tag="httpclient: method close(client: RpcHttpClient): InternalRaisesFuture[void, void]" href="clients/httpclient.html#close.e%2CRpcHttpClient">httpclient: method close(client: RpcHttpClient): InternalRaisesFuture[void, void]</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="pipesclient: method close(client: RpcPipesClient): InternalRaisesFuture[void, void]" href="clients/pipesclient.html#close.e%2CRpcPipesClient">pipesclient: method close(client: RpcPipesClient): InternalRaisesFuture[void, void]</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="socketclient: method close(client: RpcSocketClient): InternalRaisesFuture[void, void]" href="clients/socketclient.html#close.e%2CRpcSocketClient">socketclient: method close(client: RpcSocketClient): InternalRaisesFuture[void, void]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="websocketclient: method close(client: RpcWebSocketClient): InternalRaisesFuture[void, void]" href="clients/websocketclient.html#close.e%2CRpcWebSocketClient">websocketclient: method close(client: RpcWebSocketClient): InternalRaisesFuture[void, void]</a></li>
@@ -224,6 +230,8 @@
           <li><a class="reference external"
           data-doc-search-tag="httpserver: proc closeWait(server: RpcHttpServer): InternalRaisesFuture[void, void]" href="servers/httpserver.html#closeWait%2CRpcHttpServer">httpserver: proc closeWait(server: RpcHttpServer): InternalRaisesFuture[void, void]</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc closeWait(server: RpcPipesServer): InternalRaisesFuture[void, void]" href="servers/pipesserver.html#closeWait%2CRpcPipesServer">pipesserver: proc closeWait(server: RpcPipesServer): InternalRaisesFuture[void, void]</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="socketserver: proc closeWait(server: RpcSocketServer): InternalRaisesFuture[void, void]" href="servers/socketserver.html#closeWait%2CRpcSocketServer">socketserver: proc closeWait(server: RpcSocketServer): InternalRaisesFuture[void, void]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="websocketserver: proc closeWait(server: RpcWebSocketServer): InternalRaisesFuture[void, void]" href="servers/websocketserver.html#closeWait%2CRpcWebSocketServer">websocketserver: proc closeWait(server: RpcWebSocketServer): InternalRaisesFuture[void, void]</a></li>
@@ -237,6 +245,8 @@
           data-doc-search-tag="httpclient: proc connect(client: RpcHttpClient; address: string; port: Port; secure: bool): InternalRaisesFuture[
     void, (CancelledError, JsonRpcError)]" href="clients/httpclient.html#connect%2CRpcHttpClient%2Cstring%2CPort%2Cbool">httpclient: proc connect(client: RpcHttpClient; address: string; port: Port; secure: bool): InternalRaisesFuture[
     void, (CancelledError, JsonRpcError)]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="pipesclient: proc connect(client: RpcPipesClient; input, output: StreamTransport; remote = &quot;pipes&quot;)" href="clients/pipesclient.html#connect%2CRpcPipesClient%2CStreamTransport%2CStreamTransport%2Cstring">pipesclient: proc connect(client: RpcPipesClient; input, output: StreamTransport; remote = &quot;pipes&quot;)</a></li>
           <li><a class="reference external"
           data-doc-search-tag="socketclient: proc connect(client: RpcSocketClient; address: string; port: Port): InternalRaisesFuture[
     void, (CancelledError, JsonRpcError)]" href="clients/socketclient.html#connect%2CRpcSocketClient%2Cstring%2CPort">socketclient: proc connect(client: RpcSocketClient; address: string; port: Port): InternalRaisesFuture[
@@ -380,7 +390,15 @@
           </ul></dd>
 <dt><a name="Framing" href="#Framing"><span>Framing:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
-          data-doc-search-tag="socketclient: object Framing" href="clients/socketclient.html#Framing">socketclient: object Framing</a></li>
+          data-doc-search-tag="framing: object Framing" href="clients/shared/framing.html#Framing">framing: object Framing</a></li>
+          </ul></dd>
+<dt><a name="FramingRecvMsg" href="#FramingRecvMsg"><span>FramingRecvMsg:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="framing: type FramingRecvMsg" href="clients/shared/framing.html#FramingRecvMsg">framing: type FramingRecvMsg</a></li>
+          </ul></dd>
+<dt><a name="FramingSendMsg" href="#FramingSendMsg"><span>FramingSendMsg:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="framing: type FramingSendMsg" href="clients/shared/framing.html#FramingSendMsg">framing: type FramingSendMsg</a></li>
           </ul></dd>
 <dt><a name="getClient" href="#getClient"><span>getClient:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -426,10 +444,12 @@
           </ul></dd>
 <dt><a name="httpHeader" href="#httpHeader"><span>httpHeader:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
-          data-doc-search-tag="socketclient: proc httpHeader(T: type Framing): T:type" href="clients/socketclient.html#httpHeader%2CtypeFraming">socketclient: proc httpHeader(T: type Framing): T:type</a></li>
+          data-doc-search-tag="framing: proc httpHeader(T: type Framing): T:type" href="clients/shared/framing.html#httpHeader%2CtypeFraming">framing: proc httpHeader(T: type Framing): T:type</a></li>
           </ul></dd>
 <dt><a name="init" href="#init"><span>init:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
+          data-doc-search-tag="framing: proc init(T: type Framing; recvMsg: FramingRecvMsg; sendMsg: FramingSendMsg): T:type" href="clients/shared/framing.html#init%2CtypeFraming%2CFramingRecvMsg%2CFramingSendMsg">framing: proc init(T: type Framing; recvMsg: FramingRecvMsg; sendMsg: FramingSendMsg): T:type</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="router: proc init(T: type RpcRouter): T:type" href="router.html#init%2CtypeRpcRouter">router: proc init(T: type RpcRouter): T:type</a></li>
           </ul></dd>
 <dt><a name="INTERNAL_ERROR" href="#INTERNAL_ERROR"><span>INTERNAL_ERROR:</span></a></dt><dd><ul class="simple">
@@ -490,7 +510,7 @@
           </ul></dd>
 <dt><a name="lengthHeaderBE32" href="#lengthHeaderBE32"><span>lengthHeaderBE32:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
-          data-doc-search-tag="socketclient: proc lengthHeaderBE32(T: type Framing): T:type" href="clients/socketclient.html#lengthHeaderBE32%2CtypeFraming">socketclient: proc lengthHeaderBE32(T: type Framing): T:type</a></li>
+          data-doc-search-tag="framing: proc lengthHeaderBE32(T: type Framing): T:type" href="clients/shared/framing.html#lengthHeaderBE32%2CtypeFraming">framing: proc lengthHeaderBE32(T: type Framing): T:type</a></li>
           </ul></dd>
 <dt><a name="localAddress" href="#localAddress"><span>localAddress:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -534,6 +554,14 @@
     getHeaders: GetJsonRpcRequestHeaders = nil; flags: HttpClientFlags = {};
     maxMessageSize = defaultMaxMessageSize): T:type</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="pipesclient: proc new(T: type RpcPipesClient; maxMessageSize = defaultMaxMessageSize;
+    router = default(RpcRouterCallback); framing = Framing.httpHeader()): T:type" href="clients/pipesclient.html#new%2CtypeRpcPipesClient">pipesclient: proc new(T: type RpcPipesClient; maxMessageSize = defaultMaxMessageSize;
+    router = default(RpcRouterCallback); framing = Framing.httpHeader()): T:type</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="pipesclient: proc new(T: type RpcPipesClient; maxMessageSize = defaultMaxMessageSize;
+    router = default(ref RpcRouter); framing = Framing.httpHeader()): T:type" href="clients/pipesclient.html#new%2CtypeRpcPipesClient_2">pipesclient: proc new(T: type RpcPipesClient; maxMessageSize = defaultMaxMessageSize;
+    router = default(ref RpcRouter); framing = Framing.httpHeader()): T:type</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="socketclient: proc new(T: type RpcSocketClient; maxMessageSize = defaultMaxMessageSize;
     router = default(RpcRouterCallback); framing = Framing.newLine()): T:type" href="clients/socketclient.html#new%2CtypeRpcSocketClient">socketclient: proc new(T: type RpcSocketClient; maxMessageSize = defaultMaxMessageSize;
     router = default(RpcRouterCallback); framing = Framing.newLine()): T:type</a></li>
@@ -573,10 +601,14 @@
     authHooks: seq[HttpAuthHook] = @[]): T:type</a></li>
           <li><a class="reference external"
           data-doc-search-tag="httpserver: proc new(T: type RpcHttpServer; authHooks: seq[HttpAuthHook] = @[]): T:type" href="servers/httpserver.html#new%2CtypeRpcHttpServer%2Cseq%5BHttpAuthHook%5D">httpserver: proc new(T: type RpcHttpServer; authHooks: seq[HttpAuthHook] = @[]): T:type</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc new(T: type RpcPipesServer; maxMessageSize = defaultMaxMessageSize;
+    framing = Framing.httpHeader()): T:type" href="servers/pipesserver.html#new%2CtypeRpcPipesServer">pipesserver: proc new(T: type RpcPipesServer; maxMessageSize = defaultMaxMessageSize;
+    framing = Framing.httpHeader()): T:type</a></li>
           </ul></dd>
 <dt><a name="newLine" href="#newLine"><span>newLine:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
-          data-doc-search-tag="socketclient: proc newLine(T: type Framing): T:type" href="clients/socketclient.html#newLine%2CtypeFraming">socketclient: proc newLine(T: type Framing): T:type</a></li>
+          data-doc-search-tag="framing: proc newLine(T: type Framing): T:type" href="clients/shared/framing.html#newLine%2CtypeFraming">framing: proc newLine(T: type Framing): T:type</a></li>
           </ul></dd>
 <dt><a name="newRpcHttpClient" href="#newRpcHttpClient"><span>newRpcHttpClient:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -607,6 +639,26 @@
           data-doc-search-tag="httpserver: proc newRpcHttpServer(router: RpcRouter; authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer" href="servers/httpserver.html#newRpcHttpServer%2CRpcRouter%2Cseq%5BHttpAuthHook%5D">httpserver: proc newRpcHttpServer(router: RpcRouter; authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer</a></li>
           <li><a class="reference external"
           data-doc-search-tag="httpserver: proc newRpcHttpServer(authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer" href="servers/httpserver.html#newRpcHttpServer%2Cseq%5BHttpAuthHook%5D">httpserver: proc newRpcHttpServer(authHooks: seq[HttpAuthHook] = @[]): RpcHttpServer</a></li>
+          </ul></dd>
+<dt><a name="newRpcPipesClient" href="#newRpcPipesClient"><span>newRpcPipesClient:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesclient: proc newRpcPipesClient(maxMessageSize = defaultMaxMessageSize;
+                  router = default(ref RpcRouter);
+                  framing = Framing.httpHeader()): RpcPipesClient" href="clients/pipesclient.html#newRpcPipesClient">pipesclient: proc newRpcPipesClient(maxMessageSize = defaultMaxMessageSize;
+                  router = default(ref RpcRouter);
+                  framing = Framing.httpHeader()): RpcPipesClient</a></li>
+          </ul></dd>
+<dt><a name="newRpcPipesServer" href="#newRpcPipesServer"><span>newRpcPipesServer:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc newRpcPipesServer(maxMessageSize = defaultMaxMessageSize;
+                  framing = Framing.httpHeader()): RpcPipesServer" href="servers/pipesserver.html#newRpcPipesServer">pipesserver: proc newRpcPipesServer(maxMessageSize = defaultMaxMessageSize;
+                  framing = Framing.httpHeader()): RpcPipesServer</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc newRpcPipesServer(processClientHook: RpcPipesProcessClient;
+                  maxMessageSize = defaultMaxMessageSize;
+                  framing = Framing.httpHeader()): RpcPipesServer" href="servers/pipesserver.html#newRpcPipesServer%2CRpcPipesProcessClient">pipesserver: proc newRpcPipesServer(processClientHook: RpcPipesProcessClient;
+                  maxMessageSize = defaultMaxMessageSize;
+                  framing = Framing.httpHeader()): RpcPipesServer</a></li>
           </ul></dd>
 <dt><a name="newRpcSocketClient" href="#newRpcSocketClient"><span>newRpcSocketClient:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -745,6 +797,12 @@
 <dt><a name="prepareBatch" href="#prepareBatch"><span>prepareBatch:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="client: proc prepareBatch(client: RpcClient): RpcBatchCallRef" href="client.html#prepareBatch%2CRpcClient">client: proc prepareBatch(client: RpcClient): RpcBatchCallRef</a></li>
+          </ul></dd>
+<dt><a name="processClient" href="#processClient"><span>processClient:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc processClient(server: RpcPipesServer; input, output: StreamTransport): InternalRaisesFuture[
+    void, void]" href="servers/pipesserver.html#processClient%2CRpcPipesServer%2CStreamTransport%2CStreamTransport">pipesserver: proc processClient(server: RpcPipesServer; input, output: StreamTransport): InternalRaisesFuture[
+    void, void]</a></li>
           </ul></dd>
 <dt><a name="processMessage" href="#processMessage"><span>processMessage:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -1026,6 +1084,18 @@
 <li><a class="reference external"
           data-doc-search-tag="errors: object RpcParseError" href="errors.html#RpcParseError">errors: object RpcParseError</a></li>
           </ul></dd>
+<dt><a name="RpcPipesClient" href="#RpcPipesClient"><span>RpcPipesClient:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesclient: type RpcPipesClient" href="clients/pipesclient.html#RpcPipesClient">pipesclient: type RpcPipesClient</a></li>
+          </ul></dd>
+<dt><a name="RpcPipesProcessClient" href="#RpcPipesProcessClient"><span>RpcPipesProcessClient:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesserver: type RpcPipesProcessClient" href="servers/pipesserver.html#RpcPipesProcessClient">pipesserver: type RpcPipesProcessClient</a></li>
+          </ul></dd>
+<dt><a name="RpcPipesServer" href="#RpcPipesServer"><span>RpcPipesServer:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesserver: type RpcPipesServer" href="servers/pipesserver.html#RpcPipesServer">pipesserver: type RpcPipesServer</a></li>
+          </ul></dd>
 <dt><a name="RpcPostError" href="#RpcPostError"><span>RpcPostError:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="errors: object RpcPostError" href="errors.html#RpcPostError">errors: object RpcPostError</a></li>
@@ -1096,12 +1166,22 @@
     Result[seq[RpcBatchResponse], string], (CancelledError,)]" href="client.html#send%2CRpcBatchCallRef">client: proc send(batch: RpcBatchCallRef): InternalRaisesFuture[
     Result[seq[RpcBatchResponse], string], (CancelledError,)]</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="pipesclient: method send(client: RpcPipesClient; reqData: seq[byte]): InternalRaisesFuture[void,
+    (CancelledError, JsonRpcError)]" href="clients/pipesclient.html#send.e%2CRpcPipesClient%2Cseq%5Bbyte%5D">pipesclient: method send(client: RpcPipesClient; reqData: seq[byte]): InternalRaisesFuture[void,
+    (CancelledError, JsonRpcError)]</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="socketclient: method send(client: RpcSocketClient; reqData: seq[byte]): InternalRaisesFuture[void,
     (CancelledError, JsonRpcError)]" href="clients/socketclient.html#send.e%2CRpcSocketClient%2Cseq%5Bbyte%5D">socketclient: method send(client: RpcSocketClient; reqData: seq[byte]): InternalRaisesFuture[void,
     (CancelledError, JsonRpcError)]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="websocketclient: method send(client: RpcWebSocketClient; reqData: seq[byte]): InternalRaisesFuture[void,
     (CancelledError, JsonRpcError)]" href="clients/websocketclient.html#send.e%2CRpcWebSocketClient%2Cseq%5Bbyte%5D">websocketclient: method send(client: RpcWebSocketClient; reqData: seq[byte]): InternalRaisesFuture[void,
+    (CancelledError, JsonRpcError)]</a></li>
+          </ul></dd>
+<dt><a name="serve" href="#serve"><span>serve:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc serve(server: RpcPipesServer): InternalRaisesFuture[void,
+    (CancelledError, JsonRpcError)]" href="servers/pipesserver.html#serve%2CRpcPipesServer">pipesserver: proc serve(server: RpcPipesServer): InternalRaisesFuture[void,
     (CancelledError, JsonRpcError)]</a></li>
           </ul></dd>
 <dt><a name="serveHTTP" href="#serveHTTP"><span>serveHTTP:</span></a></dt><dd><ul class="simple">
@@ -1134,6 +1214,8 @@
           <li><a class="reference external"
           data-doc-search-tag="httpserver: proc start(server: RpcHttpServer)" href="servers/httpserver.html#start%2CRpcHttpServer">httpserver: proc start(server: RpcHttpServer)</a></li>
           <li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc start(server: RpcPipesServer; input, output: StreamTransport)" href="servers/pipesserver.html#start%2CRpcPipesServer%2CStreamTransport%2CStreamTransport">pipesserver: proc start(server: RpcPipesServer; input, output: StreamTransport)</a></li>
+          <li><a class="reference external"
           data-doc-search-tag="socketserver: proc start(server: RpcSocketServer)" href="servers/socketserver.html#start%2CRpcSocketServer">socketserver: proc start(server: RpcSocketServer)</a></li>
           <li><a class="reference external"
           data-doc-search-tag="websocketserver: proc start(server: RpcWebSocketServer)" href="servers/websocketserver.html#start%2CRpcWebSocketServer">websocketserver: proc start(server: RpcWebSocketServer)</a></li>
@@ -1143,6 +1225,8 @@
           data-doc-search-tag="rpcproxy: proc stop(proxy: RpcProxy): InternalRaisesFuture[void, void]" href="rpcproxy.html#stop%2CRpcProxy">rpcproxy: proc stop(proxy: RpcProxy): InternalRaisesFuture[void, void]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="httpserver: proc stop(server: RpcHttpServer): InternalRaisesFuture[void, void]" href="servers/httpserver.html#stop%2CRpcHttpServer">httpserver: proc stop(server: RpcHttpServer): InternalRaisesFuture[void, void]</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="pipesserver: proc stop(server: RpcPipesServer): InternalRaisesFuture[void, void]" href="servers/pipesserver.html#stop%2CRpcPipesServer">pipesserver: proc stop(server: RpcPipesServer): InternalRaisesFuture[void, void]</a></li>
           <li><a class="reference external"
           data-doc-search-tag="socketserver: proc stop(server: RpcSocketServer)" href="servers/socketserver.html#stop%2CRpcSocketServer">socketserver: proc stop(server: RpcSocketServer)</a></li>
           <li><a class="reference external"
@@ -1240,7 +1324,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-09-28 15:41:50 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-10-02 21:51:37 UTC</small>
       </div>
     </div>
   </div>
