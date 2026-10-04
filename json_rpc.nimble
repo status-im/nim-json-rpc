@@ -33,49 +33,69 @@ let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
 let flags = getEnv("NIMFLAGS", "") # Extra flags for the compiler
 let verbose = getEnv("V", "") notin ["", "0"]
+let platform = getEnv("PLATFORM", "")
+let testArguments = [
+  "",
+  "-d:release",
+]
+
+from std/os import quoteShell
 
 let cfg =
   " --styleCheck:usages --styleCheck:error" &
   (if verbose: "" else: " --verbosity:0") &
-  " --skipUserCfg --outdir:build --nimcache:build/nimcache -f" &
-  " --threads:on -d:chronicles_log_level=ERROR"
+  " --skipParentCfg --skipUserCfg --outdir:build -f " &
+  quoteShell("--nimcache:build/nimcache/$projectName")
 
 proc build(args, path: string) =
   exec nimc & " " & lang & " " & cfg & " " & flags & " " & args & " " & path
 
 proc run(args, path: string) =
-  build args & " --mm:refc -r", path
-  build args & " --mm:orc -r", path
+  build args & " -r", path
 
-proc buildOnly(args, path: string) =
-  build args & " --mm:refc", path
-  build args & " --mm:orc", path
-
-task test, "run tests":
-  for mode in ["", "-d:release"]:
-    run mode, "tests/all"
+task test, "Run all tests":
+  for args in testArguments:
+    run args & " --mm:refc", "tests/all"
+    run args & " --mm:orc", "tests/all"
 
   when not defined(windows):
     # on windows, socker server build failed
-    buildOnly "-d:chronicles_log_level=TRACE -d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\"", "tests/all"
+    let args = "-d:chronicles_log_level=TRACE -d:\"chronicles_sinks=textlines[dynamic],json[dynamic]\""
+    build args & " --mm:refc", "tests/all"
+    build args & " --mm:orc", "tests/all"
 
-task test_asan, "run tests with asan":
-  # CI runs without leak detection: ASAN_OPTIONS=detect_leaks=0
-  if (NimMajor, NimMinor) >= (2, 2) and defined(linux) and defined(amd64):
-    build " -d:release --mm:orc -d:useMalloc --cc:clang --passc:-fsanitize=address --passl:-fsanitize=address --debugger:native -r", "tests/all"
+task test_asan, "Run all tests with ASAN":
+  if platform != "x86" and (NimMajor, NimMinor) >= (2, 2):
+    try:
+      exec "echo '#if __clang_major__ < 20\n#error\n#endif' | clang -E - >/dev/null"
+    except OSError:
+      return
+
+    # https://clang.llvm.org/docs/AddressSanitizer.html
+    putEnv("ASAN_OPTIONS", "detect_leaks=0:detect_stack_use_after_return=1")
+    # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
+    putEnv("UBSAN_OPTIONS", "print_stacktrace=1")
+    let asanArgs =
+      " --mm:orc -d:useMalloc --cc:clang --debugger:native" &
+      " --passC:-fsanitize=address,undefined" &
+      " --passL:-fsanitize=address,undefined" &
+      " --passC:-fno-sanitize-recover=undefined" &
+      " --passC:-fno-sanitize-merge" &
+      " --passC:-fno-omit-frame-pointer"
+    for args in testArguments:
+      run args & asanArgs, "tests/all"
 
 task examples, "Run examples":
   # Run book examples
   for file in listFiles("docs/examples"):
     if file.endsWith("_sigs_def.nim"):
       continue
-    elif file.endsWith("test_server.nim"):
-      run "", file
-    elif file.endsWith("_server.nim"):
+    elif file.endsWith("_server.nim") and not file.endsWith("test_server.nim"):
       # Avoid serve forever; the clients import them
       continue
     elif file.endsWith(".nim"):
-      run "", file
+      run "--mm:refc", file
+      run "--mm:orc", file
 
 task docs, "Generate API documentation":
   exec "mdbook build docs"
