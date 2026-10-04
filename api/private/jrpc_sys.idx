@@ -39,20 +39,20 @@ nim	JrpcSys	private/jrpc_sys.html#JrpcSys	object JrpcSys		77
 nim	Reader	private/jrpc_sys.html#Reader.t,typeJrpcSys	template Reader(T`gensym1: type JrpcSys): type		78
 nim	Writer	private/jrpc_sys.html#Writer.t,typeJrpcSys	template Writer(T`gensym1: type JrpcSys): type		79
 nim	PreferredOutputType	private/jrpc_sys.html#PreferredOutputType.t,typeJrpcSys	template PreferredOutputType(T`gensym1: type JrpcSys): type		80
-nim	mimeType	private/jrpc_sys.html#mimeType.t,typeJrpcSys	template mimeType(T`gensym1: type JrpcSys): string		120
-nim	decode	private/jrpc_sys.html#decode.t,typeJrpcSys,JsonString,type,varargs[untyped]	template decode(Format: type JrpcSys; inputParam: JsonString; RecordType: type;\n       params: varargs[untyped]): auto		129
-nim	flavorUsesAutomaticObjectSerialization	private/jrpc_sys.html#flavorUsesAutomaticObjectSerialization.t,typeJrpcSys	template flavorUsesAutomaticObjectSerialization(T: type JrpcSys): bool		137
-nim	flavorOmitsOptionalFields	private/jrpc_sys.html#flavorOmitsOptionalFields.t,typeJrpcSys	template flavorOmitsOptionalFields(T: type JrpcSys): bool		138
-nim	flavorRequiresAllFields	private/jrpc_sys.html#flavorRequiresAllFields.t,typeJrpcSys	template flavorRequiresAllFields(T: type JrpcSys): bool		139
-nim	flavorAllowsUnknownFields	private/jrpc_sys.html#flavorAllowsUnknownFields.t,typeJrpcSys	template flavorAllowsUnknownFields(T: type JrpcSys): bool		140
-nim	flavorSkipNullFields	private/jrpc_sys.html#flavorSkipNullFields.t,typeJrpcSys	template flavorSkipNullFields(T: type JrpcSys): bool		141
-nim	flavorEnumRep	private/jrpc_sys.html#flavorEnumRep.t,typeJrpcSys	template flavorEnumRep(T: type JrpcSys): EnumRepresentation		144
-nim	flavorEnumRep	private/jrpc_sys.html#flavorEnumRep.t,typeJrpcSys,static[EnumRepresentation]	template flavorEnumRep(T: type JrpcSys; rep: static[EnumRepresentation])		147
+nim	mimeType	private/jrpc_sys.html#mimeType.t,typeJrpcSys	template mimeType(T`gensym1: type JrpcSys): string		98
+nim	decode	private/jrpc_sys.html#decode.t,typeJrpcSys,JsonString,type,varargs[untyped]	template decode(Format: type JrpcSys; inputParam: JsonString; RecordType: type;\n       params: varargs[untyped]): auto		107
+nim	flavorUsesAutomaticObjectSerialization	private/jrpc_sys.html#flavorUsesAutomaticObjectSerialization.t,typeJrpcSys	template flavorUsesAutomaticObjectSerialization(_: type JrpcSys): bool		115
+nim	flavorOmitsOptionalFields	private/jrpc_sys.html#flavorOmitsOptionalFields.t,typeJrpcSys	template flavorOmitsOptionalFields(_: type JrpcSys): bool		116
+nim	flavorRequiresAllFields	private/jrpc_sys.html#flavorRequiresAllFields.t,typeJrpcSys	template flavorRequiresAllFields(_: type JrpcSys): bool		117
+nim	flavorAllowsUnknownFields	private/jrpc_sys.html#flavorAllowsUnknownFields.t,typeJrpcSys	template flavorAllowsUnknownFields(_: type JrpcSys): bool		118
+nim	flavorSkipNullFields	private/jrpc_sys.html#flavorSkipNullFields.t,typeJrpcSys	template flavorSkipNullFields(_: type JrpcSys): bool		119
+nim	flavorEnumRep	private/jrpc_sys.html#flavorEnumRep.t,typeJrpcSys	template flavorEnumRep(_: type JrpcSys): EnumRepresentation		122
+nim	flavorEnumRep	private/jrpc_sys.html#flavorEnumRep.t,typeJrpcSys,static[EnumRepresentation]	template flavorEnumRep(_: type JrpcSys; rep: static[EnumRepresentation])		125
 nim	typeClassOrMemberAutoSerialize	private/jrpc_sys.html#typeClassOrMemberAutoSerialize,typeJrpcSys,,	proc typeClassOrMemberAutoSerialize(F: type JrpcSys; TC: distinct type;\n                               TM: distinct type): bool		53
 nim	typeAutoSerialize	private/jrpc_sys.html#typeAutoSerialize,typeJrpcSys,	proc typeAutoSerialize(F: type JrpcSys; TM: distinct type): bool		68
 nim	automaticSerialization	private/jrpc_sys.html#automaticSerialization.t,typeJrpcSys,,static[bool]	template automaticSerialization(F: type JrpcSys; T: distinct type; enable: static[bool])		19
 nim	automaticPrimitivesSerialization	private/jrpc_sys.html#automaticPrimitivesSerialization.t,typeJrpcSys,static[bool]	template automaticPrimitivesSerialization(F: type JrpcSys; enable: static[bool])		21
-nim	automaticBuiltinSerialization	private/jrpc_sys.html#automaticBuiltinSerialization.t,typeJrpcSys,static[bool]	template automaticBuiltinSerialization(F: type JrpcSys; enable: static[bool])		152
+nim	automaticBuiltinSerialization	private/jrpc_sys.html#automaticBuiltinSerialization.t,typeJrpcSys,static[bool]	template automaticBuiltinSerialization(F: type JrpcSys; enable: static[bool])		130
 nim	readValue	private/jrpc_sys.html#readValue.t,,ReqRespHeader	template readValue(r`gensym8: var Reader(JrpcSys); value`gensym8: var TT`gensym8)		180
 nim	readValue	private/jrpc_sys.html#readValue.t,,RequestRx	template readValue(r`gensym12: var Reader(JrpcSys); value`gensym12: var TT`gensym12)		181
 nim	readValue	private/jrpc_sys.html#readValue.t,,RequestRx2	template readValue(r`gensym16: var Reader(JrpcSys); value`gensym16: var TT`gensym16)		182
@@ -89,4 +89,4 @@ nimgrp	meth	private/jrpc_sys.html#meth-procs-all	proc		217
 nimgrp	readvalue	private/jrpc_sys.html#readValue-procs-all	proc		242
 nimgrp	writevalue	private/jrpc_sys.html#writeValue-templates-all	template		117
 nimgrp	readvalue	private/jrpc_sys.html#readValue-templates-all	template		126
-nimgrp	flavorenumrep	private/jrpc_sys.html#flavorEnumRep-templates-all	template		144
+nimgrp	flavorenumrep	private/jrpc_sys.html#flavorEnumRep-templates-all	template		122
