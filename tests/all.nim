@@ -20,6 +20,7 @@ import
   test_router_rpc,
   test_socket_framing,
   test_spec_examples,
+  test_stdio_transport,
   testhook,
   testhttp,
   testhttps,
