@@ -13,6 +13,7 @@ nim	hash	client.html#hash,RpcClient	proc hash(v: RpcClient): Hash		74
 nim	parseResponse	client.html#parseResponse,openArray[byte],type	proc parseResponse(payload: openArray[byte]; T: type): T:type		77
 nim	processsSingleResponse	client.html#processsSingleResponse,openArray[byte],int	proc processsSingleResponse(body: openArray[byte]; id: int): JsonString		103
 nim	withPendingFut	client.html#withPendingFut.t,untyped,untyped,untyped,untyped	template withPendingFut(client, fut, id, body: untyped): untyped		117
+nim	send	client.html#send.e,RpcClient,seq[byte]	method send(client: RpcClient; data: seq[byte]): InternalRaisesFuture[void,\n    (CancelledError, JsonRpcError)]		129
 nim	callOnProcessMessage	client.html#callOnProcessMessage,RpcClient,openArray[byte]	proc callOnProcessMessage(client: RpcClient; line: openArray[byte]): Result[bool,\n    string]		132
 nim	processMessage	client.html#processMessage,RpcConnection,seq[byte]	proc processMessage(client: RpcConnection; line: seq[byte]): Future[seq[byte]].Raising(\n    [])		177
 nim	clearPending	client.html#clearPending,RpcConnection,ref.JsonRpcError	proc clearPending(client: RpcConnection; exc: ref JsonRpcError)		210

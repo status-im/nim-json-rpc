@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Pipes client &amp; server - json_rpc</title>
+        <title>Stdio client - json_rpc</title>
 
 
         <!-- Custom HTML head -->
@@ -171,68 +171,65 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="pipes-client--server"><a class="header" href="#pipes-client--server">Pipes client &amp; server</a></h1>
-<pre><code class="language-nim"># pipes_server_client.nim
+                        <h1 id="stdio-client"><a class="header" href="#stdio-client">Stdio client</a></h1>
+<pre><code class="language-nim"># stdio_client.nim
 
 {.push gcsafe, raises: [].}
 
-import std/oserrors
-import chronos/osutils
-import json_rpc/[rpcclient, rpcserver]
+import std/[os, osproc]
+import json_rpc/clients/stdioclient
 import ./rpc_format
+
+const serverPath = currentSourcePath().parentDir() / "stdio_server"
 
 createRpcSigsFromNim(RpcClient, RpcConv):
   proc hello(input: string): string
 
-proc newPipe(): tuple[read, write: StreamTransport] =
-  ## A pipe with both ends as transports
-  const flags = {DescriptorFlag.NonBlock, DescriptorFlag.CloseOnExec}
-  let pipe = createOsPipe(flags, flags).valueOr:
-    raiseAssert "Unable to create a pipe: " &amp; osErrorMsg(error)
-  let
-    read = fromPipe2(AsyncFD(pipe.read)).valueOr:
-      raiseAssert "Unable to create a pipe: " &amp; osErrorMsg(error)
-    write = fromPipe2(AsyncFD(pipe.write)).valueOr:
-      raiseAssert "Unable to create a pipe: " &amp; osErrorMsg(error)
-  (read, write)
-
 proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
-  # A pipe in each direction; here both ends live in this process
-  let
-    srvPipe = newPipe()
-    clientPipe = newPipe()
+  let peerExe = serverPath.addFileExt(ExeExt)
 
-  let srv = newRpcPipesServer(framing = Framing.httpHeader())
-
-  srv.rpc(RpcConv):
-    proc hello(input: string): string =
-      "Hello " &amp; input
-
-  srv.start(srvPipe.read, clientPipe.write)
-  defer: await srv.closeWait()
-
-  let client = newRpcPipesClient(framing = Framing.httpHeader())
-  client.connect(clientPipe.read, srvPipe.write)
-  defer: await client.close()
+  const framing = Framing.httpHeader()
+  let client = newRpcStdioClient(framing = framing)
+  await client.connect(peerExe)
+  defer:
+    # Cancel/Timeout kills the server if it has not exited in time
+    discard await client.close().withTimeout(5.seconds)
+    doAssert client.exitCode() == Opt.some(0)
 
   let resp = await client.hello("Daisy")
   doAssert resp == "Hello Daisy"
 
+proc buildStdioServer() =
+  const mode =
+    when defined(release):
+      "-d:release"
+    elif defined(danger):
+      "-d:danger"
+    else:
+      ""
+  const flags = "--threads:on -d:chronicles_log_level=ERROR -d:chronicles_default_output_device=stderr"
+  let res = try:
+    execCmdEx("nim c " &amp; mode &amp; " " &amp; flags &amp; " " &amp; serverPath)
+  except CatchableError as err:
+    raiseAssert "Failed to build server: " &amp; err.msg
+  doAssert res.exitCode == 0, "Failed to build server: " &amp; res.output
+
 when isMainModule:
+  buildStdioServer()
   waitFor main()
   echo "ok"
 
 </code></pre>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/pipes.md">Edit this page on GitHub.</a></footer>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/stdio_client.md">Edit this page on GitHub.</a></footer>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../cookbook/stdio_client.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../cookbook/stdio_server.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../cookbook/websocket_server.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../cookbook/pipes.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -242,11 +239,11 @@ when isMainModule:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../cookbook/stdio_client.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../cookbook/stdio_server.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../cookbook/websocket_server.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../cookbook/pipes.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

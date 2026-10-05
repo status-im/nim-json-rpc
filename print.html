@@ -210,10 +210,10 @@
 <p>Before establishing a JSON-RPC connection with a party that exists outside your own trust boundary, consider the threats and how to mitigate them at your application level.</p>
 <footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/overview.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="establishing-a-json-rpc-connection"><a class="header" href="#establishing-a-json-rpc-connection">Establishing a JSON-RPC connection</a></h1>
 <h2 id="transports"><a class="header" href="#transports">Transports</a></h2>
-<p>A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets, Pipes, and Websockets:</p>
+<p>A JSON-RPC connection communicates over an existing transport, such as HTTP, Sockets, Pipes, Stdio, and Websockets:</p>
 <ul>
 <li>HTTP POST: unidirectional, one request/response pair per call.</li>
-<li>Sockets and pipes, via <a href="https://github.com/status-im/nim-chronos">chronos</a>' <code>StreamTransport</code>: bidirectional, persistent connection, custom message framing.
+<li>Sockets, Pipes and Stdio, via <a href="https://github.com/status-im/nim-chronos">chronos</a>' <code>StreamTransport</code>: bidirectional, persistent connection, custom message framing.
 <ul>
 <li><code>Framing.httpHeader</code>: <code>Content-Length</code> prefix specifying the length of the payload, compatible with <a href="https://www.npmjs.com/package/vscode-jsonrpc">vscode-jsonrpc</a>.</li>
 <li><code>Framing.lengthHeaderBE32</code>: Big-endian, 32-bit binary prefix - most efficient option.</li>
@@ -221,6 +221,7 @@
 </li>
 <li>Websockets, via <a href="https://github.com/status-im/nim-websock">websock</a>: bidirectional, persistent connection.</li>
 </ul>
+<p>The stdio server must log to stderr, not stdout, or logs corrupt the message stream. This includes chronicles; ex: <code>-d:chronicles_default_output_device=stderr</code> or <code>-d:"chronicles_sinks=textlines[stderr]"</code>.</p>
 <h2 id="server-and-possibly-client-also"><a class="header" href="#server-and-possibly-client-also">Server (and possibly client also)</a></h2>
 <p>Create the server instance using one of the available transports:</p>
 <p>HTTP:</p>
@@ -233,6 +234,9 @@ let srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
 <p>Pipes:</p>
 <pre><code class="language-nim">let srv = newRpcPipesServer(framing = Framing.httpHeader())
 </code></pre>
+<p>Stdio:</p>
+<pre><code class="language-nim">let srv = newRpcStdioServer(framing = Framing.httpHeader())
+</code></pre>
 <p>Websockets:</p>
 <pre><code class="language-nim">let srv = newRpcWebSocketServer("127.0.0.1", Port(0))
 </code></pre>
@@ -243,7 +247,7 @@ let srv = newRpcSocketServer(["127.0.0.1:0"], framing = framing)
 <pre><code class="language-nim">srv.start(srvPipe.read, clientPipe.write)
 </code></pre>
 <p>Then usually <code>runForever()</code> or <code>waitFor</code> a program termination signal <code>waitSignal(SIGINT)</code>. This will run the Chronos async event loop until the program is terminated.</p>
-<p>A pipes server can instead <code>await srv.serve()</code>, which returns once the connection ends.</p>
+<p>A pipes/stdio server can instead <code>await srv.serve()</code>, which returns once the connection ends.</p>
 <h2 id="client"><a class="header" href="#client">Client</a></h2>
 <p>Create the client instance using one of the available transports:</p>
 <p>HTTP:</p>
@@ -258,6 +262,11 @@ await client.connect(srv.localAddress()[0])
 <p>Pipes:</p>
 <pre><code class="language-nim">let client = newRpcPipesClient(framing = Framing.httpHeader())
 client.connect(clientPipe.read, srvPipe.write)
+</code></pre>
+<p>Stdio:</p>
+<pre><code class="language-nim">const framing = Framing.httpHeader()
+let client = newRpcStdioClient(framing = framing)
+await client.connect(peerExe)
 </code></pre>
 <p>Websockets:</p>
 <pre><code class="language-nim">let client = newRpcWebSocketClient()
@@ -764,7 +773,82 @@ when isMainModule:
   echo "ok"
 
 </code></pre>
-<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/socket_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pipes-client--server"><a class="header" href="#pipes-client--server">Pipes client &amp; server</a></h1>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/socket_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="stdio-server"><a class="header" href="#stdio-server">Stdio server</a></h1>
+<pre><code class="language-nim"># stdio_server.nim
+
+{.push gcsafe, raises: [].}
+
+import json_rpc/servers/stdioserver
+import ./rpc_format
+
+export stdioserver
+
+proc setupServer(srv: RpcStdioServer) =
+  srv.rpc(RpcConv):
+    proc hello(input: string): string =
+      "Hello " &amp; input
+
+proc main() {.raises: [CancelledError, JsonRpcError].} =
+  let srv = newRpcStdioServer(framing = Framing.httpHeader())
+
+  srv.setupServer()
+
+  waitFor srv.serve()
+
+when isMainModule:
+  main()
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/stdio_server.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="stdio-client"><a class="header" href="#stdio-client">Stdio client</a></h1>
+<pre><code class="language-nim"># stdio_client.nim
+
+{.push gcsafe, raises: [].}
+
+import std/[os, osproc]
+import json_rpc/clients/stdioclient
+import ./rpc_format
+
+const serverPath = currentSourcePath().parentDir() / "stdio_server"
+
+createRpcSigsFromNim(RpcClient, RpcConv):
+  proc hello(input: string): string
+
+proc main() {.async: (raises: [CancelledError, JsonRpcError]).} =
+  let peerExe = serverPath.addFileExt(ExeExt)
+
+  const framing = Framing.httpHeader()
+  let client = newRpcStdioClient(framing = framing)
+  await client.connect(peerExe)
+  defer:
+    # Cancel/Timeout kills the server if it has not exited in time
+    discard await client.close().withTimeout(5.seconds)
+    doAssert client.exitCode() == Opt.some(0)
+
+  let resp = await client.hello("Daisy")
+  doAssert resp == "Hello Daisy"
+
+proc buildStdioServer() =
+  const mode =
+    when defined(release):
+      "-d:release"
+    elif defined(danger):
+      "-d:danger"
+    else:
+      ""
+  const flags = "--threads:on -d:chronicles_log_level=ERROR -d:chronicles_default_output_device=stderr"
+  let res = try:
+    execCmdEx("nim c " &amp; mode &amp; " " &amp; flags &amp; " " &amp; serverPath)
+  except CatchableError as err:
+    raiseAssert "Failed to build server: " &amp; err.msg
+  doAssert res.exitCode == 0, "Failed to build server: " &amp; res.output
+
+when isMainModule:
+  buildStdioServer()
+  waitFor main()
+  echo "ok"
+
+</code></pre>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/status-im/nim-json-rpc/edit/master/docs/src/cookbook/stdio_client.md">Edit this page on GitHub.</a></footer><div style="break-before: page; page-break-before: always;"></div><h1 id="pipes-client--server"><a class="header" href="#pipes-client--server">Pipes client &amp; server</a></h1>
 <pre><code class="language-nim"># pipes_server_client.nim
 
 {.push gcsafe, raises: [].}
