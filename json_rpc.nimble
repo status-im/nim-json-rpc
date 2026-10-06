@@ -65,12 +65,7 @@ task test, "Run all tests":
     build args & " --mm:orc", "tests/all"
 
 task test_asan, "Run all tests with ASAN":
-  if platform != "x86" and (NimMajor, NimMinor) >= (2, 2):
-    try:
-      exec "echo '#if __clang_major__ < 20\n#error\n#endif' | clang -E - >/dev/null"
-    except OSError:
-      return
-
+  if platform != "x86":
     # https://clang.llvm.org/docs/AddressSanitizer.html
     putEnv("ASAN_OPTIONS", "detect_leaks=0:detect_stack_use_after_return=1")
     # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
