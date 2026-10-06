@@ -10,14 +10,14 @@
 mode = ScriptMode.Verbose
 
 packageName   = "json_rpc"
-version       = "0.7.0"
+version       = "0.8.0"
 author        = "Status Research & Development GmbH"
 description   = "Ethereum remote procedure calls"
 license       = "Apache License 2.0"
 skipDirs      = @["tests"]
 
 ### Dependencies
-requires "nim >= 2.0.10",
+requires "nim >= 2.2.14",
          "chronicles >= 0.12.0",
          "chronos >= 4.0.3 & < 5.0.0",
          "httputils >= 0.3.0",
