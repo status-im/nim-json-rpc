@@ -16,13 +16,16 @@
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA3XAAAN1wFCKJt4AAAAB3RJTUUH4QQQEwksSS9ZWwAAAk1JREFUWMPtll2ITVEUx39nn/O7Y5qR8f05wtCUUr6ZIS++8pEnkZInPImneaCQ5METNdOkeFBKUhMPRIkHKfEuUZSUlGlKPN2TrgfncpvmnntnmlEyq1Z7t89/rf9a6+y99oZxGZf/XeIq61EdtgKXgdXA0xrYAvBjOIF1AI9zvjcC74BSpndrJPkBWDScTF8Aa4E3wDlgHbASaANmVqlcCnwHvgDvgVfAJ+AikAAvgfVZwLnSVZHZaOuKoQi3ZOMi4NkYkpe1p4J7A8BpYAD49hfIy/oqG0+hLomiKP2L5L+1ubn5115S+3OAn4EnwBlgMzCjyt6ZAnQCJ4A7wOs88iRJHvw50HoujuPBoCKwHWiosy8MdfZnAdcHk8dxXFJ3VQbQlCTJvRBCGdRbD4M6uc5glpY3eAihpN5S5w12diSEcCCEcKUO4ljdr15T76ur1FDDLIQQ3qv71EdDOe3Kxj3leRXyk+pxdWnFWod6Wt2bY3de3aSuUHcPBVimHs7mK9WrmeOF6lR1o9qnzskh2ar2qm1qizpfXaPeVGdlmGN5pb09qMxz1Xb1kLqgzn1RyH7JUXW52lr5e/Kqi9qpto7V1atuUzfnARrV7jEib1T76gG2qxdGmXyiekkt1GswPTtek0aBfJp6YySGBfWg2tPQ0FAYgf1stUfdmdcjarbYJEniKIq6gY/Aw+zWHAC+p2labGpqiorFYgGYCEzN7oQdQClN07O1/EfDyGgC0ALMBdYAi4FyK+4H3gLPsxfR1zRNi+NP7nH5J+QntnXe5B5mpfQAAAAASUVORK5CYII=">
 
 <!-- CSS -->
-<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.4">
+<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.12">
 
 <!-- JS -->
-<script type="text/javascript" src="dochack.js?v=2.2.4"></script>
+<script type="text/javascript" src="dochack.js?v=2.2.12"></script>
 </head>
 <body>
   <div class="document" id="documentId">
+    <input type="checkbox" id="nav-toggle" hidden>
+    <label for="nav-toggle" id="nav-burger">&#9776;</label>
+    <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
       <h1 class="title">Index</h1>
       Modules: <a href="client.html">client</a>, <a href="clients/httpclient.html">clients/httpclient</a>, <a href="clients/pipesclient.html">clients/pipesclient</a>, <a href="clients/shared/framing.html">clients/shared/framing</a>, <a href="clients/socketclient.html">clients/socketclient</a>, <a href="clients/websocketclient.html">clients/websocketclient</a>, <a href="errors.html">errors</a>, <a href="jsonmarshal.html">jsonmarshal</a>, <a href="private/client_handler_wrapper.html">private/client_handler_wrapper</a>, <a href="private/jrpc_sys.html">private/jrpc_sys</a>, <a href="private/server_handler_wrapper.html">private/server_handler_wrapper</a>, <a href="private/shared_wrapper.html">private/shared_wrapper</a>, <a href="private/utils.html">private/utils</a>, <a href="router.html">router</a>, <a href="rpcclient.html">rpcclient</a>, <a href="rpcproxy.html">rpcproxy</a>, <a href="rpcserver.html">rpcserver</a>, <a href="server.html">server</a>, <a href="servers/httpserver.html">servers/httpserver</a>, <a href="servers/pipesserver.html">servers/pipesserver</a>, <a href="servers/socketserver.html">servers/socketserver</a>, <a href="servers/websocketserver.html">servers/websocketserver</a>.<br/><p /><h2>API symbols</h2>
@@ -503,10 +506,6 @@
 <dt><a name="JsonRpcError" href="#JsonRpcError"><span>JsonRpcError:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="errors: object JsonRpcError" href="errors.html#JsonRpcError">errors: object JsonRpcError</a></li>
-          </ul></dd>
-<dt><a name="json_rpc_workaround_24844_future_string" href="#json_rpc_workaround_24844_future_string"><span>json_rpc_workaround_24844_future_string:</span></a></dt><dd><ul class="simple">
-<li><a class="reference external"
-          data-doc-search-tag="client: proc json_rpc_workaround_24844_future_string()" href="client.html#json_rpc_workaround_24844_future_string">client: proc json_rpc_workaround_24844_future_string()</a></li>
           </ul></dd>
 <dt><a name="lengthHeaderBE32" href="#lengthHeaderBE32"><span>lengthHeaderBE32:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -1328,7 +1327,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-10-05 16:43:12 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-10-07 16:46:02 UTC</small>
       </div>
     </div>
   </div>

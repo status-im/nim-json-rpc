@@ -16,13 +16,16 @@
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA3XAAAN1wFCKJt4AAAAB3RJTUUH4QQQEwksSS9ZWwAAAk1JREFUWMPtll2ITVEUx39nn/O7Y5qR8f05wtCUUr6ZIS++8pEnkZInPImneaCQ5METNdOkeFBKUhMPRIkHKfEuUZSUlGlKPN2TrgfncpvmnntnmlEyq1Z7t89/rf9a6+y99oZxGZf/XeIq61EdtgKXgdXA0xrYAvBjOIF1AI9zvjcC74BSpndrJPkBWDScTF8Aa4E3wDlgHbASaANmVqlcCnwHvgDvgVfAJ+AikAAvgfVZwLnSVZHZaOuKoQi3ZOMi4NkYkpe1p4J7A8BpYAD49hfIy/oqG0+hLomiKP2L5L+1ubn5115S+3OAn4EnwBlgMzCjyt6ZAnQCJ4A7wOs88iRJHvw50HoujuPBoCKwHWiosy8MdfZnAdcHk8dxXFJ3VQbQlCTJvRBCGdRbD4M6uc5glpY3eAihpN5S5w12diSEcCCEcKUO4ljdr15T76ur1FDDLIQQ3qv71EdDOe3Kxj3leRXyk+pxdWnFWod6Wt2bY3de3aSuUHcPBVimHs7mK9WrmeOF6lR1o9qnzskh2ar2qm1qizpfXaPeVGdlmGN5pb09qMxz1Xb1kLqgzn1RyH7JUXW52lr5e/Kqi9qpto7V1atuUzfnARrV7jEib1T76gG2qxdGmXyiekkt1GswPTtek0aBfJp6YySGBfWg2tPQ0FAYgf1stUfdmdcjarbYJEniKIq6gY/Aw+zWHAC+p2labGpqiorFYgGYCEzN7oQdQClN07O1/EfDyGgC0ALMBdYAi4FyK+4H3gLPsxfR1zRNi+NP7nH5J+QntnXe5B5mpfQAAAAASUVORK5CYII=">
 
 <!-- CSS -->
-<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.4">
+<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.2.12">
 
 <!-- JS -->
-<script type="text/javascript" src="dochack.js?v=2.2.4"></script>
+<script type="text/javascript" src="dochack.js?v=2.2.12"></script>
 </head>
 <body>
   <div class="document" id="documentId">
+    <input type="checkbox" id="nav-toggle" hidden>
+    <label for="nav-toggle" id="nav-burger">&#9776;</label>
+    <label for="nav-toggle" id="nav-overlay"></label>
     <div class="container">
       <h1 class="title">json_rpc/rpcproxy</h1>
       <div class="row">
@@ -172,8 +175,8 @@
   <h1><a class="toc-backref" href="#7">Types</a></h1>
   <dl class="item">
     <div id="ClientConfig">
-  <dt><pre><a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
-  <span class="Keyword">case</span> <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="rpcproxy.html#ClientKind"><span class="Identifier">ClientKind</span></a>
+  <dt><pre><a href="#ClientConfig"><span class="Identifier">ClientConfig</span></a> <span class="Other">=</span> <span class="Keyword">object</span>
+  <span class="Keyword">case</span> <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="#ClientKind"><span class="Identifier">ClientKind</span></a>
   <span class="Keyword">of</span> <span class="Identifier">Http</span><span class="Other">:</span>
     <span class="Identifier">httpUri</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
   <span class="Keyword">of</span> <span class="Identifier">WebSocket</span><span class="Other">:</span>
@@ -189,7 +192,7 @@
   </dd>
 </div>
 <div id="ClientKind">
-  <dt><pre><a href="rpcproxy.html#ClientKind"><span class="Identifier">ClientKind</span></a> <span class="Other">=</span> <span class="Keyword">enum</span>
+  <dt><pre><a href="#ClientKind"><span class="Identifier">ClientKind</span></a> <span class="Other">=</span> <span class="Keyword">enum</span>
   <span class="Identifier">Http</span><span class="Other">,</span> <span class="Identifier">WebSocket</span></pre></dt>
   <dd>
     
@@ -200,9 +203,9 @@
   </dd>
 </div>
 <div id="RpcProxy">
-  <dt><pre><a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a> <span class="Other">=</span> <span class="Keyword">ref</span> <span class="Keyword">object</span> <span class="Keyword">of</span> <span class="Identifier">RootRef</span>
+  <dt><pre><a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a> <span class="Other">=</span> <span class="Keyword">ref</span> <span class="Keyword">object</span> <span class="Keyword">of</span> <span class="Identifier">RootRef</span>
   <span class="Identifier">rpcHttpServer</span><span class="Operator">*</span><span class="Other">:</span> <a href="servers/httpserver.html#RpcHttpServer"><span class="Identifier">RpcHttpServer</span></a>
-  <span class="Keyword">case</span> <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="rpcproxy.html#ClientKind"><span class="Identifier">ClientKind</span></a>
+  <span class="Keyword">case</span> <span class="Identifier">kind</span><span class="Operator">*</span><span class="Other">:</span> <a href="#ClientKind"><span class="Identifier">ClientKind</span></a>
   <span class="Keyword">of</span> <span class="Identifier">Http</span><span class="Other">:</span>
     <span class="Identifier">httpUri</span><span class="Operator">*</span><span class="Other">:</span> <span class="Identifier">string</span>
     <span class="Identifier">httpClient</span><span class="Operator">*</span><span class="Other">:</span> <a href="clients/httpclient.html#RpcHttpClient"><span class="Identifier">RpcHttpClient</span></a>
@@ -227,7 +230,7 @@
   <dl class="item">
     <div id="closeWait-procs-all">
   <div id="closeWait,RpcProxy">
-  <dt><pre><span class="Keyword">proc</span> <a href="#closeWait%2CRpcProxy"><span class="Identifier">closeWait</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span> <span class="Identifier">void</span><span class="Other">]</span> {.
+  <dt><pre><span class="Keyword">proc</span> <a href="#closeWait%2CRpcProxy"><span class="Identifier">closeWait</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span> <span class="Identifier">void</span><span class="Other">]</span> {.
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
@@ -242,7 +245,7 @@
 </div>
 <div id="getClient-procs-all">
   <div id="getClient,RpcProxy">
-  <dt><pre><span class="Keyword">proc</span> <a href="#getClient%2CRpcProxy"><span class="Identifier">getClient</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <a href="client.html#RpcClient"><span class="Identifier">RpcClient</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+  <dt><pre><span class="Keyword">proc</span> <a href="#getClient%2CRpcProxy"><span class="Identifier">getClient</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <a href="client.html#RpcClient"><span class="Identifier">RpcClient</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
     <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
@@ -256,7 +259,7 @@
 </div>
 <div id="getHttpClientConfig-procs-all">
   <div id="getHttpClientConfig,string">
-  <dt><pre><span class="Keyword">proc</span> <a href="#getHttpClientConfig%2Cstring"><span class="Identifier">getHttpClientConfig</span></a><span class="Other">(</span><span class="Identifier">uri</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
+  <dt><pre><span class="Keyword">proc</span> <a href="#getHttpClientConfig%2Cstring"><span class="Identifier">getHttpClientConfig</span></a><span class="Other">(</span><span class="Identifier">uri</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span><span class="Other">:</span> <a href="#ClientConfig"><span class="Identifier">ClientConfig</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
@@ -271,7 +274,7 @@
 <div id="getWebSocketClientConfig-procs-all">
   <div id="getWebSocketClientConfig,string,bool,set[TLSFlags]">
   <dt><pre><span class="Keyword">proc</span> <a href="#getWebSocketClientConfig%2Cstring%2Cbool%2Cset%5BTLSFlags%5D"><span class="Identifier">getWebSocketClientConfig</span></a><span class="Other">(</span><span class="Identifier">uri</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">compression</span><span class="Other">:</span> <span class="Identifier">bool</span> <span class="Other">=</span> <span class="Identifier">false</span><span class="Other">;</span> <span class="Identifier">flags</span><span class="Other">:</span> <span class="Identifier">set</span><span class="Other">[</span>
-    <span class="Identifier">TLSFlags</span><span class="Other">]</span> <span class="Other">=</span> <span class="Other">{</span><span class="Identifier">NoVerifyHost</span><span class="Other">,</span> <span class="Identifier">NoVerifyServerName</span><span class="Other">}</span><span class="Other">)</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+    <span class="Identifier">TLSFlags</span><span class="Other">]</span> <span class="Other">=</span> <span class="Other">{</span><span class="Identifier">NoVerifyHost</span><span class="Other">,</span> <span class="Identifier">NoVerifyServerName</span><span class="Other">}</span><span class="Other">)</span><span class="Other">:</span> <a href="#ClientConfig"><span class="Identifier">ClientConfig</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
     <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
@@ -285,7 +288,7 @@
 </div>
 <div id="localAddress-procs-all">
   <div id="localAddress,RpcProxy">
-  <dt><pre><span class="Keyword">func</span> <a href="#localAddress%2CRpcProxy"><span class="Identifier">localAddress</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><span class="Identifier">TransportAddress</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
+  <dt><pre><span class="Keyword">func</span> <a href="#localAddress%2CRpcProxy"><span class="Identifier">localAddress</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><span class="Identifier">TransportAddress</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
@@ -300,7 +303,7 @@
 <div id="new-procs-all">
   <div id="new,typeRpcProxy,openArray[string],ClientConfig,seq[HttpAuthHook]">
   <dt><pre><span class="Keyword">proc</span> <a href="#new%2CtypeRpcProxy%2CopenArray%5Bstring%5D%2CClientConfig%2Cseq%5BHttpAuthHook%5D"><span class="Identifier">new</span></a><span class="Other">(</span><span class="Identifier">T</span><span class="Other">:</span> <span class="Keyword">type</span> <span class="Identifier">RpcProxy</span><span class="Other">;</span> <span class="Identifier">listenAddresses</span><span class="Other">:</span> <span class="Identifier">openArray</span><span class="Other">[</span><span class="Identifier">string</span><span class="Other">]</span><span class="Other">;</span>
-         <span class="Identifier">cfg</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">;</span> <span class="Identifier">authHooks</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="servers/httpserver.html#HttpAuthHook"><span class="Identifier">HttpAuthHook</span></a><span class="Other">]</span> <span class="Other">=</span> <span class="Operator">@</span><span class="Other">[</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
+         <span class="Identifier">cfg</span><span class="Other">:</span> <a href="#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">;</span> <span class="Identifier">authHooks</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="servers/httpserver.html#HttpAuthHook"><span class="Identifier">HttpAuthHook</span></a><span class="Other">]</span> <span class="Other">=</span> <span class="Operator">@</span><span class="Other">[</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
   <dd>
     
@@ -312,7 +315,7 @@
 </div>
 <div id="new,typeRpcProxy,openArray[TransportAddress],ClientConfig,seq[HttpAuthHook]">
   <dt><pre><span class="Keyword">proc</span> <a href="#new%2CtypeRpcProxy%2CopenArray%5BTransportAddress%5D%2CClientConfig%2Cseq%5BHttpAuthHook%5D"><span class="Identifier">new</span></a><span class="Other">(</span><span class="Identifier">T</span><span class="Other">:</span> <span class="Keyword">type</span> <span class="Identifier">RpcProxy</span><span class="Other">;</span> <span class="Identifier">listenAddresses</span><span class="Other">:</span> <span class="Identifier">openArray</span><span class="Other">[</span><span class="Identifier">TransportAddress</span><span class="Other">]</span><span class="Other">;</span>
-         <span class="Identifier">cfg</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">;</span> <span class="Identifier">authHooks</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="servers/httpserver.html#HttpAuthHook"><span class="Identifier">HttpAuthHook</span></a><span class="Other">]</span> <span class="Other">=</span> <span class="Operator">@</span><span class="Other">[</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
+         <span class="Identifier">cfg</span><span class="Other">:</span> <a href="#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">;</span> <span class="Identifier">authHooks</span><span class="Other">:</span> <span class="Identifier">seq</span><span class="Other">[</span><a href="servers/httpserver.html#HttpAuthHook"><span class="Identifier">HttpAuthHook</span></a><span class="Other">]</span> <span class="Other">=</span> <span class="Operator">@</span><span class="Other">[</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
   <dd>
     
@@ -323,7 +326,7 @@
   </dd>
 </div>
 <div id="new,typeRpcProxy,RpcHttpServer,ClientConfig">
-  <dt><pre><span class="Keyword">proc</span> <a href="#new%2CtypeRpcProxy%2CRpcHttpServer%2CClientConfig"><span class="Identifier">new</span></a><span class="Other">(</span><span class="Identifier">T</span><span class="Other">:</span> <span class="Keyword">type</span> <span class="Identifier">RpcProxy</span><span class="Other">;</span> <span class="Identifier">server</span><span class="Other">:</span> <a href="servers/httpserver.html#RpcHttpServer"><span class="Identifier">RpcHttpServer</span></a><span class="Other">;</span> <span class="Identifier">cfg</span><span class="Other">:</span> <a href="rpcproxy.html#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
+  <dt><pre><span class="Keyword">proc</span> <a href="#new%2CtypeRpcProxy%2CRpcHttpServer%2CClientConfig"><span class="Identifier">new</span></a><span class="Other">(</span><span class="Identifier">T</span><span class="Other">:</span> <span class="Keyword">type</span> <span class="Identifier">RpcProxy</span><span class="Other">;</span> <span class="Identifier">server</span><span class="Other">:</span> <a href="servers/httpserver.html#RpcHttpServer"><span class="Identifier">RpcHttpServer</span></a><span class="Other">;</span> <span class="Identifier">cfg</span><span class="Other">:</span> <a href="#ClientConfig"><span class="Identifier">ClientConfig</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">T:type</span> {.
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span></span>.}</pre></dt>
   <dd>
     
@@ -337,7 +340,7 @@
 </div>
 <div id="registerProxyMethod-procs-all">
   <div id="registerProxyMethod,RpcProxy,string">
-  <dt><pre><span class="Keyword">proc</span> <a href="#registerProxyMethod%2CRpcProxy%2Cstring"><span class="Identifier">registerProxyMethod</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">methodName</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
+  <dt><pre><span class="Keyword">proc</span> <a href="#registerProxyMethod%2CRpcProxy%2Cstring"><span class="Identifier">registerProxyMethod</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">methodName</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
     <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
     
@@ -351,7 +354,7 @@
 </div>
 <div id="start-procs-all">
   <div id="start,RpcProxy">
-  <dt><pre><span class="Keyword">proc</span> <a href="#start%2CRpcProxy"><span class="Identifier">start</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span>
+  <dt><pre><span class="Keyword">proc</span> <a href="#start%2CRpcProxy"><span class="Identifier">start</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span>
     <span class="Other">(</span><span class="Identifier">CancelledError</span><span class="Other">,</span> <a href="errors.html#JsonRpcError"><span class="Identifier">JsonRpcError</span></a><span class="Other">)</span><span class="Other">]</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
                                       <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span><span class="Other">,</span>
                                       <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
@@ -367,7 +370,7 @@
 </div>
 <div id="stop-procs-all">
   <div id="stop,RpcProxy">
-  <dt><pre><span class="Keyword">proc</span> <a href="#stop%2CRpcProxy"><span class="Identifier">stop</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span> <span class="Identifier">void</span><span class="Other">]</span> {.
+  <dt><pre><span class="Keyword">proc</span> <a href="#stop%2CRpcProxy"><span class="Identifier">stop</span></a><span class="Other">(</span><span class="Identifier">proxy</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">InternalRaisesFuture</span><span class="Other">[</span><span class="Identifier">void</span><span class="Other">,</span> <span class="Identifier">void</span><span class="Other">]</span> {.
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">stackTrace</span><span class="Other">:</span> <span class="DecNumber">false</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span> <span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">gcsafe</span><span class="Other">,</span>
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Identifier">RootEffect</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">forbids</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
   <dd>
@@ -388,7 +391,7 @@
   <dl class="item">
     <div id="rpc-templates-all">
   <div id="rpc.t,RpcProxy,untyped,untyped">
-  <dt><pre><span class="Keyword">template</span> <a href="#rpc.t%2CRpcProxy%2Cuntyped%2Cuntyped"><span class="Identifier">rpc</span></a><span class="Other">(</span><span class="Identifier">server</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">formatType</span><span class="Other">,</span> <span class="Identifier">procList</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span> {..}</pre></dt>
+  <dt><pre><span class="Keyword">template</span> <a href="#rpc.t%2CRpcProxy%2Cuntyped%2Cuntyped"><span class="Identifier">rpc</span></a><span class="Other">(</span><span class="Identifier">server</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">formatType</span><span class="Other">,</span> <span class="Identifier">procList</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span> {..}</pre></dt>
   <dd>
     
     
@@ -398,7 +401,7 @@
   </dd>
 </div>
 <div id="rpc.t,RpcProxy,string,untyped">
-  <dt><pre><span class="Keyword">template</span> <a href="#rpc.t%2CRpcProxy%2Cstring%2Cuntyped"><span class="Identifier">rpc</span></a><span class="Other">(</span><span class="Identifier">server</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">path</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span> {..}</pre></dt>
+  <dt><pre><span class="Keyword">template</span> <a href="#rpc.t%2CRpcProxy%2Cstring%2Cuntyped"><span class="Identifier">rpc</span></a><span class="Other">(</span><span class="Identifier">server</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">path</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span> {..}</pre></dt>
   <dd>
     
     
@@ -408,7 +411,7 @@
   </dd>
 </div>
 <div id="rpc.t,RpcProxy,string,untyped,untyped">
-  <dt><pre><span class="Keyword">template</span> <a href="#rpc.t%2CRpcProxy%2Cstring%2Cuntyped%2Cuntyped"><span class="Identifier">rpc</span></a><span class="Other">(</span><span class="Identifier">server</span><span class="Other">:</span> <a href="rpcproxy.html#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">path</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">formatType</span><span class="Other">,</span> <span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span> {..}</pre></dt>
+  <dt><pre><span class="Keyword">template</span> <a href="#rpc.t%2CRpcProxy%2Cstring%2Cuntyped%2Cuntyped"><span class="Identifier">rpc</span></a><span class="Other">(</span><span class="Identifier">server</span><span class="Other">:</span> <a href="#RpcProxy"><span class="Identifier">RpcProxy</span></a><span class="Other">;</span> <span class="Identifier">path</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">formatType</span><span class="Other">,</span> <span class="Identifier">body</span><span class="Other">:</span> <span class="Identifier">untyped</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">untyped</span> {..}</pre></dt>
   <dd>
     
     
@@ -429,7 +432,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2026-10-05 16:43:12 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2026-10-07 16:46:02 UTC</small>
       </div>
     </div>
   </div>

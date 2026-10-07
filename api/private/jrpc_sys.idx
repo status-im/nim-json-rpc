@@ -74,16 +74,16 @@ nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],JsonRPC2	pro
 nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestId	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestId)		262
 nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],RequestId	proc writeValue(w: var JsonWriter[JrpcSys]; val: RequestId)		276
 nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestParamsRx	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestParamsRx)		283
-nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],RequestParamsTx	proc writeValue(w: var JsonWriter[JrpcSys]; val: RequestParamsTx)		304
-nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseRx	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseRx)		315
-nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseRx2	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseRx2)		327
-nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestBatchRx	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestBatchRx)		361
-nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],BidiMessage	proc readValue(r: var JsonReader[JrpcSys]; val: var BidiMessage)		404
-nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseBatchRx	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseBatchRx)		461
-nim	toTx	private/jrpc_sys.html#toTx,RequestParamsRx	proc toTx(params: RequestParamsRx): RequestParamsTx		476
-nim	writeRequest	private/jrpc_sys.html#writeRequest.t,,string,RequestParamsTx,int	template writeRequest(writer: var JrpcSys.Writer; name: string; params: RequestParamsTx;\n             id: int)		486
-nim	writeNotification	private/jrpc_sys.html#writeNotification.t,,string,RequestParamsTx	template writeNotification(writer: var JrpcSys.Writer; name: string;\n                  params: RequestParamsTx)		493
-nim	withWriter	private/jrpc_sys.html#withWriter.t,typeJrpcSys,untyped,untyped	template withWriter(_: type JrpcSys; writer, body: untyped): seq[byte]		499
+nim	writeValue	private/jrpc_sys.html#writeValue,JsonWriter[JrpcSys],RequestParamsTx	proc writeValue(w: var JsonWriter[JrpcSys]; val: RequestParamsTx)		309
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseRx	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseRx)		320
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseRx2	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseRx2)		332
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],RequestBatchRx	proc readValue(r: var JsonReader[JrpcSys]; val: var RequestBatchRx)		366
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],BidiMessage	proc readValue(r: var JsonReader[JrpcSys]; val: var BidiMessage)		409
+nim	readValue	private/jrpc_sys.html#readValue,JsonReader[JrpcSys],ResponseBatchRx	proc readValue(r: var JsonReader[JrpcSys]; val: var ResponseBatchRx)		466
+nim	toTx	private/jrpc_sys.html#toTx,RequestParamsRx	proc toTx(params: RequestParamsRx): RequestParamsTx		481
+nim	writeRequest	private/jrpc_sys.html#writeRequest.t,,string,RequestParamsTx,int	template writeRequest(writer: var JrpcSys.Writer; name: string; params: RequestParamsTx;\n             id: int)		491
+nim	writeNotification	private/jrpc_sys.html#writeNotification.t,,string,RequestParamsTx	template writeNotification(writer: var JrpcSys.Writer; name: string;\n                  params: RequestParamsTx)		498
+nim	withWriter	private/jrpc_sys.html#withWriter.t,typeJrpcSys,untyped,untyped	template withWriter(_: type JrpcSys; writer, body: untyped): seq[byte]		504
 nimgrp	writevalue	private/jrpc_sys.html#writeValue-procs-all	proc		258
 nimgrp	meth	private/jrpc_sys.html#meth-procs-all	proc		217
 nimgrp	readvalue	private/jrpc_sys.html#readValue-procs-all	proc		242

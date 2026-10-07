@@ -1,5 +1,4 @@
 nimTitle	client	client.html	module json_rpc/client		0
-nim	json_rpc_workaround_24844_future_string	client.html#json_rpc_workaround_24844_future_string	proc json_rpc_workaround_24844_future_string()		16
 nim	defaultMaxMessageSize	client.html#defaultMaxMessageSize	const defaultMaxMessageSize		38
 nim	RpcBatchItem	client.html#RpcBatchItem	object RpcBatchItem		41
 nim	RpcBatchCallRef	client.html#RpcBatchCallRef	type RpcBatchCallRef		45
