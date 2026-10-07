@@ -213,6 +213,11 @@ suite "rpc router":
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
 
+  test "Params null":
+    let n = req("noParams", """null""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":123,"id":0}"""
+
 # https://www.jsonrpc.org/specification#error_object
 suite "rpc router error codes":
   test "invalid JSON is a parse error":
@@ -285,9 +290,6 @@ suite "rpc router error codes":
     block:
       let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":123,"id":"abc"}""")
       check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=Number"},"id":null}"""
-    block:
-      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":null,"id":0}""")
-      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=Null"},"id":null}"""
     block:
       # not a valid request object, hence not a notification either; the spec
       # answers those with a null id
