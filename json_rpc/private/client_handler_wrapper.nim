@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2024-2025 Status Research & Development GmbH
+# Copyright (c) 2024-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -109,7 +109,7 @@ func createRpcFromSig*(clientType, rpcDecl, formatType: NimNode, alias = NimNode
   # insert rpc client as first parameter
   params.insert(1, nnkIdentDefs.newTree(
     clientIdent,
-    ident($clientType),
+    clientType.copyNimTree,
     newEmptyNode()
   ))
 

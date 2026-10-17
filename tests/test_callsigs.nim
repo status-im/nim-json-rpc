@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -223,3 +223,13 @@ suite "test callsigs with flavors":
   test "callsigs from nim with flavor":
     let res = waitFor client.getNimFlavor(FlavorObj.init("nim"))
     check res == FlavorObj.init("ret nim")
+
+createRpcSigsFromNim(rpcclient.RpcClient):
+  proc getQualified(): string
+
+suite "test callsigs method names":
+  test "callsigs method names":
+    let batch = RpcClient().prepareBatch()
+    batch.getQualified()
+    check:
+      batch.batch[0].meth == "getQualified"
