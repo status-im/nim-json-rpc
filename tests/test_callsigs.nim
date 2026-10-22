@@ -224,12 +224,28 @@ suite "test callsigs with flavors":
     let res = waitFor client.getNimFlavor(FlavorObj.init("nim"))
     check res == FlavorObj.init("ret nim")
 
+createSingleRpcSig(RpcClient, "discover"):
+  proc `rpc.discover`(): string
+
 createRpcSigsFromNim(rpcclient.RpcClient):
   proc getQualified(): string
+
+template createGensymSigs() =
+  createRpcSigsFromNim(RpcClient):
+    proc getGensym(): string {.gensym.}
+
+  func addGensym(batch: RpcBatchCallRef) =
+    getGensym(batch)
+
+createGensymSigs()
 
 suite "test callsigs method names":
   test "callsigs method names":
     let batch = RpcClient().prepareBatch()
+    batch.discover()
     batch.getQualified()
+    batch.addGensym()
     check:
-      batch.batch[0].meth == "getQualified"
+      batch.batch[0].meth == "rpc.discover"
+      batch.batch[1].meth == "getQualified"
+      batch.batch[2].meth == "getGensym"

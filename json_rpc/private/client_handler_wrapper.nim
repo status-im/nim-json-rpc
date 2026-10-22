@@ -10,7 +10,7 @@
 {.push raises: [], gcsafe.}
 
 import
-  macros,
+  stew/shims/macros,
   ./shared_wrapper,
   ./jrpc_sys
 
@@ -98,7 +98,7 @@ func createRpcFromSig*(clientType, rpcDecl, formatType: NimNode, alias = NimNode
   let
     params = rpcDecl.findChild(it.kind == nnkFormalParams).ensureReturnType
     procName = if alias.isNil: rpcDecl.name else: alias
-    pathStr = $rpcDecl.name
+    pathStr = rpcDecl[0].identName
     returnType = params[0]
     reqParams = ident "reqParams"
     setup = setupConversion(reqParams, params, formatType)
