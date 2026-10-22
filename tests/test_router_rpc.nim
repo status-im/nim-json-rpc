@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -98,6 +98,14 @@ server.rpc(JrpcConv):
 
   proc emptyErrorMsg(): string {.raises: [ValueError].} =
     raise (ref ValueError)(msg: "")
+
+template rpcCtxTemplate() =
+  server.rpc(JrpcConv):
+    proc rpcCtxAsyncTemplate(): string {.async.} =
+      await noCancel sleepAsync(0)
+      return "ret5"
+
+rpcCtxTemplate()
 
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
@@ -414,3 +422,8 @@ suite "rpc context":
   test "Empty error message":
     let res = waitFor server.route(req("emptyErrorMsg", "{}"))
     check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`emptyErrorMsg` raised an exception","data":""},"id":0}"""
+
+  test "Rpc method async in template":
+    let n = req("rpcCtxAsyncTemplate", "[]")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret5","id":0}"""
