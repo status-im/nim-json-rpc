@@ -108,6 +108,9 @@ server.rpc(JrpcConv):
   proc emptyErrorMsg(): string {.raises: [ValueError].} =
     raise (ref ValueError)(msg: "")
 
+  proc rpcCtxExported*(): string =
+    return "ret7"
+
 template rpcCtxTemplate() =
   server.rpc(JrpcConv):
     proc rpcCtxAsyncTemplate(): string {.async.} =
@@ -117,6 +120,9 @@ template rpcCtxTemplate() =
     proc rpcCtxAsyncTemplateParams(s: string): string {.async.} =
       await noCancel sleepAsync(0)
       return "ret6 " & s
+
+    proc rpcCtxGensymTemplate(): string {.gensym.} =
+      return "ret8"
 
 rpcCtxTemplate()
 
@@ -455,3 +461,13 @@ suite "rpc context":
     let n = req("rpcCtxAsyncTemplateParams", """{"s": "qux"}""")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":"ret6 qux","id":0}"""
+
+  test "Rpc method exported":
+    let n = req("rpcCtxExported", "[]")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret7","id":0}"""
+
+  test "Rpc method gensym in template":
+    let n = req("rpcCtxGensymTemplate", "[]")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret8","id":0}"""
