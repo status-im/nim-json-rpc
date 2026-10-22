@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2024 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -10,8 +10,8 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, sequtils, tables, json],
-  stew/byteutils,
+  std/[sequtils, tables, json],
+  stew/[byteutils, shims/macros],
   chronicles,
   chronos,
   ./private/[jrpc_sys, server_handler_wrapper],
@@ -236,8 +236,8 @@ macro rpc*(server: RpcRouter, formatType, procList: untyped): untyped =
     if prc.kind == nnkProcDef:
       let path =
         case prc[0].kind
-        of nnkIdent, nnkAccQuoted:
-          $prc[0]
+        of nnkIdent, nnkAccQuoted, nnkPostfix:
+          prc[0].identName
         else:
           error "Unsupported rpc proc definition", prc
       result.add rpcImpl(server, path, formatType, prc)
