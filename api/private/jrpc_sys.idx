@@ -59,7 +59,7 @@ nim	readValue	private/jrpc_sys.html#readValue.t,,RequestRx2	template readValue(r
 nim	writeValue	private/jrpc_sys.html#writeValue.t,,ParamDescNamed	template writeValue(w`gensym20: var Writer(JrpcSys); value`gensym20: TT`gensym20)		184
 nim	writeValue	private/jrpc_sys.html#writeValue.t,,RequestTx	template writeValue(w`gensym24: var Writer(JrpcSys); value`gensym24: TT`gensym24)		185
 nim	writeValue	private/jrpc_sys.html#writeValue.t,,ResponseTx	template writeValue(w`gensym28: var Writer(JrpcSys); value`gensym28: TT`gensym28)		186
-nim	readValue	private/jrpc_sys.html#readValue.t,,ResponseError	template readValue(r`gensym32: var Reader(JrpcSys); value`gensym32: var TT`gensym32)		104
+nim	readValue	private/jrpc_sys.html#readValue.t,,ResponseError	template readValue(r`gensym32: var Reader(JrpcSys); value`gensym32: var TT`gensym32)		101
 nim	writeValue	private/jrpc_sys.html#writeValue.t,,ResponseError	template writeValue(w`gensym32: var Writer(JrpcSys); value`gensym32: TT`gensym32)		188
 nim	hash	private/jrpc_sys.html#hash,RequestId	proc hash(x: RequestId): hashes.Hash		195
 nim	`$`	private/jrpc_sys.html#$,RequestId	proc `$`(x: RequestId): string		203
@@ -87,6 +87,6 @@ nim	withWriter	private/jrpc_sys.html#withWriter.t,typeJrpcSys,untyped,untyped	te
 nimgrp	writevalue	private/jrpc_sys.html#writeValue-procs-all	proc		258
 nimgrp	meth	private/jrpc_sys.html#meth-procs-all	proc		217
 nimgrp	readvalue	private/jrpc_sys.html#readValue-procs-all	proc		242
-nimgrp	writevalue	private/jrpc_sys.html#writeValue-templates-all	template		117
-nimgrp	readvalue	private/jrpc_sys.html#readValue-templates-all	template		126
+nimgrp	writevalue	private/jrpc_sys.html#writeValue-templates-all	template		114
+nimgrp	readvalue	private/jrpc_sys.html#readValue-templates-all	template		123
 nimgrp	flavorenumrep	private/jrpc_sys.html#flavorEnumRep-templates-all	template		122
