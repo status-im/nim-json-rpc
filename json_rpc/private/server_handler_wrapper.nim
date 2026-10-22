@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -10,8 +10,8 @@
 {.push raises: [], gcsafe.}
 
 import
-  std/[macros, typetraits],
-  stew/[byteutils, objects],
+  std/typetraits,
+  stew/[byteutils, objects, shims/macros],
   chronos/futures,
   json_serialization,
   json_serialization/std/[options],
@@ -177,14 +177,6 @@ func makeParams(retType: NimNode, params: NimNode): seq[NimNode] =
   if params.len > 1:
     for i in 1..<params.len:
       result.add params[i]
-
-proc hasPragma(pragmas: NimNode, pragma: string): bool =
-  for p in pragmas:
-    if p.kind in {nnkSym, nnkIdent, nnkOpenSymChoice, nnkClosedSymChoice} and eqIdent(p, pragma):
-      return true
-    if p.kind in {nnkExprColonExpr, nnkCall, nnkCallStrLit} and p.len > 0 and eqIdent(p[0], pragma):
-      return true
-  false
 
 func makePragmas(pragmas: NimNode): NimNode =
   if pragmas == nil:
