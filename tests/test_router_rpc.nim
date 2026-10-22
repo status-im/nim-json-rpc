@@ -19,6 +19,8 @@ var server = RpcRouter()
 type
   OptAlias[T] = results.Opt[T]
 
+template bare() {.pragma.}
+
 server.rpc("std_option") do(A: int, B: Option[int], C: string, D: Option[int], E: Option[string]) -> string:
   var res = "A: " & $A
   res.add ", B: " & $B.get(99)
@@ -66,6 +68,13 @@ server.rpc("returnJsonString") do(a, b, c: int) -> JsonString:
 server.rpc("serializedFN") do(a{.serializedFieldName: "result".}: int) -> int:
   return a
 
+server.rpc("bareFN") do(
+    a{.bare.}: int, b{.bare, serializedFieldName: "result".}: int) -> int:
+  return a + b
+
+server.rpc("quotedFN") do(`type`: int) -> int:
+  return `type`
+
 server.rpc("empty") do() -> void:
   discard
 
@@ -104,6 +113,10 @@ template rpcCtxTemplate() =
     proc rpcCtxAsyncTemplate(): string {.async.} =
       await noCancel sleepAsync(0)
       return "ret5"
+
+    proc rpcCtxAsyncTemplateParams(s: string): string {.async.} =
+      await noCancel sleepAsync(0)
+      return "ret6 " & s
 
 rpcCtxTemplate()
 
@@ -196,6 +209,16 @@ suite "rpc router":
 
   test "Custom parameter field name":
     let n = req("serializedFN", """{"result": 3}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":3,"id":0}"""
+
+  test "Bare parameter pragma":
+    let n = req("bareFN", """{"a": 1, "result": 3}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":4,"id":0}"""
+
+  test "Quoted parameter name":
+    let n = req("quotedFN", """{"type": 3}""")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":3,"id":0}"""
 
@@ -427,3 +450,8 @@ suite "rpc context":
     let n = req("rpcCtxAsyncTemplate", "[]")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":"ret5","id":0}"""
+
+  test "Rpc method async in template with named params":
+    let n = req("rpcCtxAsyncTemplateParams", """{"s": "qux"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret6 qux","id":0}"""
