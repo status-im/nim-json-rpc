@@ -27,7 +27,8 @@ requires "nim >= 2.0.10",
          "stew >= 0.6.4",
          "stint >= 0.9.0",
          "unittest2 >= 0.2.0",
-         "websock >= 0.2.1 & < 0.5.0"
+         "websock >= 0.2.1 & < 0.5.0",
+         "asyncchannels"
 
 let nimc = getEnv("NIMC", "nim") # Which nim compiler to use
 let lang = getEnv("NIMLANG", "c") # Which backend (c/cpp/js)
