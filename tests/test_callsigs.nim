@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2023-2025 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -223,3 +223,29 @@ suite "test callsigs with flavors":
   test "callsigs from nim with flavor":
     let res = waitFor client.getNimFlavor(FlavorObj.init("nim"))
     check res == FlavorObj.init("ret nim")
+
+createSingleRpcSig(RpcClient, "discover"):
+  proc `rpc.discover`(): string
+
+createRpcSigsFromNim(rpcclient.RpcClient):
+  proc getQualified(): string
+
+template createGensymSigs() =
+  createRpcSigsFromNim(RpcClient):
+    proc getGensym(): string {.gensym.}
+
+  func addGensym(batch: RpcBatchCallRef) =
+    getGensym(batch)
+
+createGensymSigs()
+
+suite "test callsigs method names":
+  test "callsigs method names":
+    let batch = RpcClient().prepareBatch()
+    batch.discover()
+    batch.getQualified()
+    batch.addGensym()
+    check:
+      batch.batch[0].meth == "rpc.discover"
+      batch.batch[1].meth == "getQualified"
+      batch.batch[2].meth == "getGensym"

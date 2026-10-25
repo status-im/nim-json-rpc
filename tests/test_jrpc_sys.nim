@@ -105,6 +105,14 @@ suite "jrpc_sys serialization":
             tnamed[i].name == rnamed[i].name
             tnamed[i].value == rnamed[i].value
 
+  test "request: null params accepted as empty positional":
+    let rx = JrpcSys.decode(
+      """{"jsonrpc":"2.0","method":"no_params","params":null,"id":1}""",
+      RequestRx2)
+    check:
+      rx.params.kind == rpPositional
+      rx.params.positional.len == 0
+
   test "response: result and error encodings":
     const cases = [
       (

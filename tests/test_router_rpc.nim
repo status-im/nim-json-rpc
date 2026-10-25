@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2023 Status Research & Development GmbH
+# Copyright (c) 2023-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -18,6 +18,8 @@ var server = RpcRouter()
 
 type
   OptAlias[T] = results.Opt[T]
+
+template bare() {.pragma.}
 
 server.rpc("std_option") do(A: int, B: Option[int], C: string, D: Option[int], E: Option[string]) -> string:
   var res = "A: " & $A
@@ -66,6 +68,13 @@ server.rpc("returnJsonString") do(a, b, c: int) -> JsonString:
 server.rpc("serializedFN") do(a{.serializedFieldName: "result".}: int) -> int:
   return a
 
+server.rpc("bareFN") do(
+    a{.bare.}: int, b{.bare, serializedFieldName: "result".}: int) -> int:
+  return a + b
+
+server.rpc("quotedFN") do(`type`: int) -> int:
+  return `type`
+
 server.rpc("empty") do() -> void:
   discard
 
@@ -98,6 +107,24 @@ server.rpc(JrpcConv):
 
   proc emptyErrorMsg(): string {.raises: [ValueError].} =
     raise (ref ValueError)(msg: "")
+
+  proc rpcCtxExported*(): string =
+    return "ret7"
+
+template rpcCtxTemplate() =
+  server.rpc(JrpcConv):
+    proc rpcCtxAsyncTemplate(): string {.async.} =
+      await noCancel sleepAsync(0)
+      return "ret5"
+
+    proc rpcCtxAsyncTemplateParams(s: string): string {.async.} =
+      await noCancel sleepAsync(0)
+      return "ret6 " & s
+
+    proc rpcCtxGensymTemplate(): string {.gensym.} =
+      return "ret8"
+
+rpcCtxTemplate()
 
 func req(meth: string, params: string): string =
   """{"jsonrpc":"2.0", "method": """ &
@@ -191,6 +218,16 @@ suite "rpc router":
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":3,"id":0}"""
 
+  test "Bare parameter pragma":
+    let n = req("bareFN", """{"a": 1, "result": 3}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":4,"id":0}"""
+
+  test "Quoted parameter name":
+    let n = req("quotedFN", """{"type": 3}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":3,"id":0}"""
+
   test "Notification":
     let n = notif("emptyParams", """{"result": 3}""")
     let res = waitFor server.route(n)
@@ -212,6 +249,11 @@ suite "rpc router":
     let n = req("empty", """{"result": "foo"}""")
     let res = waitFor server.route(n)
     check res == """{"jsonrpc":"2.0","result":null,"id":0}"""
+
+  test "Params null":
+    let n = req("noParams", """null""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":123,"id":0}"""
 
 # https://www.jsonrpc.org/specification#error_object
 suite "rpc router error codes":
@@ -285,9 +327,6 @@ suite "rpc router error codes":
     block:
       let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":123,"id":"abc"}""")
       check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=Number"},"id":null}"""
-    block:
-      let res = waitFor server.route("""{"jsonrpc":"2.0","method":"noParams","params":null,"id":0}""")
-      check res == """{"jsonrpc":"2.0","error":{"code":-32600,"message":"RequestParam must be either array or object, got=Null"},"id":null}"""
     block:
       # not a valid request object, hence not a notification either; the spec
       # answers those with a null id
@@ -412,3 +451,23 @@ suite "rpc context":
   test "Empty error message":
     let res = waitFor server.route(req("emptyErrorMsg", "{}"))
     check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`emptyErrorMsg` raised an exception","data":""},"id":0}"""
+
+  test "Rpc method async in template":
+    let n = req("rpcCtxAsyncTemplate", "[]")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret5","id":0}"""
+
+  test "Rpc method async in template with named params":
+    let n = req("rpcCtxAsyncTemplateParams", """{"s": "qux"}""")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret6 qux","id":0}"""
+
+  test "Rpc method exported":
+    let n = req("rpcCtxExported", "[]")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret7","id":0}"""
+
+  test "Rpc method gensym in template":
+    let n = req("rpcCtxGensymTemplate", "[]")
+    let res = waitFor server.route(n)
+    check res == """{"jsonrpc":"2.0","result":"ret8","id":0}"""

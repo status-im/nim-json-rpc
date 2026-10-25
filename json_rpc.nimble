@@ -1,5 +1,5 @@
 # json-rpc
-# Copyright (c) 2019-2025 Status Research & Development GmbH
+# Copyright (c) 2019-2026 Status Research & Development GmbH
 # Licensed under either of
 #  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 #  * MIT license ([LICENSE-MIT](LICENSE-MIT))
@@ -24,7 +24,7 @@ requires "nim >= 2.2.14",
          "json_serialization >= 0.4.2",
          "nimcrypto >= 0.7.0",
          "serialization >= 0.4.4",
-         "stew >= 0.5.0",
+         "stew >= 0.6.4",
          "stint >= 0.9.0",
          "unittest2 >= 0.2.0",
          "websock >= 0.2.1 & < 0.5.0"
