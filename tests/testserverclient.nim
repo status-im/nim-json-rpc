@@ -421,5 +421,5 @@ suite "Remote error propagation":
     except RpcResponseError as exc:
       check:
         exc.code == -32000
-        exc.msg == "`rpcCall` raised an exception"
-        exc.data == JsonString("\"server error\"")
+        exc.msg == "server error"
+        exc.data == default(JsonString)

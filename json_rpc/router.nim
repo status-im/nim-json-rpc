@@ -80,11 +80,15 @@ func respError(
 func methodNotFound(req: RequestRx2): ResponseTx =
   req.respError(METHOD_NOT_FOUND, "'" & req.meth & "' is not a registered RPC method")
 
-func invalidParamsError(req: RequestRx2, data: sink JsonString): ResponseTx =
-  req.respError(INVALID_PARAMS, "`" & req.meth & "` raised an exception", data)
+func errorMessage(req: RequestRx2, msg: sink string): string =
+  if msg.len > 0: msg
+  else: "`" & req.meth & "` raised an exception"
 
-func serverError(req: RequestRx2, data: sink JsonString): ResponseTx =
-  req.respError(SERVER_ERROR, "`" & req.meth & "` raised an exception", data)
+func invalidParamsError(req: RequestRx2, msg: sink string): ResponseTx =
+  req.respError(INVALID_PARAMS, req.errorMessage(msg))
+
+func serverError(req: RequestRx2, msg: sink string): ResponseTx =
+  req.respError(SERVER_ERROR, req.errorMessage(msg))
 
 func lookup(router: RpcRouter, req: RequestRx2): Opt[RpcProc] =
   let rpcProc = router.procs.getOrDefault(req.meth)
@@ -131,20 +135,19 @@ proc route*(router: RpcRouter, req: RequestRx2):
     req.respError(err.code, err.msg, err.data)
   except ParamsMismatchError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg
-    req.invalidParamsError(escapeJson(err.msg).JsonString)
+    req.invalidParamsError(err.msg)
   except RpcResponseError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg, code = err.code, origin = err.origin
     if err.origin == RpcOrigin.rpcLocal:
       req.respError(err.code, err.msg, err.data)
     else:
-      const msg = JsonString(escapeJson("server error"))
-      req.serverError(msg)
+      req.serverError("server error")
   except CatchableError as err:
     debug "Error occurred within RPC", methodName = req.meth, err = err.msg
 
     # Errors that are not specifically raised as `ApplicationError`s will be
     # returned as custom server errors.
-    req.serverError(escapeJson(err.msg).JsonString)
+    req.serverError(err.msg)
 
 proc route*(
     router: RpcRouter, request: RequestBatchRx

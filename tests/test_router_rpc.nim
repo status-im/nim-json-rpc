@@ -154,13 +154,13 @@ template test_optional(meth: static[string]) =
     let n = req(meth, "[44, 567, \"apple\", \"banana\"]")
     let res = waitFor server.route(n)
     when meth == "std_option":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`std_option` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
     elif meth == "results_opt":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`results_opt` raised an exception","data":"Parameter [D] of type 'Opt[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Opt[system.int]' could not be decoded: number expected"},"id":0}"""
     elif meth == "mixed_opt":
-      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`mixed_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
     else:
-      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`alias_opt` raised an exception","data":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
+      check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [D] of type 'Option[system.int]' could not be decoded: number expected"},"id":0}"""
 
   test meth & " D extra, positional":
     let n = req(meth, "[44, 567, \"apple\", 999, \"banana\", true]")
@@ -191,7 +191,7 @@ suite "rpc router":
   test "no params with params":
     let n = req("noParams", "[123]")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`noParams` raised an exception","data":"Expected 0 JSON parameter(s) but got 1"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Expected 0 JSON parameter(s) but got 1"},"id":0}"""
 
   test_optional("std_option")
   test_optional("results_opt")
@@ -343,15 +343,15 @@ suite "rpc router error codes":
 
   test "wrong parameter count is invalid params":
     let res = waitFor server.route(req("comboParams", "[1,2]"))
-    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`comboParams` raised an exception","data":"Expected 3 JSON parameter(s) but got 2"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Expected 3 JSON parameter(s) but got 2"},"id":0}"""
 
   test "wrong parameter type is invalid params":
     let res = waitFor server.route(req("comboParams", """[1,2,"three"]"""))
-    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"`comboParams` raised an exception","data":"Parameter [c] of type 'int' could not be decoded: number expected"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32602,"message":"Parameter [c] of type 'int' could not be decoded: number expected"},"id":0}"""
 
   test "handler exception is a server error":
     let res = waitFor server.route(req("rpcCtxSyncWithRaises", """{"s":"foo"}"""))
-    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`rpcCtxSyncWithRaises` raised an exception","data":"err"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"err"},"id":0}"""
 
   test "notifications get no response, valid or not":
     # https://www.jsonrpc.org/specification#notification
@@ -396,7 +396,7 @@ suite "rpc context":
   test "Rpc async raises listed exception":
     let n = req("rpcCtxAsyncWithRaises", """{"s": "err"}""")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`rpcCtxAsyncWithRaises` raised an exception","data":"err"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"err"},"id":0}"""
 
   test "Rpc method sync":
     let n = req("rpcCtxSync", """{"s": "baz"}""")
@@ -411,7 +411,7 @@ suite "rpc context":
   test "Rpc sync raises listed exception":
     let n = req("rpcCtxSyncWithRaises", """{"s": "err"}""")
     let res = waitFor server.route(n)
-    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`rpcCtxSyncWithRaises` raised an exception","data":"err"},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"err"},"id":0}"""
 
   test "Rpc async raises unlisted exception should not compile":
     template ctxWithRaises(): untyped =
@@ -450,7 +450,7 @@ suite "rpc context":
 
   test "Empty error message":
     let res = waitFor server.route(req("emptyErrorMsg", "{}"))
-    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`emptyErrorMsg` raised an exception","data":""},"id":0}"""
+    check res == """{"jsonrpc":"2.0","error":{"code":-32000,"message":"`emptyErrorMsg` raised an exception"},"id":0}"""
 
   test "Rpc method async in template":
     let n = req("rpcCtxAsyncTemplate", "[]")
