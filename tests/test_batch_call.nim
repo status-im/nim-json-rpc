@@ -58,7 +58,7 @@ suite "Socket batch call":
     check r[1].result.string == "\"apple: green\""
 
     check r[2].error.isSome
-    check r[2].error.get == """{"code":-32000,"message":"`get_except` raised an exception","data":"get_except error"}"""
+    check r[2].error.get == """{"code":-32000,"message":"get_except error"}"""
     check r[2].result.string.len == 0
 
   test "rpc call after batch call":
@@ -97,7 +97,7 @@ suite "HTTP batch call":
     check r[1].result.string == "\"apple: green\""
 
     check r[2].error.isSome
-    check r[2].error.get == """{"code":-32000,"message":"`get_except` raised an exception","data":"get_except error"}"""
+    check r[2].error.get == """{"code":-32000,"message":"get_except error"}"""
     check r[2].result.string.len == 0
 
   test "rpc call after batch call":
@@ -136,7 +136,7 @@ suite "Websocket batch call":
     check r[1].result.string == "\"apple: green\""
 
     check r[2].error.isSome
-    check r[2].error.get == """{"code":-32000,"message":"`get_except` raised an exception","data":"get_except error"}"""
+    check r[2].error.get == """{"code":-32000,"message":"get_except error"}"""
     check r[2].result.string.len == 0
 
   test "rpc call after batch call":

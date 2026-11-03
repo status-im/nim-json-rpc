@@ -92,8 +92,8 @@ template callTests(client: untyped): untyped =
       check:
         exc.origin == RpcOrigin.rpcRemote
         exc.code == -32602
-        exc.msg == "`myProc` raised an exception"
-        exc.data == JsonString("\"Expected 2 JSON parameter(s) but got 1\"")
+        exc.msg == "Expected 2 JSON parameter(s) but got 1"
+        exc.data == JsonString("")
 
 suite "Proxy RPC through http":
   var srv = newRpcHttpServer([srvAddress])
