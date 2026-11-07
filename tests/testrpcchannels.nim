@@ -24,11 +24,14 @@ proc serverThread(chan: RpcChannelPtrs) {.thread.} =
 suite "Thread channel RPC":
   asyncTest "Successful RPC call":
     var chan: RpcChannel
-    var ptrs = chan.open().expect("")
+    var ptrs = chan.open()
     var server: Thread[RpcChannelPtrs]
     var client = newRpcChannelClient(ptrs)
 
     createThread(server, serverThread, ptrs)
-    waitFor client.connect()
-    let r = waitFor client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
+    await client.connect()
+    let r = await client.call("myProc", %[%"abc", %[1, 2, 3, 4]])
     check r.string == "\"Hello abc data: [1, 2, 3, 4]\""
+    await client.close()
+    joinThread(server)
+    chan.close()
